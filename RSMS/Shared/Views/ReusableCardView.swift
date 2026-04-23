@@ -1,0 +1,123 @@
+import SwiftUI
+
+public extension Color {
+    static let appBackground = Color(hex: "#FAF9F6")
+    static let appCard = Color(hex: "#F1EDE6")
+    static let appBorder = Color(hex: "#E5E0D8")
+    static let appSecondaryText = Color(hex: "#6F6F6F")
+    static let appPrimaryText = Color(hex: "#1A1A1A")
+    static let appAccent = Color(hex: "#C6A969")
+
+    static let brandOffWhite = appBackground
+    static let brandLinen = appCard
+    static let brandPebble = appBorder
+    static let brandWarmGrey = appSecondaryText
+    static let brandWarmBlack = appPrimaryText
+    static let brandAccent = appAccent
+
+    init(hex: String) {
+        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var int: UInt64 = 0
+        Scanner(string: hex).scanHexInt64(&int)
+        let a, r, g, b: UInt64
+        switch hex.count {
+        case 3: // RGB (12-bit)
+            (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
+        case 6: // RGB (24-bit)
+            (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
+        case 8: // ARGB (32-bit)
+            (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
+        default:
+            (a, r, g, b) = (1, 1, 1, 0)
+        }
+
+        self.init(
+            .sRGB,
+            red: Double(r) / 255,
+            green: Double(g) / 255,
+            blue:  Double(b) / 255,
+            opacity: Double(a) / 255
+        )
+    }
+}
+
+public enum BrandFont {
+    public static func display(_ size: CGFloat, weight: Font.Weight = .semibold) -> Font {
+        .system(size: size, weight: weight, design: .default)
+    }
+
+    public static func body(_ size: CGFloat, weight: Font.Weight = .regular) -> Font {
+        .system(size: size, weight: weight, design: .default)
+    }
+}
+
+public enum AppTheme {
+    public static let cardCornerRadius: CGFloat = 20
+    public static let buttonCornerRadius: CGFloat = 20
+    public static let sectionSpacing: CGFloat = 24
+    public static let contentSpacing: CGFloat = 16
+    public static let compactSpacing: CGFloat = 12
+    public static let floatingButtonSize: CGFloat = 56
+    public static let toolbarButtonSize: CGFloat = 34
+}
+
+public extension View {
+    func appCardChrome() -> some View {
+        self
+            .background(Color.appCard)
+            .clipShape(RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous))
+            .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 3)
+    }
+
+    func appPrimaryButtonChrome(enabled: Bool = true) -> some View {
+        self
+            .background(enabled ? Color.appAccent : Color.appAccent.opacity(0.45))
+            .foregroundColor(.white)
+            .clipShape(RoundedRectangle(cornerRadius: AppTheme.buttonCornerRadius, style: .continuous))
+    }
+}
+
+public struct AppPlusIconButton: View {
+    let size: CGFloat
+
+    public init(size: CGFloat) {
+        self.size = size
+    }
+
+    public var body: some View {
+        Image(systemName: "plus")
+            .font(.system(size: size * 0.38, weight: .semibold))
+            .foregroundColor(.white)
+            .frame(width: size, height: size)
+            .background(Color.appAccent)
+            .clipShape(Circle())
+            .shadow(color: Color.black.opacity(0.12), radius: 10, x: 0, y: 5)
+    }
+}
+
+public struct AppCardChevron: View {
+    public init() {}
+
+    public var body: some View {
+        Image(systemName: "chevron.right")
+            .font(.footnote.weight(.semibold))
+            .foregroundColor(.appSecondaryText)
+    }
+}
+
+public struct ReusableCardView<Content: View>: View {
+    let content: Content
+
+    public init(@ViewBuilder content: () -> Content) {
+        self.content = content()
+    }
+
+    public var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            content
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .appCardChrome()
+    }
+}

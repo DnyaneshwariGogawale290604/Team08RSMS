@@ -1,0 +1,1084 @@
+import SwiftUI
+import Combine
+import Supabase
+import PostgREST
+
+// MARK: - SalesView (Tab Root)
+struct SalesAssociateSalesView: View {
+    @EnvironmentObject var orderStore: SharedOrderStore
+    @StateObject private var vm: AssociateSalesViewModel
+    @Environment(\.dismiss) private var dismiss
+
+    /// Set when launched from an appointment to enable Save-back functionality
+    private let appointmentId: UUID?
+    private let isModal: Bool
+    private let appointmentsVM: AppointmentsViewModel?
+    private let onComplete: (() -> Void)?
+
+    @State private var isSaving = false
+    @State private var showSaveToast = false
+
+    init(
+        preConfiguredVM: AssociateSalesViewModel? = nil,
+        isModal: Bool = false,
+        appointmentId: UUID? = nil,
+        appointmentsVM: AppointmentsViewModel? = nil,
+        onComplete: (() -> Void)? = nil
+    ) {
+        _vm = StateObject(wrappedValue: preConfiguredVM ?? AssociateSalesViewModel())
+        self.isModal = isModal
+        self.appointmentId = appointmentId
+        self.appointmentsVM = appointmentsVM
+        self.onComplete = onComplete
+    }
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Color.brandOffWhite.ignoresSafeArea()
+
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: Spacing.xl) {
+                        customerSection
+                        if vm.selectedCustomer != nil {
+                            cartSection
+                            productRequestSection
+                        }
+                    }
+                    .padding(.bottom, Spacing.xxl)
+                }
+
+                // Checkout / Save+Checkout FAB
+                if !vm.cartItems.isEmpty {
+                    VStack {
+                        Spacer()
+                        if isModal {
+                            appointmentFABRow
+                        } else {
+                            checkoutFAB
+                        }
+                    }
+                }
+
+                // Cart toast overlay
+                if vm.showCartToast, let name = vm.cartToastProduct {
+                    VStack {
+                        Spacer()
+                        HStack(spacing: 10) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(Color(hex: "#4A7C59"))
+                                .font(.system(size: 16))
+                            Text("\(name) added to cart")
+                                .font(BrandFont.body(13, weight: .medium))
+                                .foregroundStyle(Color.brandWarmBlack)
+                            Spacer()
+                        }
+                        .padding(.horizontal, Spacing.md)
+                        .padding(.vertical, 14)
+                        .background(
+                            RoundedRectangle(cornerRadius: Radius.lg)
+                                .fill(Color.brandLinen)
+                                .shadow(color: Color.brandWarmBlack.opacity(0.12), radius: 12, y: 4)
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: Radius.lg)
+                                .stroke(Color(hex: "#4A7C59").opacity(0.3), lineWidth: 1)
+                        )
+                        .padding(.horizontal, Spacing.md)
+                        .padding(.bottom, vm.cartItems.isEmpty ? Spacing.lg : 80)
+                    }
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .animation(.spring(response: 0.35, dampingFraction: 0.75), value: vm.showCartToast)
+                    .zIndex(10)
+                }
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                // Back / Close button
+                if isModal {
+                    // Launched from appointment → dismiss the fullScreenCover
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button {
+                            dismiss()
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 13, weight: .semibold))
+                            }
+                            .foregroundStyle(Color.brandWarmBlack)
+                        }
+                    }
+                } else if vm.selectedCustomer != nil {
+                    // Normal tab mode → clear customer/cart to go back to list
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                vm.clearCart()
+                            }
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "chevron.left")
+                                    .font(.system(size: 13, weight: .semibold))
+                            }
+                            .foregroundStyle(Color.brandWarmBlack)
+                        }
+                    }
+                }
+                ToolbarItem(placement: .principal) {
+                    Text(vm.selectedCustomer != nil ? vm.selectedCustomer!.name.uppercased() : "NEW SALE")
+                        .font(.system(size: 13, weight: .semibold))
+                        .kerning(2)
+                        .foregroundStyle(Color.brandWarmBlack)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .animation(.easeInOut, value: vm.selectedCustomer?.id)
+                }
+            }
+            .sheet(isPresented: $vm.showCustomerSheet) { CustomerSheet(vm: vm) }
+            .sheet(isPresented: $vm.showProductPicker) { ProductPickerSheet(vm: vm) }
+            .sheet(isPresented: $vm.showPayment) { PaymentSheet(vm: vm) }
+            .sheet(isPresented: $vm.showReceipt) {
+                ReceiptSheet(vm: vm, onComplete: onComplete)
+                    .environmentObject(orderStore)
+            }
+            .sheet(isPresented: $vm.showProductRequest) { ProductRequestSheet(vm: vm) }
+            .alert("Success", isPresented: Binding(
+                get: { vm.successMessage != nil },
+                set: { if !$0 { vm.successMessage = nil } }
+            )) {
+                Button("OK") { vm.successMessage = nil }
+            } message: { Text(vm.successMessage ?? "") }
+        }
+        .task { await vm.fetchCustomers() }
+    }
+
+    // MARK: - Customer section
+    private var customerSection: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            HStack {
+                SectionHeader(title: "Customer")
+                Spacer()
+                // Only show + when no customer is selected;
+                // the "Change" button inside the card handles switching.
+                if vm.selectedCustomer == nil {
+                    Button { vm.showCustomerSheet = true } label: {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.system(size: 28))
+                            .foregroundStyle(Color.brandWarmBlack)
+                    }
+                    .padding(.trailing, Spacing.md)
+                }
+            }
+
+            if let customer = vm.selectedCustomer {
+                HStack(spacing: Spacing.md) {
+                    Circle()
+                        .fill(Color.brandPebble.opacity(0.4))
+                        .frame(width: 44, height: 44)
+                        .overlay(
+                            Text(String(customer.name.prefix(1)).uppercased())
+                                .font(.system(size: 18, weight: .semibold, design: .serif))
+                                .foregroundStyle(Color.brandWarmBlack)
+                        )
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(customer.name)
+                            .font(BrandFont.body(15, weight: .semibold))
+                            .foregroundStyle(Color.brandWarmBlack)
+                        if let phone = customer.phone {
+                            Text(phone).font(BrandFont.body(12)).foregroundStyle(Color.brandWarmGrey)
+                        }
+                    }
+                    Spacer()
+                    if let cat = customer.customerCategory {
+                        BadgeView(text: cat, color: cat == "VIP" ? Color(hex: "#C8913A") : Color.brandWarmGrey)
+                    }
+                    Button { vm.showCustomerSheet = true } label: {
+                        Text("Change").font(BrandFont.body(13)).foregroundStyle(Color.brandWarmGrey)
+                    }
+                }
+                .padding(Spacing.md)
+                .background(Color.brandLinen)
+                .clipShape(RoundedRectangle(cornerRadius: Radius.lg))
+                .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.brandPebble, lineWidth: 0.5))
+                .padding(.horizontal, Spacing.md)
+            } else {
+                if vm.customers.isEmpty {
+                    HStack {
+                        Image(systemName: "person.badge.plus").foregroundStyle(Color.brandWarmGrey)
+                        Text("No customers yet. Tap + to add one.")
+                            .font(BrandFont.body(13)).foregroundStyle(Color.brandWarmGrey)
+                    }
+                    .padding(Spacing.md).frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.brandLinen)
+                    .clipShape(RoundedRectangle(cornerRadius: Radius.lg))
+                    .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.brandPebble, lineWidth: 0.5))
+                    .padding(.horizontal, Spacing.md)
+                } else {
+                    VStack(spacing: 0) {
+                        ForEach(Array(vm.customers.prefix(8).enumerated()), id: \.element.id) { index, customer in
+                            Button { vm.selectedCustomer = customer } label: {
+                                HStack(spacing: Spacing.md) {
+                                    Circle()
+                                        .fill(Color.brandPebble.opacity(0.3)).frame(width: 38, height: 38)
+                                        .overlay(
+                                            Text(String(customer.name.prefix(1)).uppercased())
+                                                .font(.system(size: 15, weight: .medium, design: .serif))
+                                                .foregroundStyle(Color.brandWarmBlack)
+                                        )
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(customer.name).font(BrandFont.body(14, weight: .medium)).foregroundStyle(Color.brandWarmBlack)
+                                        if let phone = customer.phone { Text(phone).font(BrandFont.body(11)).foregroundStyle(Color.brandWarmGrey) }
+                                    }
+                                    Spacer()
+                                    if let cat = customer.customerCategory {
+                                        BadgeView(text: cat, color: cat == "VIP" ? Color(hex: "#C8913A") : Color.brandWarmGrey)
+                                    }
+                                    Image(systemName: "chevron.right").font(.system(size: 11)).foregroundStyle(Color.brandPebble)
+                                }
+                                .padding(.horizontal, Spacing.md).padding(.vertical, 14)
+                            }
+                            .buttonStyle(.plain)
+                            if index < vm.customers.prefix(8).count - 1 { BrandDivider().padding(.leading, Spacing.md) }
+                        }
+                    }
+                    .background(Color.brandLinen)
+                    .clipShape(RoundedRectangle(cornerRadius: Radius.lg))
+                    .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.brandPebble, lineWidth: 0.5))
+                    .padding(.horizontal, Spacing.md)
+                }
+            }
+        }
+        .padding(.top, Spacing.md)
+    }
+
+    // MARK: - Cart section
+    private var cartSection: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            SectionHeader(title: "Cart (\(vm.cartCount) items)")
+            if vm.cartItems.isEmpty {
+                Button {
+                    Task { await vm.fetchProducts() }
+                    vm.showProductPicker = true
+                } label: {
+                    HStack {
+                        Image(systemName: "plus.circle").foregroundStyle(Color.brandWarmGrey)
+                        Text("Add products to cart").font(BrandFont.body(14)).foregroundStyle(Color.brandWarmGrey)
+                        Spacer()
+                        Image(systemName: "chevron.right").font(.system(size: 11)).foregroundStyle(Color.brandPebble)
+                    }
+                    .padding(Spacing.md).background(Color.brandLinen)
+                    .clipShape(RoundedRectangle(cornerRadius: Radius.lg))
+                    .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.brandPebble, lineWidth: 0.5))
+                }
+                .buttonStyle(.plain).padding(.horizontal, Spacing.md)
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(Array(vm.cartItems.enumerated()), id: \.element.id) { index, item in
+                        CartItemRow(item: item, vm: vm)
+                        if index < vm.cartItems.count - 1 { BrandDivider().padding(.leading, Spacing.md) }
+                    }
+                    BrandDivider()
+                    Button {
+                        Task { await vm.fetchProducts() }
+                        vm.showProductPicker = true
+                    } label: {
+                        HStack {
+                            Image(systemName: "plus").font(.system(size: 12))
+                            Text("Add more products").font(BrandFont.body(13))
+                        }
+                        .foregroundStyle(Color.brandWarmGrey).padding(Spacing.md)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    BrandDivider()
+                    HStack {
+                        Text("Total").font(BrandFont.body(15, weight: .semibold)).foregroundStyle(Color.brandWarmBlack)
+                        Spacer()
+                        Text("₹\(formatINR(vm.cartTotal))").font(.system(size: 20, weight: .semibold, design: .serif)).foregroundStyle(Color.brandWarmBlack)
+                    }.padding(Spacing.md)
+                }
+                .background(Color.brandLinen)
+                .clipShape(RoundedRectangle(cornerRadius: Radius.lg))
+                .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.brandPebble, lineWidth: 0.5))
+                .padding(.horizontal, Spacing.md)
+            }
+            if let err = vm.errorMessage { ErrorBanner(message: err) { vm.errorMessage = nil } }
+        }
+    }
+
+    // MARK: - Product request
+    private var productRequestSection: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            SectionHeader(title: "Out of Stock?")
+            Button {
+                Task { await vm.fetchProducts() }
+                vm.showProductRequest = true
+            } label: {
+                HStack {
+                    Image(systemName: "arrow.up.circle").foregroundStyle(Color.brandWarmGrey)
+                    Text("Raise request to manager").font(BrandFont.body(14)).foregroundStyle(Color.brandWarmBlack)
+                    Spacer()
+                    Image(systemName: "chevron.right").font(.system(size: 11)).foregroundStyle(Color.brandPebble)
+                }
+                .padding(Spacing.md).background(Color.brandLinen)
+                .clipShape(RoundedRectangle(cornerRadius: Radius.lg))
+                .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.brandPebble, lineWidth: 0.5))
+            }
+            .buttonStyle(.plain).padding(.horizontal, Spacing.md)
+        }
+    }
+
+    // MARK: - Checkout FAB
+    // MARK: - Normal checkout FAB
+    private var checkoutFAB: some View {
+        Button {
+            Task { await vm.placeOrder(orderStore: orderStore, appointmentId: appointmentId, appointmentsVM: appointmentsVM) }
+        } label: {
+            HStack(spacing: Spacing.md) {
+                if vm.isLoading {
+                    ProgressView().tint(Color.brandOffWhite).scaleEffect(0.85)
+                } else {
+                    Image(systemName: "creditcard").font(.system(size: 15))
+                }
+                Text(vm.isLoading ? "Placing order..." : "Checkout — ₹\(formatINR(vm.cartTotal))")
+                    .font(BrandFont.body(15, weight: .semibold))
+            }
+            .foregroundStyle(Color.brandOffWhite)
+            .padding(.horizontal, Spacing.lg)
+            .frame(height: 54)
+            .background(Color.brandWarmBlack)
+            .clipShape(Capsule())
+            .shadow(color: Color.brandWarmBlack.opacity(0.25), radius: 12, y: 4)
+        }
+        .padding(.bottom, Spacing.lg)
+        .disabled(vm.isLoading)
+    }
+
+    // MARK: - Appointment mode: Save + Checkout side-by-side
+    private var appointmentFABRow: some View {
+        HStack(spacing: 10) {
+            // Save — updates appointment_products, stays on screen
+            Button {
+                Task { await saveAppointmentChanges() }
+            } label: {
+                HStack(spacing: 6) {
+                    if isSaving {
+                        ProgressView().tint(Color.brandWarmBlack).scaleEffect(0.8)
+                    } else {
+                        Image(systemName: "square.and.arrow.down").font(.system(size: 14))
+                    }
+                    Text(isSaving ? "Saving..." : "Save")
+                        .font(BrandFont.body(14, weight: .semibold))
+                }
+                .foregroundStyle(Color.brandWarmBlack)
+                .padding(.horizontal, 20)
+                .frame(height: 54)
+                .background(Color.brandLinen)
+                .clipShape(Capsule())
+                .overlay(Capsule().stroke(Color.brandWarmBlack.opacity(0.2), lineWidth: 1))
+                .shadow(color: Color.brandWarmBlack.opacity(0.08), radius: 8, y: 3)
+            }
+            .disabled(isSaving || vm.isLoading)
+
+            // Checkout — places order and closes screen
+            Button {
+                Task { await vm.placeOrder(orderStore: orderStore, appointmentId: appointmentId, appointmentsVM: appointmentsVM) }
+            } label: {
+                HStack(spacing: 6) {
+                    if vm.isLoading {
+                        ProgressView().tint(Color.brandOffWhite).scaleEffect(0.8)
+                    } else {
+                        Image(systemName: "creditcard").font(.system(size: 14))
+                    }
+                    Text(vm.isLoading ? "Placing..." : "Checkout")
+                        .font(BrandFont.body(14, weight: .semibold))
+                }
+                .foregroundStyle(Color.brandOffWhite)
+                .padding(.horizontal, 20)
+                .frame(height: 54)
+                .background(Color.brandWarmBlack)
+                .clipShape(Capsule())
+                .shadow(color: Color.brandWarmBlack.opacity(0.25), radius: 12, y: 4)
+            }
+            .disabled(vm.isLoading || isSaving)
+        }
+        .padding(.bottom, Spacing.lg)
+    }
+
+    // MARK: - Save appointment product changes back to Supabase
+    private func saveAppointmentChanges() async {
+        guard let apptId = appointmentId, let avm = appointmentsVM else {
+            print("[Save] Missing appointmentId or appointmentsVM — cannot save")
+            return
+        }
+        isSaving = true
+
+        do {
+            // 1. Delete all existing products for this appointment
+            try await SupabaseManager.shared.client
+                .from("appointment_products")
+                .delete()
+                .eq("appointment_id", value: apptId.uuidString)
+                .execute()
+
+            // 2. Re-insert the current cart as new appointment_products
+            if !vm.cartItems.isEmpty {
+                struct APInsert: Encodable {
+                    let appointment_id: UUID
+                    let product_id: UUID
+                    let quantity: Int
+                    let notes: String?
+                }
+                let items = vm.cartItems.map {
+                    APInsert(appointment_id: apptId,
+                             product_id: $0.product.id,
+                             quantity: $0.quantity,
+                             notes: nil)
+                }
+                try await SupabaseManager.shared.client
+                    .from("appointment_products")
+                    .insert(items)
+                    .execute()
+            }
+
+            // 3. Mark appointment as completed now that it has been saved/processed
+            await avm.updateStatus("completed", for: apptId)
+
+            // 4. Refresh appointments list so the card reflects the new products
+            await avm.fetchAppointments()
+
+            isSaving = false
+            // 5. Close both the checkout screen and the parent appointment detail
+            if let onComplete = onComplete {
+                onComplete()
+            } else {
+                dismiss()
+            }
+        } catch {
+            isSaving = false
+            vm.errorMessage = "Failed to save changes: \(error.localizedDescription)"
+            print("[Save] Error: \(error)")
+        }
+    }
+
+    private func formatINR(_ v: Double) -> String {
+        let f = NumberFormatter(); f.numberStyle = .decimal; f.maximumFractionDigits = 0
+        return f.string(from: NSNumber(value: v)) ?? "\(Int(v))"
+    }
+}
+
+// MARK: - CartItemRow
+struct CartItemRow: View {
+    let item: CartItem
+    @ObservedObject var vm: AssociateSalesViewModel
+    var body: some View {
+        HStack(spacing: Spacing.md) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(item.product.name).font(BrandFont.body(14, weight: .medium)).foregroundStyle(Color.brandWarmBlack)
+                if let size = item.selectedSize { Text("Size: \(size)").font(BrandFont.body(11)).foregroundStyle(Color.brandWarmGrey) }
+                Text("₹\(Int(item.product.price)) each").font(BrandFont.body(11)).foregroundStyle(Color.brandWarmGrey)
+            }
+            Spacer()
+            HStack(spacing: 10) {
+                Button { vm.updateQuantity(item: item, quantity: item.quantity - 1) } label: {
+                    Image(systemName: item.quantity <= 1 ? "trash" : "minus")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(item.quantity <= 1 ? Color(hex: "#9B4444") : Color.brandWarmGrey)
+                        .frame(width: 28, height: 28).background(Color.brandOffWhite).clipShape(Circle())
+                }
+                Text("\(item.quantity)").font(BrandFont.body(14, weight: .semibold)).foregroundStyle(Color.brandWarmBlack).frame(minWidth: 20)
+                Button { vm.updateQuantity(item: item, quantity: item.quantity + 1) } label: {
+                    Image(systemName: "plus").font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(Color.brandWarmBlack)
+                        .frame(width: 28, height: 28).background(Color.brandOffWhite).clipShape(Circle())
+                }
+            }
+            Text("₹\(Int(item.lineTotal))").font(BrandFont.body(14, weight: .semibold)).foregroundStyle(Color.brandWarmBlack).frame(minWidth: 55, alignment: .trailing)
+        }
+        .padding(.horizontal, Spacing.md).padding(.vertical, 14)
+    }
+}
+
+// MARK: - CustomerSheet
+struct CustomerSheet: View {
+    @ObservedObject var vm: AssociateSalesViewModel
+    @Environment(\.dismiss) var dismiss
+    @State private var mode: SheetMode = .list
+    @State private var searchText = ""
+    @State private var name = ""; @State private var phone = ""; @State private var email = ""
+    @State private var gender = ""; @State private var dob = ""; @State private var address = ""
+    @State private var nationality = ""; @State private var notes = ""; @State private var category = "Regular"
+
+    enum SheetMode { case list, create }
+
+    var filteredCustomers: [Customer] {
+        searchText.isEmpty ? vm.customers : vm.customers.filter {
+            $0.name.localizedCaseInsensitiveContains(searchText) || ($0.phone?.contains(searchText) ?? false)
+        }
+    }
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Color.brandOffWhite.ignoresSafeArea()
+                if mode == .list { listView } else { createView }
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text(mode == .list ? "SELECT CUSTOMER" : "NEW CUSTOMER")
+                        .font(.system(size: 13, weight: .semibold)).kerning(2).foregroundStyle(Color.brandWarmBlack)
+                }
+                ToolbarItem(placement: .topBarLeading) {
+                    Button(mode == .list ? "Done" : "Back") {
+                        if mode == .create { withAnimation { mode = .list } } else { dismiss() }
+                    }.font(BrandFont.body(14)).foregroundStyle(Color.brandWarmBlack)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    if mode == .list {
+                        Button { withAnimation { mode = .create } } label: {
+                            Image(systemName: "plus.circle.fill").font(.system(size: 22)).foregroundStyle(Color.brandWarmBlack)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private var listView: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 10) {
+                Image(systemName: "magnifyingglass").foregroundStyle(Color.brandWarmGrey).font(.system(size: 14))
+                TextField("Search by name or phone...", text: $searchText).font(BrandFont.body(14))
+            }
+            .padding(Spacing.md).background(Color.brandLinen)
+            .clipShape(RoundedRectangle(cornerRadius: Radius.md))
+            .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(Color.brandPebble, lineWidth: 0.5))
+            .padding(Spacing.md)
+
+            if filteredCustomers.isEmpty {
+                EmptyStateView(icon: "person.slash", title: "No customers", message: "Tap + to create a new customer.")
+            } else {
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 0) {
+                        ForEach(Array(filteredCustomers.enumerated()), id: \.element.id) { index, customer in
+                            Button { vm.selectedCustomer = customer; dismiss() } label: {
+                                HStack(spacing: Spacing.md) {
+                                    Circle().fill(Color.brandPebble.opacity(0.3)).frame(width: 40, height: 40)
+                                        .overlay(Text(String(customer.name.prefix(1)).uppercased()).font(.system(size: 16, weight: .medium, design: .serif)).foregroundStyle(Color.brandWarmBlack))
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text(customer.name).font(BrandFont.body(15, weight: .medium)).foregroundStyle(Color.brandWarmBlack)
+                                        HStack(spacing: 6) {
+                                            if let ph = customer.phone { Text(ph).font(BrandFont.body(12)).foregroundStyle(Color.brandWarmGrey) }
+                                            if let em = customer.email { Text(em).font(BrandFont.body(12)).foregroundStyle(Color.brandWarmGrey) }
+                                        }
+                                    }
+                                    Spacer()
+                                    if let cat = customer.customerCategory { BadgeView(text: cat, color: cat == "VIP" ? Color(hex: "#C8913A") : Color.brandWarmGrey) }
+                                    if vm.selectedCustomer?.id == customer.id { Image(systemName: "checkmark.circle.fill").foregroundStyle(Color(hex: "#4A7C59")) }
+                                }
+                                .padding(.horizontal, Spacing.md).padding(.vertical, 14)
+                            }
+                            .buttonStyle(.plain)
+                            if index < filteredCustomers.count - 1 { BrandDivider().padding(.leading, Spacing.md) }
+                        }
+                    }
+                    .background(Color.brandLinen).clipShape(RoundedRectangle(cornerRadius: Radius.lg))
+                    .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.brandPebble, lineWidth: 0.5))
+                    .padding(.horizontal, Spacing.md)
+                }
+            }
+        }
+    }
+
+    private var createView: some View {
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: Spacing.md) {
+                formSection(title: "Required") { brandField("Full Name *", text: $name, icon: "person") }
+                formSection(title: "Contact") {
+                    brandField("Phone Number", text: $phone, icon: "phone", keyboard: .phonePad)
+                    BrandDivider().padding(.leading, Spacing.md)
+                    brandField("Email Address", text: $email, icon: "envelope", keyboard: .emailAddress, autocap: TextInputAutocapitalization.never)
+                }
+                formSection(title: "Personal Details") {
+                    genderPicker
+                    BrandDivider().padding(.leading, Spacing.md)
+                    brandField("Date of Birth (YYYY-MM-DD)", text: $dob, icon: "calendar")
+                    BrandDivider().padding(.leading, Spacing.md)
+                    brandField("Nationality", text: $nationality, icon: "globe")
+                }
+                formSection(title: "Address") { brandField("Address", text: $address, icon: "location", multiline: true) }
+                formSection(title: "Customer Category") { categoryPicker }
+                formSection(title: "Notes") { brandField("Internal notes...", text: $notes, icon: "note.text", multiline: true) }
+                if let err = vm.errorMessage { ErrorBanner(message: err) { vm.errorMessage = nil } }
+                PrimaryButton(title: "Create Customer", isLoading: vm.isLoading, isDisabled: name.trimmingCharacters(in: .whitespaces).isEmpty) {
+                    Task {
+                        let success = await vm.createCustomer(name: name, phone: phone, email: email,
+                            gender: gender.isEmpty ? nil : gender, dateOfBirth: dob.isEmpty ? nil : dob,
+                            address: address.isEmpty ? nil : address, nationality: nationality.isEmpty ? nil : nationality,
+                            notes: notes.isEmpty ? nil : notes, category: category)
+                        if success { dismiss() }
+                    }
+                }
+                .padding(.horizontal, Spacing.md).padding(.top, Spacing.sm).padding(.bottom, Spacing.xl)
+            }
+            .padding(.top, Spacing.md)
+        }
+    }
+
+    @ViewBuilder
+    private func formSection(title: String, @ViewBuilder content: () -> some View) -> some View {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            Text(title.uppercased()).font(.system(size: 10, weight: .semibold)).kerning(1.2).foregroundStyle(Color.brandWarmGrey).padding(.horizontal, Spacing.md)
+            VStack(spacing: 0) { content() }.background(Color.brandLinen).clipShape(RoundedRectangle(cornerRadius: Radius.lg))
+                .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.brandPebble, lineWidth: 0.5)).padding(.horizontal, Spacing.md)
+        }
+    }
+
+    private func brandField(_ placeholder: String, text: Binding<String>, icon: String, keyboard: UIKeyboardType = .default, autocap: TextInputAutocapitalization = .words, multiline: Bool = false) -> some View {
+        HStack(alignment: multiline ? .top : .center, spacing: Spacing.sm) {
+            Image(systemName: icon).font(.system(size: 14)).foregroundStyle(Color.brandWarmGrey).frame(width: 20).padding(.top, multiline ? 2 : 0)
+            if multiline { TextField(placeholder, text: text, axis: .vertical).lineLimit(3...5).font(BrandFont.body(14)).foregroundStyle(Color.brandWarmBlack) }
+            else { TextField(placeholder, text: text).keyboardType(keyboard).textInputAutocapitalization(autocap).autocorrectionDisabled().font(BrandFont.body(14)).foregroundStyle(Color.brandWarmBlack) }
+        }.padding(Spacing.md)
+    }
+
+    private var genderPicker: some View {
+        HStack(spacing: Spacing.sm) {
+            Image(systemName: "person.fill").font(.system(size: 14)).foregroundStyle(Color.brandWarmGrey).frame(width: 20)
+            Text("Gender").font(BrandFont.body(14)).foregroundStyle(gender.isEmpty ? Color.brandPebble : Color.brandWarmBlack)
+            Spacer()
+            Picker("", selection: $gender) {
+                Text("Not specified").tag(""); Text("Male").tag("Male"); Text("Female").tag("Female"); Text("Other").tag("Other")
+            }.pickerStyle(.menu).tint(Color.brandWarmBlack)
+        }.padding(Spacing.md)
+    }
+
+    private var categoryPicker: some View {
+        HStack(spacing: Spacing.sm) {
+            Image(systemName: "star").font(.system(size: 14)).foregroundStyle(Color.brandWarmGrey).frame(width: 20)
+            Text("Category").font(BrandFont.body(14)).foregroundStyle(Color.brandWarmBlack)
+            Spacer()
+            Picker("", selection: $category) { Text("Regular").tag("Regular"); Text("VIP").tag("VIP") }
+                .pickerStyle(.segmented).frame(width: 160)
+        }.padding(Spacing.md)
+    }
+}
+
+// MARK: - ProductPickerSheet
+struct ProductPickerSheet: View {
+    @ObservedObject var vm: AssociateSalesViewModel
+    @Environment(\.dismiss) var dismiss
+    @State private var sizeSelection: [UUID: String] = [:]
+    @State private var addedProducts: Set<UUID> = []
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Color.brandOffWhite.ignoresSafeArea()
+                VStack(spacing: 0) {
+                    HStack(spacing: 10) {
+                        Image(systemName: "magnifyingglass").foregroundStyle(Color.brandWarmGrey).font(.system(size: 14))
+                        TextField("Search products...", text: $vm.productSearch).font(BrandFont.body(14))
+                            .onChange(of: vm.productSearch) { new in Task { await vm.fetchProducts(search: new) } }
+                    }
+                    .padding(Spacing.md).background(Color.brandLinen)
+                    .clipShape(RoundedRectangle(cornerRadius: Radius.md))
+                    .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(Color.brandPebble, lineWidth: 0.5))
+                    .padding(Spacing.md)
+
+                    if vm.products.isEmpty {
+                        EmptyStateView(icon: "tag.slash", title: "No products", message: "Try a different search.")
+                    } else {
+                        ScrollView(showsIndicators: false) {
+                            VStack(spacing: Spacing.md) { ForEach(vm.products) { productCard($0) } }
+                                .padding(.horizontal, Spacing.md).padding(.bottom, Spacing.xl)
+                        }
+                    }
+                }
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .principal) { Text("ADD PRODUCTS").font(.system(size: 13, weight: .semibold)).kerning(2).foregroundStyle(Color.brandWarmBlack) }
+                ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() }.font(BrandFont.body(14, weight: .semibold)).foregroundStyle(Color.brandWarmBlack) }
+            }
+        }
+    }
+
+    private func productCard(_ product: Product) -> some View {
+        let isAdded = addedProducts.contains(product.id)
+        return VStack(alignment: .leading, spacing: Spacing.sm) {
+            HStack {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(product.name).font(BrandFont.body(15, weight: .medium)).foregroundStyle(Color.brandWarmBlack)
+                    Text(product.category).font(BrandFont.body(12)).foregroundStyle(Color.brandWarmGrey)
+                }
+                Spacer()
+                Text("₹\(Int(product.price))").font(.system(size: 17, weight: .semibold, design: .serif)).foregroundStyle(Color.brandWarmBlack)
+            }
+            Button {
+                vm.addToCart(product: product, size: nil)
+                withAnimation(.easeInOut(duration: 0.2)) { addedProducts.insert(product.id) }
+                Task { try? await Task.sleep(nanoseconds: 1_500_000_000); withAnimation { addedProducts.remove(product.id) } }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: isAdded ? "checkmark" : "plus").font(.system(size: 11, weight: .semibold))
+                    Text(isAdded ? "Added!" : "Add to Cart").font(BrandFont.body(13, weight: .medium))
+                }
+                .foregroundStyle(isAdded ? Color(hex: "#4A7C59") : Color.brandOffWhite)
+                .padding(.horizontal, Spacing.md).padding(.vertical, 8)
+                .background(isAdded ? Color(hex: "#4A7C59").opacity(0.12) : Color.brandWarmBlack)
+                .clipShape(Capsule())
+                .overlay(Capsule().stroke(isAdded ? Color(hex: "#4A7C59").opacity(0.4) : Color.clear, lineWidth: 1))
+            }
+            .buttonStyle(.plain).animation(.easeInOut(duration: 0.2), value: isAdded)
+        }
+        .padding(Spacing.md).background(Color.brandLinen)
+        .clipShape(RoundedRectangle(cornerRadius: Radius.lg))
+        .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.brandPebble, lineWidth: 0.5))
+    }
+}
+
+// MARK: - PaymentSheet (kept for future use)
+struct PaymentSheet: View {
+    @ObservedObject var vm: AssociateSalesViewModel
+    @Environment(\.dismiss) var dismiss
+    @State private var selectedMethod = "card"
+    let methods: [(String, String, String)] = [("card","creditcard","Card"),("cash","banknote","Cash"),("upi","qrcode","UPI"),("split","arrow.triangle.branch","Split")]
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Color.brandOffWhite.ignoresSafeArea()
+                VStack(spacing: Spacing.xl) {
+                    orderSummary; paymentMethods
+                    if let err = vm.errorMessage { ErrorBanner(message: err) { vm.errorMessage = nil } }
+                    Spacer()
+                    PrimaryButton(title: "Confirm Payment — ₹\(Int(vm.cartTotal))", isLoading: vm.isLoading) {
+                        Task { await vm.processPayment(method: selectedMethod) }
+                    }
+                    .padding(.horizontal, Spacing.md).padding(.bottom, Spacing.lg)
+                }
+                .padding(.top, Spacing.lg)
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .principal) { Text("PAYMENT").font(.system(size: 13, weight: .semibold)).kerning(2).foregroundStyle(Color.brandWarmBlack) }
+                ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() }.foregroundStyle(Color.brandWarmGrey) }
+            }
+        }
+    }
+
+    private var orderSummary: some View {
+        VStack(spacing: 0) {
+            ForEach(Array(vm.cartItems.enumerated()), id: \.element.id) { index, item in
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(item.product.name).font(BrandFont.body(14)).foregroundStyle(Color.brandWarmBlack)
+                        if let sz = item.selectedSize { Text("Size \(sz)").font(BrandFont.body(11)).foregroundStyle(Color.brandWarmGrey) }
+                    }
+                    Spacer()
+                    Text("×\(item.quantity)").font(BrandFont.body(12)).foregroundStyle(Color.brandWarmGrey)
+                    Text("₹\(Int(item.lineTotal))").font(BrandFont.body(14, weight: .medium)).foregroundStyle(Color.brandWarmBlack)
+                }
+                .padding(.horizontal, Spacing.md).padding(.vertical, 12)
+                if index < vm.cartItems.count - 1 { BrandDivider().padding(.leading, Spacing.md) }
+            }
+            BrandDivider()
+            HStack {
+                Text("Total").font(BrandFont.body(15, weight: .semibold)).foregroundStyle(Color.brandWarmBlack)
+                Spacer()
+                Text("₹\(Int(vm.cartTotal))").font(.system(size: 22, weight: .semibold, design: .serif)).foregroundStyle(Color.brandWarmBlack)
+            }.padding(Spacing.md)
+        }
+        .background(Color.brandLinen).clipShape(RoundedRectangle(cornerRadius: Radius.lg))
+        .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.brandPebble, lineWidth: 0.5)).padding(.horizontal, Spacing.md)
+    }
+
+    private var paymentMethods: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            Text("PAYMENT METHOD").font(.system(size: 10, weight: .semibold)).kerning(1.2).foregroundStyle(Color.brandWarmGrey).padding(.horizontal, Spacing.md)
+            HStack(spacing: Spacing.sm) {
+                ForEach(methods, id: \.0) { method in
+                    Button { selectedMethod = method.0 } label: {
+                        VStack(spacing: 6) { Image(systemName: method.1).font(.title3); Text(method.2).font(BrandFont.body(12, weight: .medium)) }
+                        .frame(maxWidth: .infinity).padding(.vertical, Spacing.md)
+                        .background(selectedMethod == method.0 ? Color.brandWarmBlack : Color.brandLinen)
+                        .foregroundStyle(selectedMethod == method.0 ? Color.brandOffWhite : Color.brandWarmBlack)
+                        .clipShape(RoundedRectangle(cornerRadius: Radius.md))
+                        .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(Color.brandPebble, lineWidth: 0.5))
+                    }.buttonStyle(.plain)
+                }
+            }.padding(.horizontal, Spacing.md)
+        }
+    }
+}
+
+// MARK: - ReceiptSheet
+struct ReceiptSheet: View {
+    @ObservedObject var vm: AssociateSalesViewModel
+    @EnvironmentObject var orderStore: SharedOrderStore
+    @Environment(\.dismiss) var dismiss
+    let onComplete: (() -> Void)?
+    @State private var rating: Double = 5
+    @State private var feedback = ""
+    @State private var ratingSubmitted = false
+    @State private var showShareSheet = false
+    @State private var shareItems: [Any] = []
+
+    var placed: PlacedOrder? { vm.lastPlacedOrder }
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Color.brandOffWhite.ignoresSafeArea()
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: Spacing.xl) {
+                        // ── Success banner
+                        VStack(spacing: Spacing.md) {
+                            ZStack {
+                                Circle().fill(Color(hex: "#4A7C59").opacity(0.1)).frame(width: 80, height: 80)
+                                Image(systemName: "checkmark.circle.fill").font(.system(size: 48)).foregroundStyle(Color(hex: "#4A7C59"))
+                            }
+                            Text("Order Placed Successfully!")
+                                .font(.system(size: 22, weight: .semibold, design: .serif))
+                                .foregroundStyle(Color.brandWarmBlack).multilineTextAlignment(.center)
+                            if let p = placed {
+                                Text("Order #\(p.orderNumber)").font(BrandFont.body(12)).foregroundStyle(Color.brandWarmGrey).kerning(1)
+                            }
+                            HStack(spacing: 6) {
+                                Circle().fill(Color(hex: "#C8913A")).frame(width: 6, height: 6)
+                                Text("Status: Pending").font(BrandFont.body(12, weight: .medium)).foregroundStyle(Color(hex: "#C8913A"))
+                            }
+                            .padding(.horizontal, 12).padding(.vertical, 5)
+                            .background(Color(hex: "#C8913A").opacity(0.1)).clipShape(Capsule())
+                        }
+                        .padding(.top, Spacing.lg)
+
+                        // ── Receipt card
+                        if let p = placed {
+                            VStack(spacing: 0) {
+                                VStack(spacing: 4) {
+                                    Text("RECEIPT").font(.system(size: 11, weight: .semibold)).kerning(2).foregroundStyle(Color.brandWarmGrey)
+                                    Text(p.createdAt.formatted(date: .long, time: .shortened)).font(BrandFont.body(11)).foregroundStyle(Color.brandWarmGrey)
+                                }
+                                .frame(maxWidth: .infinity).padding(Spacing.md)
+                                BrandDivider()
+                                receiptRow(label: "Customer", value: p.customer.name)
+                                BrandDivider().padding(.leading, Spacing.md)
+                                if let ph = p.customer.phone { receiptRow(label: "Phone", value: ph); BrandDivider().padding(.leading, Spacing.md) }
+                                if let em = p.customer.email { receiptRow(label: "Email", value: em); BrandDivider().padding(.leading, Spacing.md) }
+                                if let cat = p.customer.customerCategory { receiptRow(label: "Category", value: cat); BrandDivider().padding(.leading, Spacing.md) }
+                                receiptRow(label: "Served by", value: p.associateName)
+                                BrandDivider()
+                                ForEach(Array(p.items.enumerated()), id: \.element.id) { index, item in
+                                    HStack {
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text(item.product.name).font(BrandFont.body(13)).foregroundStyle(Color.brandWarmBlack)
+                                            HStack(spacing: 6) {
+                                                if let sz = item.selectedSize { Text("Size \(sz)").font(BrandFont.body(11)).foregroundStyle(Color.brandWarmGrey) }
+                                                Text("×\(item.quantity)").font(BrandFont.body(11)).foregroundStyle(Color.brandWarmGrey)
+                                                Text("@ ₹\(Int(item.product.price))").font(BrandFont.body(11)).foregroundStyle(Color.brandWarmGrey)
+                                            }
+                                        }
+                                        Spacer()
+                                        Text("₹\(Int(item.lineTotal))").font(BrandFont.body(13, weight: .medium)).foregroundStyle(Color.brandWarmBlack)
+                                    }
+                                    .padding(.horizontal, Spacing.md).padding(.vertical, 10)
+                                    if index < p.items.count - 1 { BrandDivider().padding(.leading, Spacing.md) }
+                                }
+                                BrandDivider()
+                                HStack {
+                                    Text("Total").font(BrandFont.body(15, weight: .semibold)).foregroundStyle(Color.brandWarmBlack)
+                                    Spacer()
+                                    Text("₹\(Int(p.totalAmount))").font(.system(size: 20, weight: .semibold, design: .serif)).foregroundStyle(Color.brandWarmBlack)
+                                }.padding(Spacing.md)
+                            }
+                            .background(Color.brandLinen).clipShape(RoundedRectangle(cornerRadius: Radius.lg))
+                            .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.brandPebble, lineWidth: 0.5))
+                            .padding(.horizontal, Spacing.md)
+                        }
+
+                        // ── Download / Share receipt
+                        Button {
+                            if let p = placed {
+                                // Build a rich text receipt and share it
+                                let text = buildReceiptText(placed: p)
+                                shareItems = [text]
+                                showShareSheet = true
+                            }
+                        } label: {
+                            HStack(spacing: 8) {
+                                Image(systemName: "square.and.arrow.up").font(.system(size: 14))
+                                Text("Download / Share Receipt").font(BrandFont.body(14, weight: .medium))
+                            }
+                            .foregroundStyle(Color.brandWarmBlack).frame(maxWidth: .infinity).padding(.vertical, 14)
+                            .background(Color.brandLinen).clipShape(RoundedRectangle(cornerRadius: Radius.lg))
+                            .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.brandPebble, lineWidth: 0.5))
+                        }
+                        .buttonStyle(.plain).padding(.horizontal, Spacing.md)
+
+                        // ── Rating section
+                        if !ratingSubmitted {
+                            VStack(alignment: .leading, spacing: Spacing.md) {
+                                Text("RATE THIS SERVICE").font(.system(size: 10, weight: .semibold)).kerning(1.2).foregroundStyle(Color.brandWarmGrey)
+                                HStack(spacing: 10) {
+                                    ForEach(1...5, id: \.self) { star in
+                                        Button { rating = Double(star) } label: {
+                                            Image(systemName: Double(star) <= rating ? "star.fill" : "star")
+                                                .font(.system(size: 28))
+                                                .foregroundStyle(Double(star) <= rating ? Color(hex: "#C8913A") : Color.brandPebble)
+                                        }.buttonStyle(.plain)
+                                    }
+                                }
+                                TextField("Optional feedback...", text: $feedback, axis: .vertical).lineLimit(3).font(BrandFont.body(14))
+                                    .padding(Spacing.md).background(Color.brandOffWhite)
+                                    .clipShape(RoundedRectangle(cornerRadius: Radius.md))
+                                    .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(Color.brandPebble, lineWidth: 0.5))
+                                Button("Submit Rating") {
+                                    Task {
+                                        await vm.submitRating(rating: rating, feedback: feedback)
+                                        ratingSubmitted = true
+                                    }
+                                }
+                                .font(BrandFont.body(14, weight: .medium)).foregroundStyle(Color(hex: "#C8913A"))
+                                .frame(maxWidth: .infinity).padding(.vertical, 12)
+                                .background(Color(hex: "#C8913A").opacity(0.1)).clipShape(RoundedRectangle(cornerRadius: Radius.md))
+                            }
+                            .padding(Spacing.md).background(Color.brandLinen).clipShape(RoundedRectangle(cornerRadius: Radius.lg))
+                            .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.brandPebble, lineWidth: 0.5))
+                            .padding(.horizontal, Spacing.md)
+                        } else {
+                            HStack {
+                                Image(systemName: "star.fill").foregroundStyle(Color(hex: "#C8913A"))
+                                Text("Rating submitted — your dashboard will update shortly.")
+                                    .font(BrandFont.body(13)).foregroundStyle(Color.brandWarmGrey)
+                            }
+                            .padding(.horizontal, Spacing.md)
+                        }
+
+                        // ── Start New Sale — NO extra alert, just clears and dismisses
+                        PrimaryButton(title: "Start New Sale", isLoading: false) {
+                            vm.clearCart()
+                            if let onComplete = onComplete {
+                                onComplete()
+                            } else {
+                                dismiss()
+                            }
+                        }
+                        .padding(.horizontal, Spacing.md).padding(.bottom, Spacing.xl)
+                    }
+                }
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text("ORDER CONFIRMED").font(.system(size: 13, weight: .semibold)).kerning(2).foregroundStyle(Color.brandWarmBlack)
+                }
+            }
+            .interactiveDismissDisabled()
+            // ── Share sheet presented as a proper sheet
+            .sheet(isPresented: $showShareSheet) {
+                ShareSheet(items: shareItems)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func receiptRow(label: String, value: String) -> some View {
+        HStack {
+            Text(label).font(BrandFont.body(13)).foregroundStyle(Color.brandWarmGrey)
+            Spacer()
+            Text(value).font(BrandFont.body(13, weight: .medium)).foregroundStyle(Color.brandWarmBlack).multilineTextAlignment(.trailing)
+        }
+        .padding(.horizontal, Spacing.md).padding(.vertical, 10)
+    }
+
+    private func buildReceiptText(placed p: PlacedOrder) -> String {
+        var lines = [
+            "══════════════════════════",
+            "         RECEIPT          ",
+            "══════════════════════════",
+            "Order #: \(p.orderNumber)",
+            "Date:    \(p.createdAt.formatted(date: .long, time: .shortened))",
+            "Status:  Pending",
+            "──────────────────────────",
+            "CUSTOMER",
+            "Name:    \(p.customer.name)"
+        ]
+        if let phone = p.customer.phone  { lines.append("Phone:   \(phone)") }
+        if let email = p.customer.email  { lines.append("Email:   \(email)") }
+        if let addr  = p.customer.address { lines.append("Address: \(addr)") }
+        if let cat   = p.customer.customerCategory { lines.append("Category: \(cat)") }
+        lines += [
+            "──────────────────────────",
+            "SERVED BY: \(p.associateName)",
+            "──────────────────────────",
+            "ITEMS"
+        ]
+        for item in p.items {
+            var line = "• \(item.product.name)"
+            if let sz = item.selectedSize { line += " (\(sz))" }
+            line += " ×\(item.quantity)  @ ₹\(Int(item.product.price))  = ₹\(Int(item.lineTotal))"
+            lines.append(line)
+        }
+        lines += [
+            "──────────────────────────",
+            "TOTAL:   ₹\(Int(p.totalAmount))",
+            "══════════════════════════",
+            "Thank you for your purchase!"
+        ]
+        return lines.joined(separator: "\n")
+    }
+}
+
+// MARK: - ShareSheet
+struct ShareSheet: UIViewControllerRepresentable {
+    let items: [Any]
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
+    }
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+}
+
+// MARK: - ProductRequestSheet
+struct ProductRequestSheet: View {
+    @ObservedObject var vm: AssociateSalesViewModel
+    @Environment(\.dismiss) var dismiss
+    @State private var selectedProduct: Product?
+    @State private var quantity = 1
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Color.brandOffWhite.ignoresSafeArea()
+                Form {
+                    Section("Select Product") {
+                        Picker("Product", selection: $selectedProduct) {
+                            Text("Choose a product").tag(Optional<Product>.none)
+                            ForEach(vm.products) { p in Text(p.name).tag(Optional(p)) }
+                        }
+                    }
+                    Section("Quantity Needed") { Stepper("\(quantity) unit\(quantity == 1 ? "" : "s")", value: $quantity, in: 1...100) }
+                    Section {
+                        Button("Raise Request to Manager") {
+                            guard let p = selectedProduct else { return }
+                            let id = UUID()
+                            Task {
+                                await vm.raiseProductRequest(product: p, quantity: quantity, associateId: id, storeId: nil)
+                                dismiss()
+                            }
+                        }
+                        .disabled(selectedProduct == nil)
+                    }
+                }
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .principal) { Text("PRODUCT REQUEST").font(.system(size: 13, weight: .semibold)).kerning(2).foregroundStyle(Color.brandWarmBlack) }
+                ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() }.foregroundStyle(Color.brandWarmGrey) }
+            }
+        }
+    }
+}
+
+

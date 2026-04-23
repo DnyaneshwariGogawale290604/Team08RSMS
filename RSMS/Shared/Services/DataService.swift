@@ -1,0 +1,492 @@
+import Foundation
+import Supabase
+import PostgREST
+
+public actor DataService {
+    public static let shared = DataService()
+    private let client = SupabaseManager.shared.client
+
+    private init() {}
+
+    // MARK: - Stores
+    public func fetchStores() async throws -> [Store] {
+        return try await client
+            .from("stores")
+            .select()
+            .execute()
+            .value
+    }
+
+    public func fetchCurrentStore() async throws -> Store? {
+        guard let userId = try? await client.auth.session.user.id else {
+            return nil
+        }
+        struct ManagerStoreRow: Decodable { let store_id: UUID }
+        let rows: [ManagerStoreRow]? = try? await client
+            .from("boutique_managers")
+            .select("store_id")
+            .eq("user_id", value: userId)
+            .limit(1)
+            .execute()
+            .value
+            
+        if let storeId = rows?.first?.store_id {
+            let stores: [Store] = try await client
+                .from("stores")
+                .select()
+                .eq("store_id", value: storeId.uuidString)
+                .execute()
+                .value
+            return stores.first
+        }
+        return nil
+    }
+
+    public func updateStore(store: Store) async throws {
+        try await client
+            .from("stores")
+            .update(store)
+            .eq("store_id", value: store.id.uuidString)
+            .execute()
+    }
+
+    // MARK: - Staff (sales_associates + users table)
+    public func fetchStaff() async throws -> [User] {
+        guard let userId = try? await client.auth.session.user.id else { return [] }
+        struct ManagerStoreRow: Decodable { let store_id: UUID }
+        let managerRows: [ManagerStoreRow] = try await client
+            .from("boutique_managers")
+            .select("store_id")
+            .eq("user_id", value: userId)
+            .limit(1)
+            .execute()
+            .value
+        
+        guard let storeId = managerRows.first?.store_id else { return [] }
+
+        struct SalesAssociateRecord: Decodable {
+            let user_id: UUID
+        }
+        let sas: [SalesAssociateRecord] = try await client
+            .from("sales_associates")
+            .select("user_id")
+            .eq("store_id", value: storeId.uuidString)
+            .execute()
+            .value
+            
+        let saIds = sas.map { $0.user_id }
+        guard !saIds.isEmpty else { return [] }
+        
+        // Efficiently fetch only the users belonging to this store
+        let users: [User] = try await client
+            .from("users")
+            .select()
+            .in("user_id", values: saIds.map { $0.uuidString })
+            .execute()
+            .value
+            
+        // Fetch rating metrics from sales_orders
+        struct OrderRating: Decodable {
+            let sales_associate_id: UUID?
+            let rating_value: Int?
+        }
+        
+        let ratings: [OrderRating] = try await client
+            .from("sales_orders")
+            .select("sales_associate_id, rating_value")
+            .eq("store_id", value: storeId.uuidString)
+            .gte("rating_value", value: 1)
+            .execute()
+            .value
+            
+        var ratingStats: [UUID: (sum: Int, count: Int)] = [:]
+        for r in ratings {
+            if let saId = r.sales_associate_id, let val = r.rating_value {
+                let current = ratingStats[saId] ?? (0, 0)
+                ratingStats[saId] = (current.sum + val, current.count + 1)
+            }
+        }
+            
+        return users.map {
+            var u = $0
+            u.role = .sales
+            if let stats = ratingStats[u.id] {
+                u.averageRating = Double(stats.sum) / Double(stats.count)
+                u.ratingCount = stats.count
+            }
+            return u
+        }
+    }
+
+    public func addStaff(user: User) async throws {
+        // Insert only columns that exist in the users table (no role column)
+        struct UserInsert: Encodable {
+            let user_id: String
+            let name: String
+            let email: String
+            let phone: String?
+        }
+        let payload = UserInsert(
+            user_id: user.id.uuidString,
+            name: user.name ?? "",
+            email: user.email ?? "",
+            phone: user.phone
+        )
+        try await client
+            .from("users")
+            .insert(payload)
+            .execute()
+    }
+
+    public func updateStaff(user: User) async throws {
+        struct UserUpdate: Encodable {
+            let name: String
+            let email: String
+            let phone: String?
+        }
+        let payload = UserUpdate(name: user.name ?? "", email: user.email ?? "", phone: user.phone)
+        try await client
+            .from("users")
+            .update(payload)
+            .eq("user_id", value: user.id.uuidString)
+            .execute()
+    }
+
+    public func deleteStaff(id: UUID) async throws {
+        // Delete from sales_associates first to resolve foreign key constraints
+        try? await client
+            .from("sales_associates")
+            .delete()
+            .eq("user_id", value: id.uuidString)
+            .execute()
+            
+        try await client
+            .from("users")
+            .delete()
+            .eq("user_id", value: id.uuidString)
+            .execute()
+    }
+
+    // MARK: - Boutique Managers count
+    public func fetchBoutiqueManagers() async throws -> [BoutiqueManagerRecord] {
+        return try await client
+            .from("boutique_managers")
+            .select()
+            .execute()
+            .value
+    }
+
+    // MARK: - Products (Catalog)
+    private static let productColumns = "product_id,name,brand_id,category,price,sku,making_price,image_url,is_active"
+
+    public func fetchProducts() async throws -> [Product] {
+        return try await client
+            .from("products")
+            .select(DataService.productColumns)
+            .eq("is_active", value: true)
+            .execute()
+            .value
+    }
+
+    public func fetchProductsForCurrentBrand() async throws -> [Product] {
+        let brandId = try await resolveCurrentUserBrandIdOrThrow()
+        print("[DataService] fetchProductsForCurrentBrand — brandId: \(brandId)")
+
+        let result: [Product] = try await client
+            .from("products")
+            .select(DataService.productColumns)
+            .eq("brand_id", value: brandId)
+            .eq("is_active", value: true)
+            .order("name", ascending: true)
+            .execute()
+            .value
+        print("[DataService] fetchProductsForCurrentBrand — fetched \(result.count) products")
+        return result
+    }
+
+    /// Fetches ALL products for the brand regardless of is_active — used by Catalog tab.
+    public func fetchAllProductsForCurrentBrand() async throws -> [Product] {
+        let brandId = try await resolveCurrentUserBrandIdOrThrow()
+        print("[DataService] fetchAllProductsForCurrentBrand — brandId: \(brandId)")
+
+        let result: [Product] = try await client
+            .from("products")
+            .select(DataService.productColumns)
+            .eq("brand_id", value: brandId)
+            .order("name", ascending: true)
+            .execute()
+            .value
+        print("[DataService] fetchAllProductsForCurrentBrand — fetched \(result.count) products")
+        return result
+    }
+
+    // MARK: - Store Inventory
+    private static let inventoryColumns = "inventory_id,store_id,product_id,quantity"
+
+    public func fetchInventory(storeId: UUID? = nil) async throws -> [StoreInventory] {
+        var query = client.from("store_inventory").select(DataService.inventoryColumns)
+        if let storeId = storeId {
+            query = query.eq("store_id", value: storeId.uuidString)
+        }
+        let result: [StoreInventory] = try await query.execute().value
+        print("[DataService] fetchInventory — storeId: \(storeId?.uuidString ?? "all"), rows: \(result.count)")
+        return result
+    }
+
+    // MARK: - Store Inventory Baseline
+    public struct StoreInventoryBaseline: Identifiable, Codable, Hashable, Sendable {
+        public var id: UUID
+        public var storeId: UUID?
+        public var productId: UUID?
+        public var baselineQuantity: Int
+        public var currentQuantity: Int?
+
+        enum CodingKeys: String, CodingKey {
+            case id = "baseline_id"
+            case storeId = "store_id"
+            case productId = "product_id"
+            case baselineQuantity = "baseline_quantity"
+            case currentQuantity = "current_quantity"
+        }
+    }
+
+    public func fetchInventoryBaselineForCurrentStore() async throws -> [StoreInventoryBaseline] {
+        guard let userId = try? await client.auth.session.user.id else {
+            return []
+        }
+
+        struct ManagerStoreRow: Decodable { let store_id: UUID }
+        let rows: [ManagerStoreRow]? = try? await client
+            .from("boutique_managers")
+            .select("store_id")
+            .eq("user_id", value: userId)
+            .limit(1)
+            .execute()
+            .value
+
+        if let storeId = rows?.first?.store_id {
+            let baselines: [StoreInventoryBaseline] = try await client
+                .from("store_inventory_baseline")
+                .select()
+                .eq("store_id", value: storeId.uuidString)
+                .execute()
+                .value
+            return baselines
+        } else {
+            return []
+        }
+    }
+
+    /// Fetches inventory rows scoped to the current boutique manager's store.
+    /// Falls back to all-store rows if the manager record can't be found (e.g. RLS).
+    public func fetchInventoryForCurrentStore() async throws -> [StoreInventory] {
+        guard let userId = try? await client.auth.session.user.id else {
+            return try await fetchInventory()
+        }
+
+        struct ManagerStoreRow: Decodable { let store_id: UUID }
+
+        // Use try? so RLS errors silently produce nil instead of throwing
+        let rows: [ManagerStoreRow]? = try? await client
+            .from("boutique_managers")
+            .select("store_id")
+            .eq("user_id", value: userId)
+            .limit(1)
+            .execute()
+            .value
+
+        if let storeId = rows?.first?.store_id {
+            print("[DataService] fetchInventoryForCurrentStore — storeId: \(storeId)")
+            return try await fetchInventory(storeId: storeId)
+        } else {
+            print("[DataService] fetchInventoryForCurrentStore — no store found, returning all")
+            return try await fetchInventory()
+        }
+    }
+
+    // MARK: - Staff Ratings
+    public func fetchStaffRatings(salesAssociateId: UUID) async throws -> [AssociateRating] {
+        struct RatingRow: Decodable {
+            let order_id: UUID
+            let sales_associate_id: UUID?
+            let rating_value: Int?
+            let rating_feedback: String?
+            let created_at: String?
+        }
+        let rows: [RatingRow] = try await client
+            .from("sales_orders")
+            .select("order_id,sales_associate_id,rating_value,rating_feedback,created_at")
+            .eq("sales_associate_id", value: salesAssociateId)
+            .gte("rating_value", value: 1)
+            .order("created_at", ascending: false)
+            .execute()
+            .value
+        return rows.compactMap { row in
+            guard let ratingVal = row.rating_value else { return nil }
+            return AssociateRating(
+                id: row.order_id,
+                salesAssociateId: row.sales_associate_id ?? salesAssociateId,
+                ratingValue: Double(ratingVal),
+                feedbackText: row.rating_feedback,
+                createdAt: row.created_at
+            )
+        }
+    }
+
+    public func updateInventory(productId: UUID, newQuantity: Int) async throws {
+        let store = try await fetchCurrentStore()
+        guard let storeId = store?.id else { return }
+        
+        try await client
+            .from("store_inventory_baseline")
+            .update(["current_quantity": newQuantity])
+            .eq("store_id", value: storeId.uuidString)
+            .eq("product_id", value: productId.uuidString)
+            .execute()
+    }
+    
+    public func createInventoryItem(productId: UUID, quantity: Int) async throws {
+        let stores = try await fetchStores()
+        guard let mainStore = stores.first else {
+            throw NSError(domain: "DataService", code: 3, userInfo: [NSLocalizedDescriptionKey: "No stores found to add inventory to."])
+        }
+        
+        struct InventoryInsert: Encodable {
+            let product_id: UUID
+            let store_id: UUID
+            let quantity: Int
+        }
+        
+        let payload = InventoryInsert(product_id: productId, store_id: mainStore.id, quantity: quantity)
+        try await client.from("store_inventory").insert(payload).execute()
+    }
+
+    // MARK: - Sales Orders
+    public func fetchSales(storeId: UUID? = nil) async throws -> [SalesOrder] {
+        var query = client.from("sales_orders").select()
+        if let storeId = storeId {
+            query = query.eq("store_id", value: storeId.uuidString)
+        }
+        return try await query
+            .order("created_at", ascending: false)
+            .execute()
+            .value
+    }
+
+    // MARK: - Stock Requests (Notify Inventory Manager)
+    public func createStockRequest(productId: UUID, quantity: Int) async throws {
+        let session = try await client.auth.session
+        let currentUserId = session.user.id
+        
+        let allManagers: [BoutiqueManagerRecord] = try await client.from("boutique_managers")
+            .select().eq("user_id", value: currentUserId.uuidString).execute().value
+        
+        let actualStoreId: String
+        let actualManagerId: String
+        if let record = allManagers.first {
+            actualStoreId = record.storeId.uuidString
+            actualManagerId = record.id.uuidString
+        } else {
+            let fallbackManagers: [BoutiqueManagerRecord] = try await client.from("boutique_managers").select().limit(1).execute().value
+            guard let fallback = fallbackManagers.first else {
+                throw NSError(domain: "DataService", code: 2, userInfo: [NSLocalizedDescriptionKey: "No boutique managers configured."])
+            }
+            actualStoreId = fallback.storeId.uuidString
+            actualManagerId = fallback.id.uuidString
+        }
+
+        struct StockRequestInsert: Encodable {
+            let product_id: String
+            let store_id: String
+            let requested_by: String
+            let quantity: Int
+            let status: String
+            let brand_id: String?
+        }
+        
+        let brandId = try? await resolveCurrentUserBrandIdOrThrow()
+        
+        let payload = StockRequestInsert(
+            product_id: productId.uuidString,
+            store_id: actualStoreId,
+            requested_by: actualManagerId,
+            quantity: quantity,
+            status: "pending",
+            brand_id: brandId?.uuidString
+        )
+        try await client
+            .from("product_requests")
+            .insert(payload)
+            .execute()
+    }
+
+    public struct ProductRequestRow: Decodable, Sendable {
+        public let requestId: UUID
+        public let productId: UUID?
+        public let storeId: UUID?
+        public let requestedBy: UUID?
+        public let quantity: Int?
+        public let status: String?
+        public let rejectionReason: String?
+
+        enum CodingKeys: String, CodingKey {
+            case requestId = "request_id"
+            case productId = "product_id"
+            case storeId = "store_id"
+            case requestedBy = "requested_by"
+            case quantity
+            case status
+            case rejectionReason = "rejection_reason"
+        }
+    }
+
+    public func fetchProductRequestsForCurrentStore() async throws -> [ProductRequestRow] {
+        let store = try await fetchCurrentStore()
+        guard let storeId = store?.id else { return [] }
+
+        return try await client
+            .from("product_requests")
+            .select()
+            .eq("store_id", value: storeId.uuidString)
+            .order("created_at", ascending: false)
+            .execute()
+            .value
+    }
+
+    private func resolveCurrentUserBrandIdOrThrow() async throws -> UUID {
+        struct UserBrandRow: Decodable {
+            let brandId: UUID?
+
+            enum CodingKeys: String, CodingKey {
+                case brandId = "brand_id"
+            }
+        }
+
+        let userId = try await client.auth.session.user.id
+
+        let rows: [UserBrandRow] = try await client
+            .from("users")
+            .select("brand_id")
+            .eq("user_id", value: userId)
+            .limit(1)
+            .execute()
+            .value
+
+        guard let brandId = rows.first?.brandId else {
+            throw DataServiceError.missingCurrentUserBrand
+        }
+
+        return brandId
+    }
+}
+
+private enum DataServiceError: LocalizedError {
+    case missingCurrentUserBrand
+
+    var errorDescription: String? {
+        switch self {
+        case .missingCurrentUserBrand:
+            return "Current user is not linked to a brand."
+        }
+    }
+}
