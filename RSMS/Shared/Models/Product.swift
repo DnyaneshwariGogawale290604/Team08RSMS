@@ -12,6 +12,7 @@ public struct Product: Identifiable, Codable, Hashable, Sendable {
     public var isActive: Bool?
     public var tax: Double?
     public var totalPrice: Double?
+    public var sizeOptions: [String]?
 
     enum CodingKeys: String, CodingKey {
         case id = "product_id"
@@ -25,6 +26,7 @@ public struct Product: Identifiable, Codable, Hashable, Sendable {
         case isActive = "is_active"
         case tax
         case totalPrice = "total_price"
+        case sizeOptions = "size_options"
     }
 
     // Custom decoder: DB columns are all nullable (text, numeric) so we
@@ -67,6 +69,12 @@ public struct Product: Identifiable, Codable, Hashable, Sendable {
         } else {
             totalPrice = nil
         }
+        // size_options is a jsonb array of strings
+        if let arr = try? c.decodeIfPresent([String].self, forKey: .sizeOptions) {
+            sizeOptions = arr.isEmpty ? nil : arr
+        } else {
+            sizeOptions = nil
+        }
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -82,13 +90,14 @@ public struct Product: Identifiable, Codable, Hashable, Sendable {
         try c.encodeIfPresent(isActive, forKey: .isActive)
         try c.encodeIfPresent(tax, forKey: .tax)
         try c.encodeIfPresent(totalPrice, forKey: .totalPrice)
+        try c.encodeIfPresent(sizeOptions, forKey: .sizeOptions)
     }
 
     // Memberwise init for constructing products in code
     public init(id: UUID = UUID(), name: String, brandId: UUID? = nil, category: String,
                 price: Double, sku: String? = nil, makingPrice: Double? = nil,
                 imageUrl: String? = nil, isActive: Bool? = true,
-                tax: Double? = nil, totalPrice: Double? = nil) {
+                tax: Double? = nil, totalPrice: Double? = nil, sizeOptions: [String]? = nil) {
         self.id = id
         self.name = name
         self.brandId = brandId
@@ -100,5 +109,6 @@ public struct Product: Identifiable, Codable, Hashable, Sendable {
         self.isActive = isActive
         self.tax = tax
         self.totalPrice = totalPrice
+        self.sizeOptions = sizeOptions
     }
 }

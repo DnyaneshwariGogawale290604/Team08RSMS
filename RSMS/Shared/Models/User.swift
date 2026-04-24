@@ -20,6 +20,7 @@ public struct User: Identifiable, Codable, Hashable, Sendable {
     // Performance Metrics
     public var averageRating: Double?
     public var ratingCount: Int?
+    public var totalSales: Double?
 
     public init(
         id: UUID,

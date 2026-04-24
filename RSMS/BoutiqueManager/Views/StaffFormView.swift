@@ -17,7 +17,6 @@ public struct StaffFormView: View {
 
     // Performance fields (only for new staff)
     @State private var salesTargetText: String = ""
-    @State private var initialRatingText: String = ""
 
     let userToEdit: User?
 
@@ -90,20 +89,11 @@ public struct StaffFormView: View {
                     }
 
                     // MARK: Performance Targets
-                    Section(header: Text("Performance"), footer: Text("Set an initial sales target and rating for this staff member. You can update these anytime.")) {
+                    Section(header: Text("Performance"), footer: Text("Set an initial sales target for this staff member. You can update this anytime.")) {
                         HStack {
                             Text("Sales Target (₹)")
                             Spacer()
                             TextField("e.g. 50000", text: $salesTargetText)
-                                .keyboardType(.decimalPad)
-                                .multilineTextAlignment(.trailing)
-                                .foregroundColor(Theme.textSecondary)
-                        }
-
-                        HStack {
-                            Text("Initial Rating (1–5)")
-                            Spacer()
-                            TextField("e.g. 3.5", text: $initialRatingText)
                                 .keyboardType(.decimalPad)
                                 .multilineTextAlignment(.trailing)
                                 .foregroundColor(Theme.textSecondary)
@@ -176,7 +166,6 @@ public struct StaffFormView: View {
             presentationMode.wrappedValue.dismiss()
         } else {
             let salesTarget = Double(salesTargetText)
-            let initialRating = Double(initialRatingText).map { min(max($0, 1.0), 5.0) }
 
             Task {
                 do {
@@ -186,7 +175,7 @@ public struct StaffFormView: View {
                         name: name,
                         phone: phone.isEmpty ? nil : phone,
                         salesTarget: salesTarget,
-                        initialRating: initialRating
+                        initialRating: nil
                     )
                     await MainActor.run {
                         staffVM.fetchStaff()
