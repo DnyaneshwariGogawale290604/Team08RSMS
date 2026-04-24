@@ -4,9 +4,11 @@ import PostgREST
 
 struct SalesAssociateClientsView: View {
     @StateObject private var viewModel = SalesAssociateViewModel()
+    @StateObject private var customerVM = AssociateSalesViewModel()
 
     @State private var searchText = ""
     @State private var filter = "All"
+    @State private var showCreateCustomer = false
 
     var filteredCustomers: [Customer] {
         let textFiltered = viewModel.customers.filter {
@@ -53,6 +55,14 @@ struct SalesAssociateClientsView: View {
                             Spacer()
                         }
                         .padding(.horizontal, 16)
+                    }
+
+                    if let error = viewModel.errorMessage {
+                        ErrorBanner(message: error) {
+                            viewModel.errorMessage = nil
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.top, 12)
                     }
 
                     if viewModel.isLoading && viewModel.customers.isEmpty {
@@ -124,15 +134,36 @@ struct SalesAssociateClientsView: View {
                             .padding(.horizontal, 16)
                         }
                         .refreshable {
-                            await viewModel.refresh()
+                            await viewModel.fetchCustomers()
                         }
                     }
                 }
             }
             .navigationTitle("Clients")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        customerVM.errorMessage = nil
+                        showCreateCustomer = true
+                    } label: {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.system(size: 22))
+                            .foregroundStyle(Color.brandWarmBlack)
+                    }
+                }
+            }
+            .sheet(isPresented: $showCreateCustomer, onDismiss: {
+                Task {
+                    await viewModel.fetchCustomers()
+                    await customerVM.fetchCustomers()
+                }
+            }) {
+                CustomerSheet(vm: customerVM, initialMode: .create)
+            }
             .task {
-                await viewModel.refresh()
+                await viewModel.fetchCustomers()
+                await customerVM.fetchCustomers()
             }
         }
     }

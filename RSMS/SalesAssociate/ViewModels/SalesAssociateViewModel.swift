@@ -99,6 +99,27 @@ final class SalesAssociateViewModel: ObservableObject {
         }
     }
 
+    func fetchCustomers() async {
+        isLoading = true
+        defer { isLoading = false }
+
+        do {
+            let fetched: [Customer] = try await client
+                .from("customers")
+                .select("*")
+                .order("created_at", ascending: false)
+                .execute()
+                .value
+
+            customers = fetched
+            customersCount = fetched.count
+            errorMessage = nil
+        } catch {
+            customers = []
+            errorMessage = "Failed to load clients: \(error.localizedDescription)"
+        }
+    }
+
     func fetchCatalog(search: String = "") async {
         do {
             var query = client.from("products").select("product_id,name,brand_id,category,price,sku,making_price,image_url,is_active")
