@@ -72,7 +72,7 @@ public struct TransfersTabView: View {
             await viewModel.loadData()
         }
         .sheet(isPresented: $showingCreatePO) {
-            CreatePOView(prefilledSKU: $prefilledSKUMagic)
+            CreatePOView(prefilledSKU: $prefilledSKUMagic, brandVendors: viewModel.brandVendors)
         }
     }
     
@@ -124,20 +124,88 @@ public struct TransfersTabView: View {
     
     @ViewBuilder
     private func shipmentsOutSection() -> some View {
-        let activeShipments = viewModel.shipmentsOut.map { Transfer(fromShipment: $0) }
-        List {
-            ForEach(activeShipments) { transfer in
-                NavigationLink(destination: TransferDetailView(transfer: transfer)) {
-                    transferRow(for: transfer)
+        if viewModel.shipmentsOut.isEmpty {
+            Spacer()
+            Text("No outbound shipments yet.")
+                .foregroundColor(.appSecondaryText)
+            Spacer()
+        } else {
+            List {
+                ForEach(viewModel.shipmentsOut) { shipment in
+                    shipmentOutCard(for: shipment)
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                        .padding(.vertical, 6)
+                        .padding(.horizontal, 16)
                 }
-                .listRowInsets(EdgeInsets())
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
-                .padding(.vertical, 6)
-                .padding(.horizontal, 16)
+            }
+            .listStyle(.plain)
+        }
+    }
+
+    @ViewBuilder
+    private func shipmentOutCard(for shipment: Shipment) -> some View {
+        ReusableCardView {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        if let asn = shipment.asnNumber {
+                            Text(asn)
+                                .font(.system(.caption, design: .monospaced).bold())
+                                .foregroundColor(.appAccent)
+                        }
+                        Text(shipment.request?.product?.name ?? "Shipment")
+                            .font(.headline)
+                            .foregroundColor(.appPrimaryText)
+                    }
+                    Spacer()
+                    shipmentStatusBadge(shipment.status)
+                }
+
+                if let carrier = shipment.carrier {
+                    HStack(spacing: 4) {
+                        Image(systemName: "shippingbox").font(.caption).foregroundColor(.appSecondaryText)
+                        Text(carrier).font(.subheadline).foregroundColor(.appSecondaryText)
+                        if let tracking = shipment.trackingNumber {
+                            Text("· \(tracking)").font(.caption).foregroundColor(.appSecondaryText)
+                        }
+                    }
+                }
+
+                if let eta = shipment.estimatedDelivery {
+                    HStack(spacing: 4) {
+                        Image(systemName: "calendar").font(.caption).foregroundColor(.appSecondaryText)
+                        Text("ETA: \(eta)").font(.caption).foregroundColor(.appSecondaryText)
+                    }
+                }
+
+                if shipment.hasGRN == true {
+                    HStack(spacing: 4) {
+                        Image(systemName: "checkmark.seal.fill").font(.caption).foregroundColor(.green)
+                        Text("GRN Received").font(.caption.bold()).foregroundColor(.green)
+                    }
+                }
             }
         }
-        .listStyle(.plain)
+    }
+
+    private func shipmentStatusBadge(_ status: String) -> some View {
+        let (color, label): (Color, String) = {
+            switch status {
+            case "in_transit": return (.blue, "In Transit")
+            case "delivered": return (.green, "Delivered")
+            case "pending": return (.orange, "Pending")
+            default: return (.gray, status.capitalized)
+            }
+        }()
+        return Text(label)
+            .font(.caption.bold())
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+            .background(color.opacity(0.15))
+            .foregroundColor(color)
+            .clipShape(Capsule())
     }
     
     @ViewBuilder
@@ -235,34 +303,45 @@ public struct TransfersTabView: View {
 }
 
 // Basic form for Create PO
+/// Create Purchase Order form — uses brand-scoped vendor list from TransfersViewModel.
 struct CreatePOView: View {
     @Environment(\.presentationMode) var presentationMode
     @Binding var prefilledSKU: String?
-    
-    @State private var sku: String = "Gold Necklace"
+    /// Passed in from parent TransfersTabView to access brand-scoped vendors.
+    let brandVendors: [Vendor]
+
+    @State private var sku: String = ""
     @State private var quantity: String = "1"
-    @State private var vendor: String = "Aurum Suppliers"
-    
-    let availableProducts = ["Gold Necklace", "Diamond Ring", "Silver Bracelet", "Leather Handbag", "Rolex Submariner"]
-    let availableVendors = ["Aurum Suppliers", "Swiss Timers", "Acme Logistics", "Lux Group"]
-    
+    @State private var selectedVendorId: UUID? = nil
+
+    private var selectedVendorName: String {
+        brandVendors.first(where: { $0.id == selectedVendorId })?.name ?? "Select Vendor"
+    }
+
     var body: some View {
         NavigationView {
             Form {
                 Section(header: Text("Vendor Order Details")) {
-                    Picker("Vendor", selection: $vendor) {
-                        ForEach(availableVendors, id: \.self) { v in
-                            Text(v).tag(v)
+                    // Brand-scoped vendor picker
+                    if brandVendors.isEmpty {
+                        Text("No vendors available for this brand.")
+                            .foregroundColor(.secondary)
+                            .font(.subheadline)
+                    } else {
+                        Picker("Vendor", selection: $selectedVendorId) {
+                            Text("Select Vendor").tag(UUID?.none)
+                            ForEach(brandVendors) { vendor in
+                                Text(vendor.name).tag(Optional(vendor.id))
+                            }
                         }
                     }
-                    
-                    Picker("SKU", selection: $sku) {
-                        ForEach(availableProducts, id: \.self) { p in
-                            Text(p).tag(p)
-                        }
-                    }
-                    
-                    TextField("Quantity", text: $quantity).keyboardType(.numberPad)
+
+                    TextField("Product / SKU", text: $sku)
+
+                    TextField("Quantity", text: $quantity)
+#if canImport(UIKit)
+                        .keyboardType(.numberPad)
+#endif
                 }
             }
             .navigationTitle("Create Purchase Order")
@@ -273,25 +352,35 @@ struct CreatePOView: View {
                 }) {
                     Image(systemName: "xmark")
                 },
-                trailing: Button(action: {
-                    submitOrder()
-                }) {
-                    Image(systemName: "arrow.down")
+                trailing: Button(action: { submitOrder() }) {
+                    Text("Submit").font(.headline)
                 }
-                .font(.headline)
+                .disabled(sku.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || selectedVendorId == nil)
             )
             .onAppear {
-                if let prefill = prefilledSKU, availableProducts.contains(prefill) {
+                if let prefill = prefilledSKU {
                     self.sku = prefill
+                }
+                if selectedVendorId == nil {
+                    selectedVendorId = brandVendors.first?.id
                 }
             }
         }
     }
-    
+
     private func submitOrder() {
-        let newReq = Transfer(type: .vendor, orderId: "PO-\(Int.random(in: 1000...9999))", fromLocation: vendor, toLocation: "Warehouse", status: .pending, batchNumber: "NEW", items: [TransferItem(productName: sku, quantity: Int(quantity) ?? 1)], isAdminApproved: false)
+        let vendorName = selectedVendorName
+        let newReq = Transfer(
+            type: .vendor,
+            orderId: "PO-\(Int.random(in: 1000...9999))",
+            fromLocation: vendorName,
+            toLocation: "Warehouse",
+            status: .pending,
+            batchNumber: "NEW",
+            items: [TransferItem(productName: sku, quantity: Int(quantity) ?? 1)],
+            isAdminApproved: false
+        )
         InventoryEngine.shared.demands.append(newReq)
-        
         prefilledSKU = nil
         presentationMode.wrappedValue.dismiss()
     }

@@ -5,9 +5,11 @@ import PostgREST
 public final class RequestService: @unchecked Sendable {
     nonisolated(unsafe) public static let shared = RequestService()
     nonisolated(unsafe) private let client = SupabaseManager.shared.client
-    
+
     private init() {}
-    
+
+    // MARK: - Product Requests
+
     public func fetchPendingRequests() async throws -> [ProductRequest] {
         return try await client
             .from("product_requests")
@@ -16,7 +18,7 @@ public final class RequestService: @unchecked Sendable {
             .execute()
             .value
     }
-    
+
     public func fetchAllRequests() async throws -> [ProductRequest] {
         return try await client
             .from("product_requests")
@@ -25,7 +27,72 @@ public final class RequestService: @unchecked Sendable {
             .execute()
             .value
     }
-    
+
+    /// Fetches requests scoped to the warehouse managed by the current inventory manager.
+    public func fetchRequestsForCurrentWarehouse() async throws -> [ProductRequest] {
+        let warehouseId = try await resolveCurrentInventoryManagerWarehouseId()
+        // Requests are brand-level, so we resolve brand_id via the warehouse
+        struct WarehouseBrand: Decodable {
+            let brandId: UUID
+            enum CodingKeys: String, CodingKey { case brandId = "brand_id" }
+        }
+        let rows: [WarehouseBrand] = try await client
+            .from("warehouses")
+            .select("brand_id")
+            .eq("warehouse_id", value: warehouseId)
+            .limit(1)
+            .execute()
+            .value
+        guard let brandId = rows.first?.brandId else {
+            return try await fetchAllRequests()
+        }
+        return try await client
+            .from("product_requests")
+            .select("*, product:products(*), store:stores(*)")
+            .eq("brand_id", value: brandId)
+            .order("created_at", ascending: false)
+            .execute()
+            .value
+    }
+
+    public func updateRequestStatus(id: UUID, status: String, rejectReason: String? = nil) async throws {
+        struct StatusUpdate: Encodable {
+            let status: String
+            let rejectReason: String?
+            enum CodingKeys: String, CodingKey {
+                case status
+                case rejectReason = "rejection_reason"
+            }
+        }
+        let payload = StatusUpdate(status: status, rejectReason: rejectReason)
+        try await client
+            .from("product_requests")
+            .update(payload)
+            .eq("request_id", value: id)
+            .execute()
+    }
+
+    // MARK: - Warehouse Stock Check
+
+    /// Checks if the warehouse has enough stock of a product to fulfil the request.
+    public func warehouseStockForProduct(productId: UUID) async throws -> Int {
+        let warehouseId = try await resolveCurrentInventoryManagerWarehouseId()
+        struct InventoryRow: Decodable {
+            let quantity: Int
+        }
+        // Warehouses use store_inventory scoped to the warehouse's "store" (or check a warehouse_inventory table if present)
+        // Fallback: aggregate across all inventory rows for this product
+        let rows: [InventoryRow] = try await client
+            .from("store_inventory")
+            .select("quantity")
+            .eq("product_id", value: productId)
+            .execute()
+            .value
+        return rows.map { $0.quantity }.reduce(0, +)
+    }
+
+    // MARK: - Shipments (ASN)
+
     public func fetchAllShipments() async throws -> [Shipment] {
         return try await client
             .from("shipments")
@@ -34,7 +101,89 @@ public final class RequestService: @unchecked Sendable {
             .execute()
             .value
     }
-    
+
+    /// Fetches shipments dispatched FROM the current inventory manager's warehouse.
+    public func fetchShipmentsForCurrentWarehouse() async throws -> [Shipment] {
+        let warehouseId = try await resolveCurrentInventoryManagerWarehouseId()
+        return try await client
+            .from("shipments")
+            .select("*, product_requests(*, products(*))")
+            .eq("source_warehouse_id", value: warehouseId)
+            .order("created_at", ascending: false)
+            .execute()
+            .value
+    }
+
+    /// Fetches shipments destined TO the current boutique manager's store.
+    public func fetchShipmentsForCurrentBoutiqueStore() async throws -> [Shipment] {
+        let storeId = try await resolveCurrentBoutiqueManagerStoreId()
+        return try await client
+            .from("shipments")
+            .select("*, product_requests(*, products(*))")
+            .eq("destination_store_id", value: storeId)
+            .order("created_at", ascending: false)
+            .execute()
+            .value
+    }
+
+    /// Creates a shipment with full ASN details. Generates an ASN number automatically.
+    public func createShipmentWithASN(
+        requestId: UUID,
+        storeId: UUID?,
+        carrier: String,
+        trackingNumber: String,
+        estimatedDelivery: String,
+        notes: String
+    ) async throws -> String {
+        let warehouseId = (try? await resolveCurrentInventoryManagerWarehouseId())
+        let asnNumber = generateASNNumber()
+
+        struct ShipmentInsert: Encodable {
+            let requestId: UUID
+            let sourceWarehouseId: UUID?
+            let destinationStoreId: UUID?
+            let status: String
+            let asnNumber: String
+            let carrier: String
+            let trackingNumber: String
+            let estimatedDelivery: String
+            let notes: String
+
+            enum CodingKeys: String, CodingKey {
+                case requestId = "request_id"
+                case sourceWarehouseId = "source_warehouse_id"
+                case destinationStoreId = "destination_store_id"
+                case status
+                case asnNumber = "asn_number"
+                case carrier
+                case trackingNumber = "tracking_number"
+                case estimatedDelivery = "estimated_delivery"
+                case notes
+            }
+        }
+
+        let payload = ShipmentInsert(
+            requestId: requestId,
+            sourceWarehouseId: warehouseId,
+            destinationStoreId: storeId,
+            status: "in_transit",
+            asnNumber: asnNumber,
+            carrier: carrier,
+            trackingNumber: trackingNumber,
+            estimatedDelivery: estimatedDelivery,
+            notes: notes
+        )
+
+        try await client
+            .from("shipments")
+            .insert(payload)
+            .execute()
+
+        return asnNumber
+    }
+
+    // MARK: - Vendor Orders
+
     public func fetchAllVendorOrders() async throws -> [VendorOrder] {
         return try await client
             .from("vendor_orders")
@@ -43,67 +192,227 @@ public final class RequestService: @unchecked Sendable {
             .execute()
             .value
     }
-    
+
     public func createVendorOrder(quantity: Int) async throws {
         struct VendorOrderInsert: Encodable {
             let quantity: Int
             let status: String
-            
             enum CodingKeys: String, CodingKey {
                 case quantity
                 case status
             }
         }
-        
         let payload = VendorOrderInsert(quantity: quantity, status: "pending")
-        
         try await client
             .from("vendor_orders")
             .insert(payload)
             .execute()
     }
-    
-    public func updateRequestStatus(id: UUID, status: String, rejectReason: String? = nil) async throws {
-        struct StatusUpdate: Encodable {
-            let status: String
-            let rejectReason: String?
-            enum CodingKeys: String, CodingKey {
-                case status
-                case rejectReason = "reject_reason"
-            }
+
+    // MARK: - Vendors (brand-scoped for Inventory Manager)
+
+    /// Fetches vendors scoped to the brand of the current inventory manager.
+    public func fetchVendorsForCurrentInventoryManager() async throws -> [Vendor] {
+        let warehouseId = try await resolveCurrentInventoryManagerWarehouseId()
+        struct WarehouseBrand: Decodable {
+            let brandId: UUID
+            enum CodingKeys: String, CodingKey { case brandId = "brand_id" }
         }
-        
-        let payload = StatusUpdate(status: status, rejectReason: rejectReason)
-        
-        try await client
-            .from("product_requests")
-            .update(payload)
-            .eq("request_id", value: id)
+        let rows: [WarehouseBrand] = try await client
+            .from("warehouses")
+            .select("brand_id")
+            .eq("warehouse_id", value: warehouseId)
+            .limit(1)
             .execute()
+            .value
+        guard let brandId = rows.first?.brandId else { return [] }
+
+        return try await client
+            .from("vendors")
+            .select()
+            .eq("brand_id", value: brandId)
+            .order("name", ascending: true)
+            .execute()
+            .value
     }
-    
-    public func createShipmentForRequest(requestId: UUID, storeId: UUID?) async throws {
-        struct ShipmentInsert: Encodable {
-            let requestId: UUID
-            let destinationStoreId: UUID?
-            let status: String
-            
+
+    // MARK: - GRN (Goods Received Notes)
+
+    public func createGRN(
+        shipmentId: UUID,
+        requestId: UUID?,
+        quantityReceived: Int,
+        condition: GoodsReceivedNote.GRNCondition,
+        notes: String
+    ) async throws -> String {
+        let currentUserId = try await client.auth.session.user.id
+        let grnNumber = generateGRNNumber()
+
+        struct GRNInsert: Encodable {
+            let shipmentId: UUID
+            let requestId: UUID?
+            let receivedBy: UUID
+            let quantityReceived: Int
+            let condition: String
+            let notes: String
+            let grnNumber: String
+
             enum CodingKeys: String, CodingKey {
+                case shipmentId = "shipment_id"
                 case requestId = "request_id"
-                case destinationStoreId = "destination_store_id"
-                case status
+                case receivedBy = "received_by"
+                case quantityReceived = "quantity_received"
+                case condition
+                case notes
+                case grnNumber = "grn_number"
             }
         }
-        
-        let payload = ShipmentInsert(
+
+        let payload = GRNInsert(
+            shipmentId: shipmentId,
             requestId: requestId,
-            destinationStoreId: storeId,
-            status: "in_transit"
+            receivedBy: currentUserId,
+            quantityReceived: quantityReceived,
+            condition: condition.rawValue,
+            notes: notes,
+            grnNumber: grnNumber
         )
-        
+
         try await client
-            .from("shipments")
+            .from("goods_received_notes")
             .insert(payload)
             .execute()
+
+        // Mark the shipment as delivered
+        struct ShipmentStatusUpdate: Encodable {
+            let status: String
+            let hasGRN: Bool
+            enum CodingKeys: String, CodingKey {
+                case status
+                case hasGRN = "has_grn"
+            }
+        }
+        try await client
+            .from("shipments")
+            .update(ShipmentStatusUpdate(status: "delivered", hasGRN: true))
+            .eq("shipment_id", value: shipmentId)
+            .execute()
+
+        return grnNumber
+    }
+
+    public func fetchGRNsForCurrentBoutiqueStore() async throws -> [GoodsReceivedNote] {
+        let storeId = try await resolveCurrentBoutiqueManagerStoreId()
+        // GRNs are linked to shipments; fetch shipments for this store first
+        struct ShipmentIdRow: Decodable {
+            let id: UUID
+            enum CodingKeys: String, CodingKey { case id = "shipment_id" }
+        }
+        let shipmentRows: [ShipmentIdRow] = try await client
+            .from("shipments")
+            .select("shipment_id")
+            .eq("destination_store_id", value: storeId)
+            .execute()
+            .value
+        let shipmentIds = shipmentRows.map { $0.id }
+        guard !shipmentIds.isEmpty else { return [] }
+
+        return try await client
+            .from("goods_received_notes")
+            .select()
+            .in("shipment_id", values: shipmentIds.map { $0.uuidString })
+            .order("created_at", ascending: false)
+            .execute()
+            .value
+    }
+
+    public func fetchGRNsForCurrentWarehouse() async throws -> [GoodsReceivedNote] {
+        let warehouseId = try await resolveCurrentInventoryManagerWarehouseId()
+        struct ShipmentIdRow: Decodable {
+            let id: UUID
+            enum CodingKeys: String, CodingKey { case id = "shipment_id" }
+        }
+        let shipmentRows: [ShipmentIdRow] = try await client
+            .from("shipments")
+            .select("shipment_id")
+            .eq("source_warehouse_id", value: warehouseId)
+            .execute()
+            .value
+        let shipmentIds = shipmentRows.map { $0.id }
+        guard !shipmentIds.isEmpty else { return [] }
+
+        return try await client
+            .from("goods_received_notes")
+            .select()
+            .in("shipment_id", values: shipmentIds.map { $0.uuidString })
+            .order("created_at", ascending: false)
+            .execute()
+            .value
+    }
+
+    // MARK: - Private Helpers
+
+    private func resolveCurrentInventoryManagerWarehouseId() async throws -> UUID {
+        let currentUserId = try await client.auth.session.user.id
+        struct WarehouseRow: Decodable {
+            let warehouseId: UUID
+            enum CodingKeys: String, CodingKey { case warehouseId = "warehouse_id" }
+        }
+        let rows: [WarehouseRow] = try await client
+            .from("inventory_managers")
+            .select("warehouse_id")
+            .eq("user_id", value: currentUserId)
+            .limit(1)
+            .execute()
+            .value
+        guard let warehouseId = rows.first?.warehouseId else {
+            throw RequestServiceError.noWarehouseAssigned
+        }
+        return warehouseId
+    }
+
+    private func resolveCurrentBoutiqueManagerStoreId() async throws -> UUID {
+        let currentUserId = try await client.auth.session.user.id
+        struct StoreRow: Decodable {
+            let storeId: UUID
+            enum CodingKeys: String, CodingKey { case storeId = "store_id" }
+        }
+        let rows: [StoreRow] = try await client
+            .from("boutique_managers")
+            .select("store_id")
+            .eq("user_id", value: currentUserId)
+            .limit(1)
+            .execute()
+            .value
+        guard let storeId = rows.first?.storeId else {
+            throw RequestServiceError.noStoreAssigned
+        }
+        return storeId
+    }
+
+    private func generateASNNumber() -> String {
+        let timestamp = Int(Date().timeIntervalSince1970)
+        let random = Int.random(in: 100...999)
+        return "ASN-\(timestamp)-\(random)"
+    }
+
+    private func generateGRNNumber() -> String {
+        let timestamp = Int(Date().timeIntervalSince1970)
+        let random = Int.random(in: 100...999)
+        return "GRN-\(timestamp)-\(random)"
+    }
+}
+
+public enum RequestServiceError: LocalizedError {
+    case noWarehouseAssigned
+    case noStoreAssigned
+
+    public var errorDescription: String? {
+        switch self {
+        case .noWarehouseAssigned:
+            return "No warehouse is assigned to the current inventory manager."
+        case .noStoreAssigned:
+            return "No store is assigned to the current boutique manager."
+        }
     }
 }

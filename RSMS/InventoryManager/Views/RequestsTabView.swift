@@ -2,15 +2,25 @@ import SwiftUI
 
 public struct RequestsTabView: View {
     @StateObject private var viewModel = TransfersViewModel()
-    @State private var selectedSection: Int = 0 // 0: Incoming (Boutique), 1: Outgoing (Vendor)
-    
+    @State private var selectedSection: Int = 0  // 0: Incoming (Boutique), 1: Outgoing (Vendor)
+
+    // State for 2-step flow
+    @State private var requestPendingShipment: ProductRequest? = nil
+    @State private var showShipmentSheet = false
+    @State private var stockCheckResults: [UUID: Bool] = [:]   // requestId → canShip
+    @State private var rejectTargetRequest: ProductRequest? = nil
+    @State private var showRejectAlert = false
+    @State private var rejectReason: String = ""
+    @State private var lastASN: String? = nil
+    @State private var showASNBanner = false
+
     public init() {}
-    
+
     public var body: some View {
         NavigationView {
-             ZStack {
+            ZStack {
                 Color.appBackground.ignoresSafeArea()
-                
+
                 VStack(spacing: 0) {
                     Picker("Requests", selection: $selectedSection) {
                         Text("Incoming (Boutique)").tag(0)
@@ -18,7 +28,7 @@ public struct RequestsTabView: View {
                     }
                     .pickerStyle(SegmentedPickerStyle())
                     .padding()
-                    
+
                     if viewModel.isLoading {
                         Spacer()
                         ProgressView().progressViewStyle(CircularProgressViewStyle(tint: .appAccent))
@@ -29,23 +39,53 @@ public struct RequestsTabView: View {
                         outgoingRequestsSection()
                     }
                 }
-             }
-             .navigationTitle("Requests")
-             .navigationBarTitleDisplayMode(.inline)
-             .onAppear {
-                 Task {
-                     await viewModel.loadData()
-                 }
-             }
+
+                // ASN Banner overlay
+                if showASNBanner, let asn = lastASN {
+                    asnToastBanner(asn: asn)
+                }
+            }
+            .navigationTitle("Requests")
+            .navigationBarTitleDisplayMode(.inline)
+            .task { await viewModel.loadData() }
+            .refreshable { await viewModel.loadData() }
+            .sheet(item: $requestPendingShipment) { req in
+                ShipmentDetailsSheet(request: req) { asn in
+                    lastASN = asn
+                    withAnimation { showASNBanner = true }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
+                        withAnimation { showASNBanner = false }
+                    }
+                }
+            }
+            .alert("Reject Request", isPresented: $showRejectAlert) {
+                TextField("Reason (optional)", text: $rejectReason)
+                Button("Reject", role: .destructive) {
+                    if let req = rejectTargetRequest {
+                        Task {
+                            await viewModel.rejectRequest(
+                                request: req,
+                                reason: rejectReason.isEmpty ? "Rejected by Inventory Manager" : rejectReason
+                            )
+                            rejectReason = ""
+                        }
+                    }
+                }
+                Button("Cancel", role: .cancel) { rejectReason = "" }
+            } message: {
+                Text("Please provide a reason for rejection.")
+            }
         }
     }
-    
+
+    // MARK: - Incoming Requests Section
+
     @ViewBuilder
     private func incomingRequestsSection() -> some View {
-        let incoming = viewModel.pickLists // These are the boutique requests
+        let incoming = viewModel.pickLists
         if incoming.isEmpty {
             Spacer()
-            Text("No incoming requests from boutiques.").foregroundColor(.appSecondaryText)
+            EmptyStateView(icon: "tray", title: "No Requests", message: "No incoming requests from boutiques right now.")
             Spacer()
         } else {
             List {
@@ -59,90 +99,161 @@ public struct RequestsTabView: View {
                 }
             }
             .listStyle(.plain)
-            .refreshable {
-                await viewModel.loadData()
-            }
         }
     }
-    
+
     @ViewBuilder
     private func incomingRequestCard(request: ProductRequest) -> some View {
+        let canShip = stockCheckResults[request.id]
+        let stockQty = request.productId.flatMap { viewModel.stockAvailability[$0] }
+
         ReusableCardView {
             VStack(alignment: .leading, spacing: 10) {
+
+                // Header: REQ ID + Status badge
                 HStack {
                     Text("REQ-\(request.id.uuidString.prefix(5).uppercased())")
                         .font(.headline).foregroundColor(.appPrimaryText)
                     Spacer()
-                    if request.status == "approved" {
-                        Text("Approved").font(.caption.bold()).foregroundColor(.green)
-                    } else if request.status == "pending" {
-                        Text("Pending").font(.caption.bold()).foregroundColor(.orange)
-                    } else if request.status == "rejected" {
-                        Text("Rejected").font(.caption.bold()).foregroundColor(.red)
-                    } else {
-                        Text(request.status.capitalized).font(.caption.bold()).foregroundColor(.appSecondaryText)
-                    }
+                    statusBadge(for: request.status)
                 }
-                
-                Text("From: \(request.store?.name ?? "Unknown Boutique")").font(.subheadline)
-                
+
+                // ASN badge (if shipped)
+                if request.status == "approved" {
+                    HStack(spacing: 4) {
+                        Image(systemName: "shippingbox.fill")
+                            .font(.caption2)
+                        Text("Shipment In Transit")
+                            .font(.caption2.bold())
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(Color.blue)
+                    .clipShape(Capsule())
+                }
+
+                Text("From: \(request.store?.name ?? "Unknown Boutique")")
+                    .font(.subheadline)
+                    .foregroundColor(.appSecondaryText)
+
                 Divider()
-                
+
                 HStack {
-                    Text("\(request.requestedQuantity)x \(request.product?.name ?? "Unknown Product")")
+                    Text("\(request.requestedQuantity)× \(request.product?.name ?? "Unknown Product")")
                         .font(.body)
                     Spacer()
-                }
-                
-                Divider()
-                
-                HStack {
-                    if request.status == "rejected" {
-                        Text("Rejected: \(request.rejectionReason ?? "No reason given")")
-                            .font(.caption).foregroundColor(.red)
-                    } else if request.status == "approved" {
-                        Button(action: {}) {
-                            Text("Shipment In Transit")
+                    if let qty = stockQty {
+                        VStack(alignment: .trailing, spacing: 2) {
+                            Text("\(qty) in stock")
                                 .font(.caption.bold())
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 8)
-                                .background(Color.green.opacity(0.2))
-                                .foregroundColor(.green)
-                                .cornerRadius(8)
-                        }
-                    } else {
-                        Button(action: {
-                            Task { await viewModel.rejectRequest(request: request) }
-                        }) {
-                            Text("Reject").font(.caption.bold())
-                                .foregroundColor(.red)
-                                .padding(.horizontal, 16).padding(.vertical, 8)
-                                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.red, lineWidth: 1))
-                        }
-                        
-                        Button(action: {
-                            Task { await viewModel.acceptRequest(request: request) }
-                        }) {
-                            Text("Accept & Ship")
-                                .font(.caption.bold())
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 8)
-                                .background(Color.blue)
-                                .cornerRadius(8)
+                                .foregroundColor(qty >= request.requestedQuantity ? .green : .orange)
                         }
                     }
+                }
+
+                // Low stock warning
+                if let canShip = canShip, !canShip {
+                    HStack(spacing: 4) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.caption)
+                        Text("Insufficient stock — consider placing a vendor order first")
+                            .font(.caption)
+                    }
+                    .foregroundColor(.orange)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Color.orange.opacity(0.1))
+                    .cornerRadius(8)
+                }
+
+                Divider()
+
+                // Action buttons based on status
+                actionButtons(for: request, canShip: canShip)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func actionButtons(for request: ProductRequest, canShip: Bool?) -> some View {
+        switch request.status {
+        case "rejected":
+            HStack(spacing: 4) {
+                Image(systemName: "xmark.circle.fill").font(.caption)
+                Text("Rejected: \(request.rejectionReason ?? "No reason given")")
+                    .font(.caption)
+            }
+            .foregroundColor(.red)
+
+        case "approved":
+            // Approved but not yet shipped → show "Ship Now" button
+            Button {
+                requestPendingShipment = request
+            } label: {
+                Label("Ship Now", systemImage: "shippingbox.fill")
+                    .font(.caption.bold())
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                    .background(Color.blue)
+                    .foregroundColor(.white)
+                    .cornerRadius(8)
+            }
+
+        case "shipped":
+            HStack(spacing: 4) {
+                Image(systemName: "checkmark.seal.fill").font(.caption)
+                Text("Shipped")
+                    .font(.caption.bold())
+            }
+            .foregroundColor(.green)
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+        default: // "pending"
+            HStack(spacing: 8) {
+                // Reject button
+                Button {
+                    rejectTargetRequest = request
+                    showRejectAlert = true
+                } label: {
+                    Text("Reject")
+                        .font(.caption.bold())
+                        .foregroundColor(.red)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.red, lineWidth: 1))
+                }
+
+                // Accept button (Step 1)
+                Button {
+                    Task {
+                        // Run stock check first
+                        let hasSufficientStock = await viewModel.checkWarehouseStock(for: request)
+                        stockCheckResults[request.id] = hasSufficientStock
+                        // Accept the request regardless (IM makes the call)
+                        await viewModel.acceptRequest(request: request)
+                    }
+                } label: {
+                    Text("Accept")
+                        .font(.caption.bold())
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(canShip == false ? Color.orange : Color.green)
+                        .cornerRadius(8)
                 }
             }
         }
     }
-    
+
+    // MARK: - Outgoing Vendor Requests Section
+
     @ViewBuilder
     private func outgoingRequestsSection() -> some View {
         let outgoing = viewModel.vendorOrders
         if outgoing.isEmpty {
             Spacer()
-            Text("No outgoing vendor requests.").foregroundColor(.appSecondaryText)
+            EmptyStateView(icon: "shippingbox", title: "No Vendor Orders", message: "No outgoing vendor orders yet.")
             Spacer()
         } else {
             List {
@@ -150,18 +261,16 @@ public struct RequestsTabView: View {
                     ReusableCardView {
                         VStack(alignment: .leading, spacing: 8) {
                             HStack {
-                                Text("VO-\(order.id.uuidString.prefix(5).uppercased())").font(.headline).foregroundColor(.appPrimaryText)
+                                Text("VO-\(order.id.uuidString.prefix(5).uppercased())")
+                                    .font(.headline).foregroundColor(.appPrimaryText)
                                 Spacer()
-                                if let status = order.status, status == "approved" || status == "delivered" {
-                                    Text(status.capitalized).font(.caption.bold()).foregroundColor(.green)
-                                } else if let status = order.status {
-                                    Text(status.capitalized).font(.caption.bold()).foregroundColor(.orange)
-                                } else {
-                                    Text("Pending").font(.caption.bold()).foregroundColor(.orange)
-                                }
+                                Text(order.status?.capitalized ?? "Pending")
+                                    .font(.caption.bold())
+                                    .foregroundColor(order.status == "approved" || order.status == "delivered" ? .green : .orange)
                             }
-                            
-                            Text("Quantity: \(order.quantity ?? 0) units").font(.subheadline)
+                            Text("Quantity: \(order.quantity ?? 0) units")
+                                .font(.subheadline)
+                                .foregroundColor(.appSecondaryText)
                         }
                     }
                     .listRowInsets(EdgeInsets())
@@ -172,9 +281,59 @@ public struct RequestsTabView: View {
                 }
             }
             .listStyle(.plain)
-            .refreshable {
-                await viewModel.loadData()
-            }
         }
+    }
+
+    // MARK: - Helpers
+
+    @ViewBuilder
+    private func statusBadge(for status: String) -> some View {
+        let (color, label): (Color, String) = {
+            switch status {
+            case "approved": return (.blue, "Approved")
+            case "pending": return (.orange, "Pending")
+            case "rejected": return (.red, "Rejected")
+            case "shipped": return (.green, "Shipped")
+            default: return (.gray, status.capitalized)
+            }
+        }()
+
+        Text(label)
+            .font(.caption.bold())
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+            .background(color.opacity(0.15))
+            .foregroundColor(color)
+            .clipShape(Capsule())
+    }
+
+    @ViewBuilder
+    private func asnToastBanner(asn: String) -> some View {
+        VStack {
+            HStack(spacing: 10) {
+                Image(systemName: "checkmark.seal.fill")
+                    .foregroundColor(.green)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("ASN Generated")
+                        .font(.caption.bold())
+                        .foregroundColor(.appPrimaryText)
+                    Text(asn)
+                        .font(.system(.caption, design: .monospaced).bold())
+                        .foregroundColor(.appAccent)
+                }
+                Spacer()
+                Button { withAnimation { showASNBanner = false } } label: {
+                    Image(systemName: "xmark").font(.caption).foregroundColor(.appSecondaryText)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(Color.appCard)
+            .cornerRadius(14)
+            .shadow(radius: 10)
+            .padding(.horizontal, 16)
+            Spacer()
+        }
+        .padding(.top, 8)
     }
 }

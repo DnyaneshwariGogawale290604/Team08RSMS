@@ -30,6 +30,13 @@ public struct MainDashboardView: View {
                     Label("Inventory", systemImage: "cube.box")
                 }
             
+            NavigationView {
+                ShipmentTrackingView()
+            }
+            .tabItem {
+                Label("Shipments", systemImage: "shippingbox")
+            }
+            
             StaffManagementView()
                 .environmentObject(staffVM)
                 .tabItem {
