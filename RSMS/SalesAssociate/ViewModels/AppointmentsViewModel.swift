@@ -20,7 +20,15 @@ final class AppointmentsViewModel: ObservableObject {
         isLoading = true
         defer { isLoading = false }
         do {
-            let userId = try await resolveUserId()
+            let userId: UUID
+            do {
+                userId = try await resolveUserId()
+            } catch is CancellationError {
+                return  // SwiftUI cancelled the task — do not show error
+            } catch {
+                errorMessage = "Session expired. Please sign in again."
+                return
+            }
             let result: [Appointment] = try await client
                 .from("appointments")
                 .select("""
@@ -39,6 +47,8 @@ final class AppointmentsViewModel: ObservableObject {
                 .value
             appointments = result
             errorMessage = nil
+        } catch is CancellationError {
+            // SwiftUI cancelled the pull-to-refresh — silently ignore
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -225,6 +235,8 @@ final class AppointmentsViewModel: ObservableObject {
     // MARK: - Auth helper
     func resolveUserId() async throws -> UUID {
         let auth = client.auth
+        // Use session first; fall back to user() call.
+        // Both can throw CancellationError — let callers catch it.
         if let session = try? await auth.session { return session.user.id }
         return try await auth.user().id
     }

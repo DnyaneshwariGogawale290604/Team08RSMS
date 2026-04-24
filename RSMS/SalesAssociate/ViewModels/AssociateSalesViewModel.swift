@@ -34,6 +34,8 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
     @Published var cashTendered: Double = 0
     @Published var cashNote: String = ""
     @Published var paymentMethod: String = "upi"
+    /// Set to true after payment is confirmed (cash record saved or Razorpay verified)
+    @Published var paymentCompleted: Bool = false
 
     // MARK: UI State
     @Published var isLoading = false
@@ -85,6 +87,10 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
         selectedCustomer = nil
         currentOrder = nil
         currentTransaction = nil
+        paymentCompleted = false
+        paymentOrderId = nil
+        gatewayOrderId = nil
+        checkoutKey = nil
     }
 
     // MARK: - Fetch Customers
@@ -101,6 +107,8 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
                 ($0.phone?.contains(search) ?? false) ||
                 ($0.email?.localizedCaseInsensitiveContains(search) ?? false)
             }
+        } catch is CancellationError {
+            // Pull-to-refresh was cancelled by SwiftUI — silently ignore
         } catch {
             print(error)
             errorMessage = "Could not load customers."
@@ -321,26 +329,37 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
     }
 
     private func fetchBrandId() async throws -> String {
-        struct BrandRow: Decodable { let brand_id: UUID }
-
         let session = try await SupabaseManager.shared.client.auth.session
         let authId = session.user.id.uuidString
-        let rows: [BrandRow] = try await SupabaseManager.shared.client
-            .from("users")
-            .select("brand_id")
+
+        // Sales Associates don't have brand_id in users — resolve via store
+        struct SARow: Decodable { let store_id: UUID }
+        let saRows: [SARow] = try await SupabaseManager.shared.client
+            .from("sales_associates")
+            .select("store_id")
             .eq("user_id", value: authId)
             .limit(1)
             .execute()
             .value
 
-        guard let brandId = rows.first?.brand_id else {
-            throw NSError(
-                domain: "PaymentError",
-                code: 0,
-                userInfo: [NSLocalizedDescriptionKey: "Brand not found"]
-            )
+        guard let storeId = saRows.first?.store_id else {
+            throw NSError(domain: "PaymentError", code: 0,
+                userInfo: [NSLocalizedDescriptionKey: "Sales associate record not found"])
         }
 
+        struct StoreRow: Decodable { let brand_id: UUID }
+        let storeRows: [StoreRow] = try await SupabaseManager.shared.client
+            .from("stores")
+            .select("brand_id")
+            .eq("store_id", value: storeId.uuidString)
+            .limit(1)
+            .execute()
+            .value
+
+        guard let brandId = storeRows.first?.brand_id else {
+            throw NSError(domain: "PaymentError", code: 0,
+                userInfo: [NSLocalizedDescriptionKey: "Brand not found for this store"])
+        }
         return brandId.uuidString
     }
 
@@ -404,6 +423,15 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
                     ))
                     .execute()
 
+                // Mark the sales order as completed
+                struct OrderStatusUpdate: Encodable { let status: String }
+                try? await SupabaseManager.shared.client
+                    .from("sales_orders")
+                    .update(OrderStatusUpdate(status: "completed"))
+                    .eq("order_id", value: order.id.uuidString)
+                    .execute()
+
+                paymentCompleted = true
                 isLoading = false
                 showPayment = false
                 showReceipt = true
@@ -516,6 +544,17 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
                 )
             }
 
+            // Mark the sales order as completed in Supabase
+            if let order = currentOrder {
+                struct OrderStatusUpdate: Encodable { let status: String }
+                try? await SupabaseManager.shared.client
+                    .from("sales_orders")
+                    .update(OrderStatusUpdate(status: "completed"))
+                    .eq("order_id", value: order.id.uuidString)
+                    .execute()
+            }
+
+            paymentCompleted = true
             isLoading = false
             showPayment = false
             showReceipt = true
@@ -562,7 +601,17 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
 
             for await update in updates {
                 if let status = update.record["status"]?.stringValue, status == "paid" {
+                    // Mark order as completed in Supabase
+                    if let order = self.currentOrder {
+                        struct OrderStatusUpdate: Encodable { let status: String }
+                        try? await SupabaseManager.shared.client
+                            .from("sales_orders")
+                            .update(OrderStatusUpdate(status: "completed"))
+                            .eq("order_id", value: order.id.uuidString)
+                            .execute()
+                    }
                     await MainActor.run {
+                        self.paymentCompleted = true
                         self.showPayment = false
                         self.showReceipt = true
                     }

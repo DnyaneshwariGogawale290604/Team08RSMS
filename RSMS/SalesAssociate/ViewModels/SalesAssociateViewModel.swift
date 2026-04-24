@@ -28,12 +28,21 @@ final class SalesAssociateViewModel: ObservableObject {
         defer { isLoading = false }
 
         do {
-            let userId = try await client.auth.session.user.id
+            // Resolve auth — catch cancellation separately so it doesn't surface as an error
+            let userId: UUID
+            do {
+                userId = try await client.auth.session.user.id
+            } catch is CancellationError {
+                return  // silently abort — SwiftUI cancelled the task
+            } catch {
+                errorMessage = "Session expired. Please sign in again."
+                return
+            }
 
             async let ordersTask: [SAOrder] = client
                 .from("sales_orders")
                 .select("order_id,total_amount,status,created_at,customers(name)")
-                .eq("sales_associate_id", value: userId)
+                .eq("sales_associate_id", value: userId.uuidString)  // ← must be String
                 .order("created_at", ascending: false)
                 .limit(20)
                 .execute()
@@ -42,7 +51,7 @@ final class SalesAssociateViewModel: ObservableObject {
             async let ratingsTask: [SARating] = client
                 .from("sales_orders")
                 .select("order_id,rating_value")
-                .eq("sales_associate_id", value: userId)
+                .eq("sales_associate_id", value: userId.uuidString)  // ← must be String
                 .execute()
                 .value
 
@@ -61,15 +70,22 @@ final class SalesAssociateViewModel: ObservableObject {
                 .execute()
                 .value
 
-
-
-            let orders = try await ordersTask
-            let ratings = try await ratingsTask
-            let customers = try await customersTask
+            let orders: [SAOrder]
+            let ratings: [SARating]
+            let customers: [Customer]
+            do {
+                orders    = try await ordersTask
+                ratings   = try await ratingsTask
+                customers = try await customersTask
+            } catch is CancellationError {
+                return  // silently abort
+            }
 
             var fetchedCatalog: [Product] = []
             do {
                 fetchedCatalog = try await catalogTask
+            } catch is CancellationError {
+                return
             } catch {
                 print("Failed to fetch catalog on refresh: \(error)")
             }
@@ -94,6 +110,8 @@ final class SalesAssociateViewModel: ObservableObject {
             }
 
             errorMessage = nil
+        } catch is CancellationError {
+            // SwiftUI cancelled the task — do not surface to user
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -114,8 +132,10 @@ final class SalesAssociateViewModel: ObservableObject {
             customers = fetched
             customersCount = fetched.count
             errorMessage = nil
+        } catch is CancellationError {
+            // SwiftUI cancelled the pull-to-refresh task — do not clear data or show error
         } catch {
-            customers = []
+            // Keep existing customers visible; only update the error banner
             errorMessage = "Failed to load clients: \(error.localizedDescription)"
         }
     }

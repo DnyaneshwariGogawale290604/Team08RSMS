@@ -1305,12 +1305,14 @@ struct ReceiptSheet: View {
                             if let p = placed {
                                 Text("Order #\(p.orderNumber)").font(BrandFont.body(12)).foregroundStyle(Color.brandWarmGrey).kerning(1)
                             }
+                            let statusColor = vm.paymentCompleted ? Color(hex: "#4A7C59") : Color(hex: "#C8913A")
                             HStack(spacing: 6) {
-                                Circle().fill(Color(hex: "#C8913A")).frame(width: 6, height: 6)
-                                Text("Status: Pending").font(BrandFont.body(12, weight: .medium)).foregroundStyle(Color(hex: "#C8913A"))
+                                Circle().fill(statusColor).frame(width: 6, height: 6)
+                                Text(vm.paymentCompleted ? "Status: Completed" : "Status: Pending")
+                                    .font(BrandFont.body(12, weight: .medium)).foregroundStyle(statusColor)
                             }
                             .padding(.horizontal, 12).padding(.vertical, 5)
-                            .background(Color(hex: "#C8913A").opacity(0.1)).clipShape(Capsule())
+                            .background(statusColor.opacity(0.1)).clipShape(Capsule())
                         }
                         .padding(.top, Spacing.lg)
 
