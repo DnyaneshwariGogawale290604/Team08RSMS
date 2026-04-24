@@ -123,7 +123,7 @@ struct StaffRow: View {
                     Text(formatCurrency(sales))
                         .font(.caption)
                         .fontWeight(.semibold)
-                        .foregroundColor(Theme.deepAccent)
+                        .foregroundColor(CatalogTheme.deepAccent)
                 }
             }
 
