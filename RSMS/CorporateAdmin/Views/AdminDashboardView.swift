@@ -364,7 +364,7 @@ struct AdminDashboardView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Top Performing Stores")
                         .font(.system(size: 18, weight: .bold, design: .serif))
-                        .foregroundColor(CatalogTheme.primaryText)
+                        .foregroundColor(.primary)
                     Text("Ranked by sales completed this month")
                         .font(.caption)
                         .foregroundColor(CatalogTheme.secondaryText)
@@ -397,7 +397,7 @@ struct AdminDashboardView: View {
                     HStack(spacing: 12) {
                         Text("\(index + 1)")
                             .font(.subheadline.bold())
-                            .foregroundColor(index == 0 ? .orange : CatalogTheme.secondaryText)
+                            .foregroundColor(index == 0 ? CatalogTheme.deepAccent : CatalogTheme.secondaryText)
                             .frame(width: 24)
 
                         VStack(alignment: .leading, spacing: 2) {
@@ -413,13 +413,13 @@ struct AdminDashboardView: View {
 
                         Text(formatCurrency(item.totalSales))
                             .font(.subheadline.bold())
-                            .foregroundColor(.appAccent)
+                            .foregroundColor(CatalogTheme.primary)
                     }
                     .padding(.vertical, 8)
 
                     if index < min(4, dashboardViewModel.topPerformingStores.count - 1) {
                         Divider()
-                            .background(Color.appBorder.opacity(0.4))
+                            .background(CatalogTheme.divider)
                     }
                 }
             }

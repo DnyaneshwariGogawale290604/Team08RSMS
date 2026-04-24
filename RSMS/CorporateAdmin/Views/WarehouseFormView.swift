@@ -13,8 +13,18 @@ public struct WarehouseFormView: View {
     @State private var showingErrorAlert = false
     @State private var isSaving = false
     
-    public init(viewModel: WarehouseViewModel) {
+    private let editingWarehouse: Warehouse?
+
+    public init(viewModel: WarehouseViewModel, editingWarehouse: Warehouse? = nil) {
         self.viewModel = viewModel
+        self.editingWarehouse = editingWarehouse
+        
+        if let warehouse = editingWarehouse {
+            _name = State(initialValue: warehouse.name)
+            _location = State(initialValue: warehouse.location)
+            _address = State(initialValue: warehouse.address ?? "")
+            _isActive = State(initialValue: warehouse.status == "active")
+        }
     }
     
     public var body: some View {
@@ -95,7 +105,7 @@ public struct WarehouseFormView: View {
             
             Spacer()
             
-            Text("Add Warehouse")
+            Text(editingWarehouse == nil ? "Add Warehouse" : "Edit Warehouse")
                 .font(.system(size: 17, weight: .bold, design: .serif))
                 .foregroundColor(CatalogTheme.primaryText)
             
@@ -148,8 +158,8 @@ public struct WarehouseFormView: View {
         isSaving = true
         defer { isSaving = false }
         
-        let newWarehouse = Warehouse(
-            id: UUID(),
+        let finalWarehouse = Warehouse(
+            id: editingWarehouse?.id ?? UUID(),
             name: name,
             location: location,
             address: address.isEmpty ? nil : address,
@@ -157,7 +167,11 @@ public struct WarehouseFormView: View {
         )
         
         do {
-            try await WarehouseService.shared.createWarehouse(newWarehouse)
+            if let _ = editingWarehouse {
+                try await WarehouseService.shared.updateWarehouse(finalWarehouse)
+            } else {
+                try await WarehouseService.shared.createWarehouse(finalWarehouse)
+            }
             await viewModel.fetchWarehouses()
             dismiss()
         } catch {

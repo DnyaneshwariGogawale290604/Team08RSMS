@@ -83,7 +83,7 @@ public struct AddEditProductView: View {
                                 .foregroundColor(CatalogTheme.secondaryText)
                             Spacer()
                             Text(String(format: "₹%.2f", total))
-                                .foregroundColor(CatalogTheme.accent)
+                                .foregroundColor(.accentColor)
                                 .fontWeight(.bold)
                         }
                     }
@@ -92,13 +92,13 @@ public struct AddEditProductView: View {
 
                 Section {
                     Toggle("Active Status", isOn: $isActive)
-                        .tint(CatalogTheme.accent)
+                        .tint(.accentColor)
                 }
                 .listRowBackground(CatalogTheme.card)
             }
             .scrollContentBackground(.hidden)
             .background(CatalogTheme.background.ignoresSafeArea())
-            .tint(CatalogTheme.accent)
+            .tint(.accentColor)
             .navigationTitle(editingProduct == nil ? "Add Product" : "Edit Product")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -114,7 +114,7 @@ public struct AddEditProductView: View {
                         save()
                     }
                     .font(.body.weight(.semibold))
-                    .foregroundColor(name.isEmpty || price.isEmpty || isSaving ? CatalogTheme.secondaryText : CatalogTheme.accent)
+                    .foregroundColor(name.isEmpty || price.isEmpty || isSaving ? CatalogTheme.secondaryText : .accentColor)
                     .disabled(name.isEmpty || price.isEmpty || isSaving)
                 }
             }
@@ -175,7 +175,7 @@ public struct AddEditProductView: View {
                         .scaledToFill()
                 } placeholder: {
                     ProgressView()
-                        .tint(CatalogTheme.accent)
+                        .tint(.accentColor)
                 }
                 .frame(maxWidth: .infinity)
                 .frame(height: 180)
@@ -194,13 +194,13 @@ public struct AddEditProductView: View {
         VStack(spacing: 10) {
             Image(systemName: "photo.badge.plus")
                 .font(.system(size: 30, weight: .regular))
-                .foregroundColor(CatalogTheme.accent)
+                .foregroundColor(.accentColor)
             Text("Choose Product Image")
                 .font(.subheadline)
-                .foregroundColor(CatalogTheme.cardTextPrimary)
+                .foregroundColor(CatalogTheme.primaryText)
             Text("Photos will appear in the catalog cards.")
                 .font(.footnote)
-                .foregroundColor(CatalogTheme.cardTextSecondary)
+                .foregroundColor(CatalogTheme.secondaryText)
         }
     }
 

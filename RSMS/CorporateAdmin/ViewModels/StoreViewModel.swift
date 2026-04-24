@@ -58,4 +58,16 @@ public final class StoreViewModel: ObservableObject {
             errorMessage = error.localizedDescription
         }
     }
+
+    public func archiveStore(storeId: UUID) async {
+        isLoading = true
+        defer { isLoading = false }
+
+        do {
+            try await service.archiveStore(id: storeId)
+            await fetchStores()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
 }

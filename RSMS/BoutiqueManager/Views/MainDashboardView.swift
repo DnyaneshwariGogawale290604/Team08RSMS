@@ -94,7 +94,7 @@ public struct MainDashboardView: View {
                 Spacer()
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color.appBackground.ignoresSafeArea())
+            .background(CatalogTheme.background.ignoresSafeArea())
             .navigationTitle("Account")
             .navigationBarTitleDisplayMode(.large)
         }

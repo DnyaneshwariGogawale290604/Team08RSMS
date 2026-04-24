@@ -25,22 +25,22 @@ public struct BoutiqueLoginView: View {
                 VStack(spacing: 20) {
                     TextField("Email", text: $authVM.email)
                         .padding()
-                        .background(Color.appCard)
+                        .background(Color.white)
                         .clipShape(RoundedRectangle(cornerRadius: AppTheme.buttonCornerRadius, style: .continuous))
                         .overlay(
                             RoundedRectangle(cornerRadius: AppTheme.buttonCornerRadius, style: .continuous)
-                                .stroke(Color.appBorder, lineWidth: 1)
+                                .stroke(CatalogTheme.divider, lineWidth: 1)
                         )
                         .keyboardType(.emailAddress)
                         .autocapitalization(.none)
 
                     SecureField("Password", text: $authVM.password)
                         .padding()
-                        .background(Color.appCard)
+                        .background(Color.white)
                         .clipShape(RoundedRectangle(cornerRadius: AppTheme.buttonCornerRadius, style: .continuous))
                         .overlay(
                             RoundedRectangle(cornerRadius: AppTheme.buttonCornerRadius, style: .continuous)
-                                .stroke(Color.appBorder, lineWidth: 1)
+                                .stroke(CatalogTheme.divider, lineWidth: 1)
                         )
                 }
                 .padding(.horizontal, 40)
@@ -78,7 +78,7 @@ public struct BoutiqueLoginView: View {
                 Spacer()
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color.appBackground.ignoresSafeArea())
+            .background(CatalogTheme.background.ignoresSafeArea())
             .navigationBarHidden(true)
         }
     }

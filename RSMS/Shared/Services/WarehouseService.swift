@@ -88,6 +88,10 @@ public final class WarehouseService: @unchecked Sendable {
             .execute()
     }
 
+    public func archiveWarehouse(id: UUID) async throws {
+        try await updateWarehouseStatus(id: id, status: "inactive")
+    }
+
     public func updateWarehouseStatus(id: UUID, status: String) async throws {
         struct StatusUpdate: Encodable {
             let status: String
@@ -96,6 +100,28 @@ public final class WarehouseService: @unchecked Sendable {
             .from("warehouses")
             .update(StatusUpdate(status: status))
             .eq("warehouse_id", value: id)
+            .execute()
+    }
+
+    public func updateWarehouse(_ warehouse: Warehouse) async throws {
+        struct WarehouseUpdate: Encodable {
+            let name: String
+            let location: String
+            let address: String?
+            let status: String?
+        }
+        
+        let payload = WarehouseUpdate(
+            name: warehouse.name,
+            location: warehouse.location,
+            address: warehouse.address,
+            status: warehouse.status
+        )
+        
+        try await client
+            .from("warehouses")
+            .update(payload)
+            .eq("warehouse_id", value: warehouse.id)
             .execute()
     }
 

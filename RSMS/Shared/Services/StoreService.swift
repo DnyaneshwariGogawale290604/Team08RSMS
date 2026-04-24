@@ -85,6 +85,21 @@ public final class StoreService: @unchecked Sendable {
             .execute()
     }
 
+    public func archiveStore(id: UUID) async throws {
+        try await updateStoreStatus(id: id, status: "inactive")
+    }
+
+    public func updateStoreStatus(id: UUID, status: String) async throws {
+        struct StatusUpdate: Encodable {
+            let status: String
+        }
+        try await client
+            .from("stores")
+            .update(StatusUpdate(status: status))
+            .eq("store_id", value: id)
+            .execute()
+    }
+
     public func deleteStore(id: UUID) async throws {
         try await client
             .from("stores")
@@ -117,6 +132,32 @@ public final class StoreService: @unchecked Sendable {
         }
 
         return brandId
+    }
+
+    public func updateStore(_ store: Store) async throws {
+        struct StoreUpdate: Encodable {
+            let name: String
+            let location: String
+            let address: String?
+            let status: String?
+            let sales_target: Double?
+            let opening_date: String?
+        }
+
+        let payload = StoreUpdate(
+            name: store.name,
+            location: store.location,
+            address: store.address,
+            status: store.status,
+            sales_target: store.salesTarget,
+            opening_date: store.openingDate
+        )
+
+        try await client
+            .from("stores")
+            .update(payload)
+            .eq("store_id", value: store.id)
+            .execute()
     }
 
     public func fetchBoutiqueManagers(forStore storeId: UUID) async throws -> [BoutiqueManagerRecord] {

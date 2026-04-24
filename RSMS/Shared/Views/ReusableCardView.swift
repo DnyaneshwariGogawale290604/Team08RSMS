@@ -2,7 +2,7 @@ import SwiftUI
 
 public extension Color {
     static let appBackground = Color(hex: "#FAF9F6")
-    static let appCard = Color(hex: "#F1EDE6")
+    static let appCard = Color.white
     static let appBorder = Color(hex: "#E5E0D8")
     static let appSecondaryText = Color(hex: "#6F6F6F")
     static let appPrimaryText = Color(hex: "#1A1A1A")
@@ -64,16 +64,16 @@ public enum AppTheme {
 public extension View {
     func appCardChrome() -> some View {
         self
-            .background(Color.appCard)
-            .clipShape(RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous))
-            .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 3)
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: CatalogTheme.cardCornerRadius, style: .continuous))
+            .shadow(color: Color.black.opacity(0.03), radius: 8, x: 0, y: 3)
     }
 
     func appPrimaryButtonChrome(enabled: Bool = true) -> some View {
         self
-            .background(enabled ? Color.appAccent : Color.appAccent.opacity(0.45))
-            .foregroundColor(.white)
-            .clipShape(RoundedRectangle(cornerRadius: AppTheme.buttonCornerRadius, style: .continuous))
+            .background(enabled ? CatalogTheme.brandDeep : CatalogTheme.inactiveBadge)
+            .foregroundColor(enabled ? .white : CatalogTheme.inactiveBadgeText)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }
 
@@ -89,9 +89,9 @@ public struct AppPlusIconButton: View {
             .font(.system(size: size * 0.38, weight: .semibold))
             .foregroundColor(.white)
             .frame(width: size, height: size)
-            .background(Color.appAccent)
+            .background(CatalogTheme.brandDeep)
             .clipShape(Circle())
-            .shadow(color: Color.black.opacity(0.12), radius: 10, x: 0, y: 5)
+            .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
     }
 }
 
@@ -101,7 +101,7 @@ public struct AppCardChevron: View {
     public var body: some View {
         Image(systemName: "chevron.right")
             .font(.footnote.weight(.semibold))
-            .foregroundColor(.appSecondaryText)
+            .foregroundColor(CatalogTheme.secondaryText)
     }
 }
 
