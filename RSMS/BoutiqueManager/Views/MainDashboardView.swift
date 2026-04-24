@@ -74,27 +74,28 @@ public struct MainDashboardView: View {
 
                 Image(systemName: "building.2.crop.circle")
                     .font(.system(size: 72))
-                    .foregroundColor(Theme.textSecondary)
+                    .foregroundColor(.luxurySecondaryText)
 
                 Text("Boutique Manager")
-                    .font(.title3.weight(.semibold))
-                    .foregroundColor(Theme.textPrimary)
+                    .font(.system(size: 24, weight: .bold, design: .serif))
+                    .foregroundColor(.luxuryPrimaryText)
 
                 Button {
                     Task { await sessionViewModel.signOut() }
                 } label: {
                     Text("Logout")
-                        .font(.headline)
+                        .font(.system(size: 16, weight: .semibold, design: .default))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
-                        .appPrimaryButtonChrome()
+                        .luxuryPrimaryButtonChrome(cornerRadius: 16)
                 }
+                .buttonStyle(LuxuryPressStyle())
                 .padding(.horizontal, 24)
 
                 Spacer()
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color.appBackground.ignoresSafeArea())
+            .background(Color.luxuryBackground.ignoresSafeArea())
             .navigationTitle("Account")
             .navigationBarTitleDisplayMode(.large)
         }

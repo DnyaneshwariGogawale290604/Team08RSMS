@@ -15,6 +15,15 @@ public extension Color {
     static let brandWarmBlack = appPrimaryText
     static let brandAccent = appAccent
 
+    static let luxuryPrimary = Color(hex: "#6E5155")
+    static let luxuryDeepAccent = Color(hex: "#4A2E32")
+    static let luxuryBackground = Color(hex: "#F5EFEF")
+    static let luxurySurface = Color(hex: "#E6DADA")
+    static let luxuryPrimaryText = Color(hex: "#1A1A1A")
+    static let luxurySecondaryText = Color(hex: "#6B5B5B")
+    static let luxuryMutedText = Color(hex: "#9A8A8A")
+    static let luxuryDivider = Color.black.opacity(0.08)
+
     init(hex: String) {
         let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
         var int: UInt64 = 0
@@ -74,6 +83,24 @@ public extension View {
             .background(enabled ? Color.appAccent : Color.appAccent.opacity(0.45))
             .foregroundColor(.white)
             .clipShape(RoundedRectangle(cornerRadius: AppTheme.buttonCornerRadius, style: .continuous))
+    }
+
+    func luxuryPrimaryButtonChrome(enabled: Bool = true, cornerRadius: CGFloat = 16) -> some View {
+        self
+            .background(enabled ? Color.luxuryDeepAccent : Color.luxuryDeepAccent.opacity(0.45))
+            .foregroundColor(.white)
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
+    }
+}
+
+public struct LuxuryPressStyle: ButtonStyle {
+    public init() {}
+
+    public func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 1.02 : 1.0)
+            .animation(.easeInOut(duration: 0.25), value: configuration.isPressed)
     }
 }
 

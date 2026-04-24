@@ -9,92 +9,115 @@ public struct RegisterView: View {
     public var body: some View {
         ScrollView {
             VStack(spacing: 30) {
-                // Header
                 VStack(spacing: 10) {
                     Text("RSMS")
-                        .font(.system(size: 40, weight: .light, design: .serif))
-                        .foregroundColor(Theme.textPrimary)
-                    
+                        .font(.system(size: 40, weight: .bold, design: .serif))
+                        .foregroundColor(.luxuryPrimaryText)
+
                     Text("Register Boutique Manager")
-                        .font(.subheadline)
-                        .foregroundColor(Theme.textSecondary)
+                        .font(.system(size: 14, weight: .regular, design: .default))
+                        .foregroundColor(.luxurySecondaryText)
                         .tracking(1.5)
                 }
                 .padding(.top, 40)
                 .padding(.bottom, 20)
-                
-                // Input Fields
+
                 VStack(spacing: 16) {
-                    TextField("Full Name", text: $authVM.name)
+                    TextField(
+                        "",
+                        text: $authVM.name,
+                        prompt: Text("Full Name").foregroundColor(.luxuryMutedText)
+                    )
                         .padding()
-                        .background(Color.appCard)
-                        .clipShape(RoundedRectangle(cornerRadius: AppTheme.buttonCornerRadius, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: AppTheme.buttonCornerRadius, style: .continuous).stroke(Color.appBorder, lineWidth: 1))
+                        .foregroundColor(.luxuryPrimaryText)
+                        .background(Color.luxurySurface)
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color.luxuryDivider, lineWidth: 0.8))
                         .autocapitalization(.words)
-                    
-                    TextField("Email", text: $authVM.email)
+
+                    TextField(
+                        "",
+                        text: $authVM.email,
+                        prompt: Text("Email").foregroundColor(.luxuryMutedText)
+                    )
                         .padding()
-                        .background(Color.appCard)
-                        .clipShape(RoundedRectangle(cornerRadius: AppTheme.buttonCornerRadius, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: AppTheme.buttonCornerRadius, style: .continuous).stroke(Color.appBorder, lineWidth: 1))
+                        .foregroundColor(.luxuryPrimaryText)
+                        .background(Color.luxurySurface)
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color.luxuryDivider, lineWidth: 0.8))
                         .keyboardType(.emailAddress)
                         .autocapitalization(.none)
-                        
-                    TextField("Phone Number (Optional)", text: $authVM.phone)
+
+                    TextField(
+                        "",
+                        text: $authVM.phone,
+                        prompt: Text("Phone Number (Optional)").foregroundColor(.luxuryMutedText)
+                    )
                         .padding()
-                        .background(Color.appCard)
-                        .clipShape(RoundedRectangle(cornerRadius: AppTheme.buttonCornerRadius, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: AppTheme.buttonCornerRadius, style: .continuous).stroke(Color.appBorder, lineWidth: 1))
+                        .foregroundColor(.luxuryPrimaryText)
+                        .background(Color.luxurySurface)
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color.luxuryDivider, lineWidth: 0.8))
                         .keyboardType(.phonePad)
-                    
-                    SecureField("Password", text: $authVM.password)
+
+                    SecureField(
+                        "",
+                        text: $authVM.password,
+                        prompt: Text("Password").foregroundColor(.luxuryMutedText)
+                    )
                         .padding()
-                        .background(Color.appCard)
-                        .clipShape(RoundedRectangle(cornerRadius: AppTheme.buttonCornerRadius, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: AppTheme.buttonCornerRadius, style: .continuous).stroke(Color.appBorder, lineWidth: 1))
+                        .foregroundColor(.luxuryPrimaryText)
+                        .background(Color.luxurySurface)
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color.luxuryDivider, lineWidth: 0.8))
                 }
                 .padding(.horizontal, 40)
-                
+
                 if let error = authVM.errorMessage {
                     Text(error)
-                        .foregroundColor(Theme.error)
+                        .foregroundColor(.luxuryDeepAccent)
                         .font(.caption)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 40)
                 }
-                
-                // Register Button
+
                 Button(action: {
                     authVM.register()
                 }) {
                     if authVM.isLoading {
                         ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: Theme.offWhite))
-                            .primaryButtonStyle()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .luxuryPrimaryButtonChrome(cornerRadius: 16)
                     } else {
                         Text("CREATE ACCOUNT")
                             .tracking(1.5)
-                            .primaryButtonStyle()
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .luxuryPrimaryButtonChrome(cornerRadius: 16)
                     }
                 }
+                .buttonStyle(LuxuryPressStyle())
                 .padding(.horizontal, 40)
                 .padding(.top, 10)
                 .disabled(authVM.isLoading)
-                
-                // Back to Login
+
                 Button(action: {
                     presentationMode.wrappedValue.dismiss()
                 }) {
                     Text("Already have an account? Sign In")
                         .font(.caption)
-                        .foregroundColor(Theme.textSecondary)
+                        .foregroundColor(.luxurySecondaryText)
                 }
                 .padding(.top, 20)
                 
                 Spacer(minLength: 40)
             }
         }
-        .background(Color.appBackground.ignoresSafeArea())
+        .background(Color.luxuryBackground.ignoresSafeArea())
         .navigationBarHidden(true)
     }
 }

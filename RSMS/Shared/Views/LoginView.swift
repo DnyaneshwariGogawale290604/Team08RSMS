@@ -9,56 +9,70 @@ public struct LoginView: View {
 
     public var body: some View {
         ZStack {
-            Color.appBackground.ignoresSafeArea()
+            Color.luxuryBackground.ignoresSafeArea()
 
             VStack(spacing: 30) {
                 Spacer()
 
-                // Logo/Header
                 VStack(spacing: 12) {
                     Image(systemName: "cube.box.fill")
                         .font(.system(size: 60))
-                        .foregroundColor(.appAccent)
+                        .foregroundColor(.luxuryPrimary)
                     Text("RSMS")
-                        .font(.largeTitle.bold())
-                        .foregroundColor(.appPrimaryText)
+                        .font(.system(size: 38, weight: .bold, design: .serif))
+                        .foregroundColor(.luxuryPrimaryText)
                     Text("Retail Store Management System")
-                        .font(.subheadline)
-                        .foregroundColor(.appSecondaryText)
+                        .font(.system(size: 14, weight: .regular, design: .default))
+                        .foregroundColor(.luxurySecondaryText)
+                        .tracking(0.5)
                         .multilineTextAlignment(.center)
                 }
 
-                // Form
                 VStack(spacing: 16) {
                     if viewModel.mfaRequired {
                         Text("A 6-digit verification code has been sent to your email. Please enter it below.")
                             .font(.subheadline)
-                            .foregroundColor(.appSecondaryText)
+                            .foregroundColor(.luxurySecondaryText)
                             .multilineTextAlignment(.center)
                             .padding(.bottom, 8)
 
-                        TextField("Enter 6-digit OTP", text: $viewModel.otpCode)
+                        TextField(
+                            "",
+                            text: $viewModel.otpCode,
+                            prompt: Text("Enter 6-digit OTP").foregroundColor(.luxuryMutedText)
+                        )
                             .keyboardType(.numberPad)
                             .autocapitalization(.none)
                             .disableAutocorrection(true)
+                            .foregroundColor(.luxuryPrimaryText)
                             .padding()
-                            .background(Color.appCard)
-                            .clipShape(RoundedRectangle(cornerRadius: AppTheme.buttonCornerRadius, style: .continuous))
-                            .overlay(RoundedRectangle(cornerRadius: AppTheme.buttonCornerRadius, style: .continuous).stroke(Color.appBorder, lineWidth: 1))
+                            .background(Color.luxurySurface)
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color.luxuryDivider, lineWidth: 0.8))
                     } else {
-                        TextField("Email Address", text: $viewModel.email)
+                        TextField(
+                            "",
+                            text: $viewModel.email,
+                            prompt: Text("Email Address").foregroundColor(.luxuryMutedText)
+                        )
                             .keyboardType(.emailAddress)
                             .autocapitalization(.none)
+                            .foregroundColor(.luxuryPrimaryText)
                             .padding()
-                            .background(Color.appCard)
-                            .clipShape(RoundedRectangle(cornerRadius: AppTheme.buttonCornerRadius, style: .continuous))
-                            .overlay(RoundedRectangle(cornerRadius: AppTheme.buttonCornerRadius, style: .continuous).stroke(Color.appBorder, lineWidth: 1))
+                            .background(Color.luxurySurface)
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color.luxuryDivider, lineWidth: 0.8))
 
-                        SecureField("Password", text: $viewModel.password)
+                        SecureField(
+                            "",
+                            text: $viewModel.password,
+                            prompt: Text("Password").foregroundColor(.luxuryMutedText)
+                        )
+                            .foregroundColor(.luxuryPrimaryText)
                             .padding()
-                            .background(Color.appCard)
-                            .clipShape(RoundedRectangle(cornerRadius: AppTheme.buttonCornerRadius, style: .continuous))
-                            .overlay(RoundedRectangle(cornerRadius: AppTheme.buttonCornerRadius, style: .continuous).stroke(Color.appBorder, lineWidth: 1))
+                            .background(Color.luxurySurface)
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color.luxuryDivider, lineWidth: 0.8))
                     }
                 }
                 .padding(.horizontal, 32)
@@ -66,12 +80,11 @@ public struct LoginView: View {
                 if let error = viewModel.errorMessage {
                     Text(error)
                         .font(.footnote)
-                        .foregroundColor(.red)
+                        .foregroundColor(.luxuryDeepAccent)
                         .padding(.horizontal, 32)
                         .multilineTextAlignment(.center)
                 }
 
-                // Login Button
                 Button(action: {
                     Task {
                         if viewModel.mfaRequired {
@@ -85,32 +98,37 @@ public struct LoginView: View {
                         if viewModel.isLoading {
                             ProgressView().progressViewStyle(CircularProgressViewStyle(tint: .white))
                         } else {
-                            Text(viewModel.mfaRequired ? "Verify OTP" : "Log In").font(.headline)
+                            Text(viewModel.mfaRequired ? "Verify OTP" : "Log In")
+                                .font(.system(size: 16, weight: .semibold, design: .default))
+                                .tracking(0.3)
                         }
                     }
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .appPrimaryButtonChrome(enabled: !viewModel.isLoading && 
-                                          (viewModel.mfaRequired ? !viewModel.otpCode.isEmpty : (!viewModel.email.isEmpty && !viewModel.password.isEmpty)))
+                    .luxuryPrimaryButtonChrome(
+                        enabled: !viewModel.isLoading &&
+                            (viewModel.mfaRequired ? !viewModel.otpCode.isEmpty : (!viewModel.email.isEmpty && !viewModel.password.isEmpty)),
+                        cornerRadius: 16
+                    )
                 }
+                .buttonStyle(LuxuryPressStyle())
                 .disabled(viewModel.isLoading || 
                          (viewModel.mfaRequired ? viewModel.otpCode.isEmpty : (viewModel.email.isEmpty || viewModel.password.isEmpty)))
                 .padding(.horizontal, 32)
-                
-                // Dev Bypass Button
+
                 if !viewModel.mfaRequired {
                     Button(action: {
                         Task { await viewModel.devBypassSignIn() }
                     }) {
                         Text("Dev Bypass (No OTP)")
-                            .font(.headline)
+                            .font(.system(size: 16, weight: .semibold, design: .default))
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .background(Color.appCard)
-                            .foregroundColor(.appAccent)
-                            .clipShape(RoundedRectangle(cornerRadius: AppTheme.buttonCornerRadius, style: .continuous))
-                            .overlay(RoundedRectangle(cornerRadius: AppTheme.buttonCornerRadius, style: .continuous).stroke(Color.appAccent, lineWidth: 1))
+                            .background(Color.luxurySurface)
+                            .foregroundColor(.luxuryDeepAccent)
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     }
+                    .buttonStyle(LuxuryPressStyle())
                     .disabled(viewModel.isLoading || viewModel.email.isEmpty || viewModel.password.isEmpty)
                     .padding(.horizontal, 32)
                     .padding(.top, -8)
@@ -121,7 +139,7 @@ public struct LoginView: View {
                         Task { await viewModel.signOut() }
                     }
                     .font(.footnote)
-                    .foregroundColor(.appSecondaryText)
+                    .foregroundColor(.luxurySecondaryText)
                     .padding(.top, 8)
                 }
 
