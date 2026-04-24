@@ -183,6 +183,10 @@ public final class ProductService: @unchecked Sendable {
             .execute()
     }
 
+    public func archiveProduct(id: UUID) async throws {
+        try await toggleProductActiveStatus(productId: id, isActive: false)
+    }
+
     public func toggleProductActiveStatus(productId: UUID, isActive: Bool) async throws {
         let currentBrandId = try await resolveCurrentUserBrandIdOrThrow()
         let productBrandId = try await fetchProductBrandId(productId: productId)

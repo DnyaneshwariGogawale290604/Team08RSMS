@@ -1,10 +1,10 @@
 import SwiftUI
 
 public extension Color {
-    static let appBackground = Color(hex: "#F5EFEF")
-    static let appCard = Color(hex: "#FFFFFF")
-    static let appBorder = Color.black.opacity(0.08)
-    static let appSecondaryText = Color(hex: "#6B5B5B")
+    static let appBackground = Color(hex: "#FAF9F6")
+    static let appCard = Color.white
+    static let appBorder = Color(hex: "#E5E0D8")
+    static let appSecondaryText = Color(hex: "#6F6F6F")
     static let appPrimaryText = Color(hex: "#1A1A1A")
     static let appAccent = Color(hex: "#4A2E32")
 
@@ -73,16 +73,16 @@ public enum AppTheme {
 public extension View {
     func appCardChrome() -> some View {
         self
-            .background(Color.appCard)
-            .clipShape(RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous))
-            .shadow(color: Color.black.opacity(0.02), radius: 6, x: 0, y: 2) // Softened shadow
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: CatalogTheme.cardCornerRadius, style: .continuous))
+            .shadow(color: Color.black.opacity(0.03), radius: 8, x: 0, y: 3)
     }
 
     func appPrimaryButtonChrome(enabled: Bool = true) -> some View {
         self
-            .background(enabled ? Color.appAccent : Color.appAccent.opacity(0.45))
-            .foregroundColor(.white)
-            .clipShape(RoundedRectangle(cornerRadius: AppTheme.buttonCornerRadius, style: .continuous))
+            .background(enabled ? CatalogTheme.brandDeep : CatalogTheme.inactiveBadge)
+            .foregroundColor(enabled ? .white : CatalogTheme.inactiveBadgeText)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     func luxuryPrimaryButtonChrome(enabled: Bool = true, cornerRadius: CGFloat = 16) -> some View {
@@ -116,9 +116,9 @@ public struct AppPlusIconButton: View {
             .font(.system(size: size * 0.38, weight: .semibold))
             .foregroundColor(.white)
             .frame(width: size, height: size)
-            .background(Color.appAccent)
+            .background(CatalogTheme.brandDeep)
             .clipShape(Circle())
-            .shadow(color: Color.black.opacity(0.12), radius: 10, x: 0, y: 5)
+            .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
     }
 }
 
@@ -128,7 +128,7 @@ public struct AppCardChevron: View {
     public var body: some View {
         Image(systemName: "chevron.right")
             .font(.footnote.weight(.semibold))
-            .foregroundColor(.appSecondaryText)
+            .foregroundColor(CatalogTheme.secondaryText)
     }
 }
 

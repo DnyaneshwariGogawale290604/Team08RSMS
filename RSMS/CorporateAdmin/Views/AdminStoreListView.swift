@@ -3,49 +3,119 @@ import SwiftUI
 public struct AdminStoreListView: View {
     @ObservedObject var viewModel: StoreViewModel
     @Binding var showingAddStore: Bool
-    @State private var storePendingDelete: Store?
+    @State private var storePendingArchive: Store?
+    @State private var selectedFilter: StoreFilter = .all
+
+    enum StoreFilter: String, CaseIterable {
+        case all = "All"
+        case active = "Active"
+        case inactive = "Inactive"
+        case maintenance = "Maintenance"
+    }
     
+    private var filteredStores: [Store] {
+        let activeStores = viewModel.stores.filter { ($0.status ?? "active").lowercased() != "inactive" }
+        switch selectedFilter {
+        case .all: return activeStores
+        case .active: return activeStores.filter { ($0.status ?? "active").lowercased() == "active" }
+        case .inactive: return activeStores.filter { ($0.status ?? "").lowercased() == "inactive" }
+        case .maintenance: return activeStores.filter { ($0.status ?? "").lowercased().contains("maintenance") }
+        }
+    }
+
+    private var archivedStores: [Store] {
+        viewModel.stores.filter { ($0.status ?? "").lowercased() == "inactive" }
+    }
+
     public var body: some View {
         ZStack {
+            CatalogTheme.background.ignoresSafeArea()
+            
             if viewModel.isLoading && viewModel.stores.isEmpty {
                 LoadingView(message: "Loading Stores...")
-            } else if viewModel.stores.isEmpty {
-                EmptyStateView(
-                    icon: "storefront",
-                    title: "No Stores",
-                    message: "Your stores will appear here."
-                )
             } else {
-                ScrollView(showsIndicators: false) {
-                    LazyVStack(spacing: 18) {
-                        ForEach(viewModel.stores) { store in
-                            AdminStoreCard(
-                                viewModel: viewModel,
-                                store: store,
-                                onDelete: { storePendingDelete = store }
-                            )
+                VStack(spacing: 0) {
+                    filterChips
+                    
+                    if viewModel.stores.isEmpty {
+                        EmptyStateView(
+                            icon: "storefront",
+                            title: "No Stores",
+                            message: "Your stores will appear here."
+                        )
+                    } else {
+                        ScrollView(showsIndicators: false) {
+                            LazyVStack(spacing: 24) {
+                                // Active/Filtered Section
+                                ForEach(filteredStores) { store in
+                                    AdminStoreCard(
+                                        viewModel: viewModel,
+                                        store: store,
+                                        onArchive: { storePendingArchive = store }
+                                    )
+                                }
+
+                                // Archived Section
+                                if !archivedStores.isEmpty && selectedFilter == .all {
+                                    VStack(alignment: .leading, spacing: 16) {
+                                        Text("Archived Stores")
+                                            .font(.system(size: 18, weight: .bold, design: .serif))
+                                            .foregroundColor(CatalogTheme.secondaryText)
+                                            .padding(.horizontal, 4)
+                                        
+                                        ForEach(archivedStores) { store in
+                                            AdminStoreCard(
+                                                viewModel: viewModel,
+                                                store: store,
+                                                onArchive: { storePendingArchive = store }
+                                            )
+                                            .opacity(0.7)
+                                        }
+                                    }
+                                    .padding(.top, 10)
+                                }
+                            }
+                            .padding(.horizontal, 20)
+                            .padding(.top, 12)
+                            .padding(.bottom, 100)
                         }
+                        .refreshable { await viewModel.fetchStores() }
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 8)
-                    .padding(.bottom, 100)
                 }
-                .background(CatalogTheme.background)
-                .refreshable { await viewModel.fetchStores() }
             }
         }
-        .alert("Delete Store?", isPresented: Binding(
-            get: { storePendingDelete != nil },
-            set: { if !$0 { storePendingDelete = nil } }
+        .alert("Archive Store?", isPresented: Binding(
+            get: { storePendingArchive != nil },
+            set: { if !$0 { storePendingArchive = nil } }
         )) {
-            Button("Cancel", role: .cancel) { storePendingDelete = nil }
-            Button("Delete", role: .destructive) {
-                guard let storeId = storePendingDelete?.id else { return }
-                storePendingDelete = nil
-                Task { await viewModel.deleteStore(storeId: storeId) }
+            Button("Cancel", role: .cancel) { storePendingArchive = nil }
+            Button("Archive", role: .destructive) {
+                guard let storeId = storePendingArchive?.id else { return }
+                storePendingArchive = nil
+                Task { await viewModel.archiveStore(storeId: storeId) }
             }
         } message: {
-            Text("This will permanently remove the store.")
+            Text("This will mark the store as inactive.")
+        }
+    }
+
+    private var filterChips: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 12) {
+                ForEach(StoreFilter.allCases, id: \.self) { filter in
+                    Button(action: { selectedFilter = filter }) {
+                        Text(filter.rawValue)
+                            .font(.system(size: 14, weight: .semibold))
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 10)
+                            .background(selectedFilter == filter ? CatalogTheme.primary : CatalogTheme.surface)
+                            .foregroundColor(selectedFilter == filter ? .white : CatalogTheme.deepAccent)
+                            .clipShape(Capsule())
+                    }
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
         }
     }
 }
@@ -53,116 +123,74 @@ public struct AdminStoreListView: View {
 public struct AdminStoreCard: View {
     @ObservedObject var viewModel: StoreViewModel
     public let store: Store
-    public let onDelete: () -> Void
+    public let onArchive: () -> Void
     
-    public init(viewModel: StoreViewModel, store: Store, onDelete: @escaping () -> Void) {
+    public init(viewModel: StoreViewModel, store: Store, onArchive: @escaping () -> Void) {
         self.viewModel = viewModel
         self.store = store
-        self.onDelete = onDelete
+        self.onArchive = onArchive
     }
     
     public var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // Header row
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(store.name)
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(CatalogTheme.primaryText)
-                    Text(store.location)
-                        .font(.subheadline)
-                        .foregroundColor(CatalogTheme.secondaryText)
-                }
-                Spacer()
-                statusBadge(for: store.status ?? "active")
-            }
-
-            Rectangle()
-                .fill(CatalogTheme.divider)
-                .frame(height: 1)
-
-            // Sales metrics
-            VStack(alignment: .leading, spacing: 12) {
-                let performance = viewModel.storePerformance[store.id] ?? 0.0
-
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Sales Target")
-                            .font(.caption)
-                            .foregroundColor(CatalogTheme.mutedText)
-                        Text(salesTargetText)
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundColor(CatalogTheme.deepAccent)
+        NavigationLink(destination: StoreDetailView(viewModel: viewModel, store: store)) {
+            VStack(alignment: .leading, spacing: 16) {
+                // Header row
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(store.name)
+                            .font(.system(size: 17, weight: .bold, design: .serif))
+                            .foregroundColor(CatalogTheme.primaryText)
+                        Text(store.location)
+                            .font(.subheadline)
+                            .foregroundColor(CatalogTheme.secondaryText)
                     }
                     Spacer()
-                    VStack(alignment: .trailing, spacing: 4) {
-                        Text("Performance")
-                            .font(.caption)
+                    HStack(spacing: 12) {
+                        statusBadge(for: store.status ?? "active")
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(CatalogTheme.mutedText)
+                    }
+                }
+
+                Rectangle()
+                    .fill(CatalogTheme.divider)
+                    .frame(height: 1)
+
+                // Sales metrics
+                HStack(alignment: .center) {
+                    let performance = viewModel.storePerformance[store.id] ?? 0.0
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Sales Performance")
+                            .font(.system(size: 12, weight: .medium))
                             .foregroundColor(CatalogTheme.mutedText)
                         Text(String(format: "₹%.2f", performance))
-                            .font(.subheadline.weight(.bold))
+                            .font(.system(size: 16, weight: .bold))
                             .foregroundColor(CatalogTheme.primary)
                     }
-                }
-
-                if let target = store.salesTarget, target > 0 {
-                    let progress = min(1.0, performance / target)
-                    VStack(alignment: .leading, spacing: 6) {
-                        GeometryReader { geo in
-                            ZStack(alignment: .leading) {
-                                RoundedRectangle(cornerRadius: 3)
-                                    .fill(CatalogTheme.surface)
-                                    .frame(height: 6)
-                                RoundedRectangle(cornerRadius: 3)
-                                    .fill(CatalogTheme.primary)
-                                    .frame(width: geo.size.width * progress, height: 6)
-                            }
+                    
+                    Spacer()
+                    
+                    if let target = store.salesTarget, target > 0 {
+                        let progress = min(1.0, performance / target)
+                        VStack(alignment: .trailing, spacing: 4) {
+                            Text("Achievement")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(CatalogTheme.mutedText)
+                            Text(String(format: "%.1f%%", progress * 100))
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundColor(CatalogTheme.deepAccent)
                         }
-                        .frame(height: 6)
-
-                        Text(String(format: "%.1f%% achieved", progress * 100))
-                            .font(.system(size: 10, weight: .medium))
-                            .foregroundColor(CatalogTheme.mutedText)
-                            .frame(maxWidth: .infinity, alignment: .trailing)
                     }
                 }
             }
-
-            // Action buttons
-            HStack(spacing: 12) {
-                NavigationLink(destination: StoreDetailView(viewModel: viewModel, store: store)) {
-                    Text("Manage")
-                        .font(.subheadline.weight(.semibold))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .foregroundColor(.white)
-                        .background(CatalogTheme.deepAccent)
-                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                }
-                .buttonStyle(.plain)
-
-                Button(action: onDelete) {
-                    Text("Delete")
-                        .font(.subheadline.weight(.semibold))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .foregroundColor(CatalogTheme.deepAccent)
-                        .background(CatalogTheme.surface)
-                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                }
-                .buttonStyle(.plain)
-            }
+            .padding(20)
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: CatalogTheme.cardCornerRadius, style: .continuous))
+            .shadow(color: Color.black.opacity(0.03), radius: 8, x: 0, y: 3)
         }
-        .padding(18)
-        .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(Color.white)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(CatalogTheme.divider, lineWidth: 0.8)
-        )
-        .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 3)
+        .buttonStyle(PlainButtonStyle())
     }
 
     private var salesTargetText: String {

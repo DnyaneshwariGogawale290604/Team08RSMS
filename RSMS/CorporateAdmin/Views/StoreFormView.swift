@@ -25,8 +25,32 @@ public struct StoreFormView: View {
     private let inventoryService = StoreInventoryService.shared
     private let productService = ProductService.shared
 
-    public init(viewModel: StoreViewModel) {
+    private let editingStore: Store?
+
+    public init(viewModel: StoreViewModel, editingStore: Store? = nil) {
         self.viewModel = viewModel
+        self.editingStore = editingStore
+        
+        if let store = editingStore {
+            _generatedStoreId = State(initialValue: store.id)
+            _name = State(initialValue: store.name)
+            _location = State(initialValue: store.location)
+            _address = State(initialValue: store.address ?? "")
+            _salesTargetStr = State(initialValue: store.salesTarget != nil ? String(format: "%.0f", store.salesTarget!) : "")
+            // Parse openingDate (stored as String in format yyyy-MM-dd) into Date
+            if let openingDateStr = store.openingDate {
+                let formatter = DateFormatter()
+                formatter.calendar = .current
+                formatter.locale = .current
+                formatter.timeZone = .current
+                formatter.dateFormat = "yyyy-MM-dd"
+                let parsedDate = formatter.date(from: openingDateStr) ?? Date()
+                _openingDate = State(initialValue: parsedDate)
+            } else {
+                _openingDate = State(initialValue: Date())
+            }
+            _storeStatus = State(initialValue: StoreDraftStatus(rawValue: store.status ?? "active") ?? .active)
+        }
     }
 
     public var body: some View {
@@ -77,7 +101,7 @@ public struct StoreFormView: View {
             
             Spacer()
             
-            Text("Add Store")
+            Text(editingStore == nil ? "Add Store" : "Edit Store")
                 .font(.system(size: 17, weight: .bold, design: .serif))
                 .foregroundColor(CatalogTheme.primaryText)
             
@@ -408,12 +432,18 @@ public struct StoreFormView: View {
                 status: storeStatus.rawValue,
                 address: trimmedAddress.isEmpty ? nil : trimmedAddress
             )
+            
 
-            try await storeService.createStore(newStore)
 
-            let inventoryPayload = selectedInventory.map { (productId: $0.product.id, quantity: $0.quantity) }
-            if !inventoryPayload.isEmpty {
-                try await inventoryService.assignProducts(storeId: generatedStoreId, items: inventoryPayload)
+            if let _ = editingStore {
+                try await storeService.updateStore(newStore)
+            } else {
+                try await storeService.createStore(newStore)
+                
+                let inventoryPayload = selectedInventory.map { (productId: $0.product.id, quantity: $0.quantity) }
+                if !inventoryPayload.isEmpty {
+                    try await inventoryService.assignProducts(storeId: generatedStoreId, items: inventoryPayload)
+                }
             }
 
             await viewModel.fetchStores()

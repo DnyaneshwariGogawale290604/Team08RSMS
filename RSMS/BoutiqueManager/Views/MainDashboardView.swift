@@ -62,4 +62,5 @@ public struct MainDashboardView: View {
         UITabBar.appearance().scrollEdgeAppearance = appearance
         UITabBar.appearance().unselectedItemTintColor = normalColor
     }
+    }
 }

@@ -5,70 +5,81 @@ struct WarehouseOverviewTab: View {
     
     var body: some View {
         ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: 24) {
                 // Warehouse Info Card
-                VStack(alignment: .leading, spacing: 16) {
-                    Text("Warehouse Details")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.black)
+                VStack(alignment: .leading, spacing: 18) {
+                    HStack {
+                        Image(systemName: "building.2.fill")
+                            .foregroundColor(CatalogTheme.primary)
+                        Text("Warehouse Details")
+                            .font(.system(size: 16, weight: .bold, design: .serif))
+                            .foregroundColor(CatalogTheme.primaryText)
+                    }
                     
-                    Divider().background(Color.gray.opacity(0.1))
-                    
-                    InfoRow(label: "Location", value: warehouse.location)
-                    InfoRow(label: "Address", value: warehouse.address ?? "Not set")
-                    InfoRow(label: "Status", value: warehouse.status?.capitalized ?? "Active")
+                    VStack(spacing: 0) {
+                        infoRow(label: "Location", value: warehouse.location)
+                        detailDivider
+                        infoRow(label: "Address", value: warehouse.address ?? "Not set")
+                        detailDivider
+                        infoRow(label: "Status", value: warehouse.status?.capitalized ?? "Active")
+                    }
+                    .padding(16)
+                    .background(Color.white)
+                    .cornerRadius(AppTheme.cardCornerRadius)
+                    .shadow(color: Color.black.opacity(0.04), radius: 12, x: 0, y: 4)
                 }
-                .padding(20)
-                .background(Color.white)
-                .cornerRadius(20)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 20)
-                        .stroke(Color.black.opacity(0.05), lineWidth: 1)
-                )
-                .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 5)
-                .padding(.horizontal, 16)
+                .padding(.horizontal, 20)
                 
-                // Analytics Placeholder or additional info
-                VStack(alignment: .leading, spacing: 16) {
-                    Text("Inventory Stats")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.black)
+                // Analytics Placeholder
+                VStack(alignment: .leading, spacing: 18) {
+                    HStack {
+                        Image(systemName: "chart.pie.fill")
+                            .foregroundColor(CatalogTheme.primary)
+                        Text("Inventory Insights")
+                            .font(.system(size: 16, weight: .bold, design: .serif))
+                            .foregroundColor(CatalogTheme.primaryText)
+                    }
                     
-                    Text("Detailed analytics for this warehouse will appear here in a future update.")
-                        .font(.system(size: 14))
-                        .foregroundColor(.gray)
+                    VStack(alignment: .center, spacing: 12) {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 32))
+                            .foregroundColor(CatalogTheme.surface)
+                        
+                        Text("Detailed analytics for this warehouse will appear here in a future update.")
+                            .font(.system(size: 14))
+                            .foregroundColor(CatalogTheme.secondaryText)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 20)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 32)
+                    .background(Color.white)
+                    .cornerRadius(AppTheme.cardCornerRadius)
+                    .shadow(color: Color.black.opacity(0.04), radius: 12, x: 0, y: 4)
                 }
-                .padding(20)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.white)
-                .cornerRadius(20)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 20)
-                        .stroke(Color.black.opacity(0.05), lineWidth: 1)
-                )
-                .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 5)
-                .padding(.horizontal, 16)
+                .padding(.horizontal, 20)
             }
-            .padding(.vertical, 20)
+            .padding(.vertical, 24)
         }
-        .background(Color.brandOffWhite.ignoresSafeArea())
+        .background(CatalogTheme.background.ignoresSafeArea())
     }
-}
 
-private struct InfoRow: View {
-    let label: String
-    let value: String
-    
-    var body: some View {
-        HStack(alignment: .top) {
+    private func infoRow(label: String, value: String) -> some View {
+        HStack(alignment: .top, spacing: 16) {
             Text(label)
-                .font(.system(size: 15))
-                .foregroundColor(.gray)
+                .font(.system(size: 14))
+                .foregroundColor(CatalogTheme.secondaryText)
             Spacer()
             Text(value)
-                .font(.system(size: 15, weight: .medium))
-                .foregroundColor(.black)
+                .font(.system(size: 14, weight: .semibold))
                 .multilineTextAlignment(.trailing)
+                .foregroundColor(CatalogTheme.primaryText)
         }
+        .padding(.vertical, 12)
+    }
+
+    private var detailDivider: some View {
+        Divider()
+            .background(CatalogTheme.divider)
     }
 }

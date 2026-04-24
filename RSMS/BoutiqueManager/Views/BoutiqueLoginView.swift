@@ -29,12 +29,11 @@ public struct BoutiqueLoginView: View {
                         prompt: Text("Email").foregroundColor(.luxuryMutedText)
                     )
                         .padding()
-                        .foregroundColor(.luxuryPrimaryText)
-                        .background(Color.luxurySurface)
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .background(Color.white)
+                        .clipShape(RoundedRectangle(cornerRadius: AppTheme.buttonCornerRadius, style: .continuous))
                         .overlay(
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .stroke(Color.luxuryDivider, lineWidth: 0.8)
+                            RoundedRectangle(cornerRadius: AppTheme.buttonCornerRadius, style: .continuous)
+                                .stroke(CatalogTheme.divider, lineWidth: 1)
                         )
                         .keyboardType(.emailAddress)
                         .autocapitalization(.none)
@@ -45,12 +44,11 @@ public struct BoutiqueLoginView: View {
                         prompt: Text("Password").foregroundColor(.luxuryMutedText)
                     )
                         .padding()
-                        .foregroundColor(.luxuryPrimaryText)
-                        .background(Color.luxurySurface)
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .background(Color.white)
+                        .clipShape(RoundedRectangle(cornerRadius: AppTheme.buttonCornerRadius, style: .continuous))
                         .overlay(
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .stroke(Color.luxuryDivider, lineWidth: 0.8)
+                            RoundedRectangle(cornerRadius: AppTheme.buttonCornerRadius, style: .continuous)
+                                .stroke(CatalogTheme.divider, lineWidth: 1)
                         )
                 }
                 .padding(.horizontal, 40)
@@ -95,7 +93,7 @@ public struct BoutiqueLoginView: View {
                 Spacer()
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color.luxuryBackground.ignoresSafeArea())
+            .background(CatalogTheme.background.ignoresSafeArea())
             .navigationBarHidden(true)
         }
     }

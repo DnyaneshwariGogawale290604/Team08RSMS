@@ -111,25 +111,25 @@ public struct AdminManagementView: View {
 
     private var rolePicker: some View {
         let roles = StaffRoleTab.allCases
-        return HStack(spacing: 0) {
+        return HStack(spacing: 4) {
             ForEach(roles, id: \.self) { role in
                 Button(action: {
-                    withAnimation(.easeInOut(duration: 0.22)) {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                         viewModel.selectedRole = role
                     }
                     Task { await viewModel.fetchStaff(for: role) }
                 }) {
                     Text(role.rawValue)
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(viewModel.selectedRole == role ? .white : CatalogTheme.deepAccent)
+                        .padding(.vertical, 10)
                         .frame(maxWidth: .infinity)
-                        .frame(minHeight: 44)
                         .background(
-                            Group {
+                            ZStack {
                                 if viewModel.selectedRole == role {
-                                    Capsule(style: .continuous)
+                                    Capsule()
                                         .fill(CatalogTheme.primary)
-                                        .padding(4)
+                                        .matchedGeometryEffect(id: "activeTab", in: tabNamespace)
                                 }
                             }
                         )
@@ -137,15 +137,15 @@ public struct AdminManagementView: View {
                 .buttonStyle(.plain)
             }
         }
-        .frame(maxWidth: .infinity)
-        .background(
-            Capsule(style: .continuous)
-                .fill(CatalogTheme.surface)
-        )
+        .padding(4)
+        .background(CatalogTheme.surface)
+        .clipShape(Capsule())
         .padding(.horizontal, 20)
         .padding(.top, 16)
         .padding(.bottom, 20)
     }
+
+    @Namespace private var tabNamespace
 
 
     @ViewBuilder
@@ -166,7 +166,7 @@ public struct AdminManagementView: View {
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(CatalogTheme.primaryText)
 
-                Text(item.user.id.uuidString)
+                Text("ID: \(item.user.id.uuidString.prefix(8).uppercased())")
                     .font(.caption)
                     .foregroundColor(CatalogTheme.mutedText)
                     .lineLimit(1)
@@ -227,7 +227,7 @@ public struct AdminManagementView: View {
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(CatalogTheme.primaryText)
 
-                Text(vendor.id.uuidString)
+                Text("ID: \(vendor.id.uuidString.prefix(8).uppercased())")
                     .font(.caption)
                     .foregroundColor(CatalogTheme.mutedText)
                     .lineLimit(1)

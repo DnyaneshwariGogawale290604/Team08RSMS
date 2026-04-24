@@ -20,24 +20,26 @@ public struct StoreOverviewTab: View {
 
     public var body: some View {
         ScrollView(showsIndicators: false) {
-            VStack(spacing: 20) {
+            VStack(spacing: 24) {
                 storeInformationCard
                 salesPerformanceCard
             }
             .padding(20)
         }
-        .background(Color.brandOffWhite)
+        .background(CatalogTheme.background)
     }
 
     private var storeInformationCard: some View {
-        whiteCard {
-            VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack {
+                Image(systemName: "info.circle.fill")
+                    .foregroundColor(CatalogTheme.primary)
                 Text("Store Information")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(.black)
+                    .font(.system(size: 16, weight: .bold, design: .serif))
+                    .foregroundColor(CatalogTheme.primaryText)
+            }
 
-                detailDivider
-
+            VStack(spacing: 0) {
                 infoRow(title: "Location", value: store.location)
                 detailDivider
                 infoRow(title: "Address", value: displayValue(store.address))
@@ -46,61 +48,70 @@ public struct StoreOverviewTab: View {
                 detailDivider
                 infoRow(title: "Status", value: displayValue(store.status?.replacingOccurrences(of: "_", with: " ").capitalized))
             }
+            .padding(16)
+            .background(Color.white)
+            .cornerRadius(20)
+            .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 4)
         }
     }
 
     private var salesPerformanceCard: some View {
-        whiteCard {
-            VStack(alignment: .leading, spacing: 20) {
-                // Sales Target Header
-                HStack {
-                    Text("Sales Performance")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.black)
-                    Spacer()
-                    Button(action: {
-                        Task { await handleTargetAction() }
-                    }) {
-                        Text(isEditing ? "Save" : "Edit Target")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(.blue)
-                    }
+        VStack(alignment: .leading, spacing: 18) {
+            HStack {
+                Image(systemName: "chart.bar.fill")
+                    .foregroundColor(CatalogTheme.primary)
+                Text("Sales Performance")
+                    .font(.system(size: 16, weight: .bold, design: .serif))
+                    .foregroundColor(CatalogTheme.primaryText)
+                Spacer()
+                Button(action: {
+                    Task { await handleTargetAction() }
+                }) {
+                    Text(isEditing ? "Save" : "Edit Target")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(CatalogTheme.primary)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(CatalogTheme.surface)
+                        .clipShape(Capsule())
                 }
+            }
 
-                detailDivider
-
+            VStack(alignment: .leading, spacing: 20) {
                 if isEditing {
-                    TextField("Enter amount", text: $editingTarget)
+                    TextField("Enter target amount", text: $editingTarget)
                         .keyboardType(.decimalPad)
-                        .padding(12)
-                        .background(Color(.systemGroupedBackground))
-                        .cornerRadius(10)
+                        .padding(14)
+                        .background(CatalogTheme.surface)
+                        .cornerRadius(12)
+                        .font(.system(size: 15))
                 } else {
-                    HStack(spacing: 24) {
+                    HStack(spacing: 0) {
                         VStack(alignment: .leading, spacing: 6) {
-                            Text(formattedCurrency(store.salesTarget ?? 0))
-                                .font(.system(size: 24, weight: .bold))
-                                .foregroundColor(.black)
-                            
                             Text("Sales Target")
-                                .font(.system(size: 13))
-                                .foregroundColor(.gray)
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(CatalogTheme.secondaryText)
+                            Text(formattedCurrency(store.salesTarget ?? 0))
+                                .font(.system(size: 22, weight: .bold, design: .serif))
+                                .foregroundColor(CatalogTheme.primaryText)
                         }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                         
                         Rectangle()
-                            .fill(Color.gray.opacity(0.1))
+                            .fill(CatalogTheme.divider)
                             .frame(width: 1, height: 40)
+                            .padding(.horizontal, 16)
                         
                         VStack(alignment: .leading, spacing: 6) {
+                            Text("Current Sales")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(CatalogTheme.secondaryText)
                             let performance = viewModel.storePerformance[store.id] ?? 0
                             Text(formattedCurrency(performance))
-                                .font(.system(size: 24, weight: .bold))
-                                .foregroundColor(.black)
-                            
-                            Text("Current Sales")
-                                .font(.system(size: 13))
-                                .foregroundColor(.gray)
+                                .font(.system(size: 22, weight: .bold, design: .serif))
+                                .foregroundColor(CatalogTheme.primaryText)
                         }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
 
@@ -108,72 +119,67 @@ public struct StoreOverviewTab: View {
                     let performance = viewModel.storePerformance[store.id] ?? 0
                     let progress = min(1.0, performance / target)
                     
-                    VStack(alignment: .leading, spacing: 8) {
-                        detailDivider
-                        
+                    VStack(alignment: .leading, spacing: 12) {
                         HStack {
-                            Text("Progress")
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundColor(.gray)
+                            Text("Progress to Target")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(CatalogTheme.secondaryText)
                             Spacer()
                             Text(String(format: "%.1f%%", progress * 100))
                                 .font(.system(size: 14, weight: .bold))
-                                .foregroundColor(progress >= 1.0 ? .green : .blue)
+                                .foregroundColor(CatalogTheme.primary)
                         }
                         
-                        ProgressView(value: progress)
-                            .progressViewStyle(LinearProgressViewStyle(tint: progress >= 1.0 ? .green : .blue))
-                            .scaleEffect(y: 1.5, anchor: .center)
-                            .padding(.vertical, 4)
+                        ZStack(alignment: .leading) {
+                            Capsule()
+                                .fill(CatalogTheme.surface)
+                                .frame(height: 8)
+                            
+                            Capsule()
+                                .fill(CatalogTheme.primary)
+                                .frame(width: max(8, (UIScreen.main.bounds.width - 72) * CGFloat(progress)), height: 8)
+                        }
                         
-                        Text(progress >= 1.0 ? "Target Achieved!" : "Keep going to reach the goal")
+                        Text(progress >= 1.0 ? "Target Achieved! Excellent performance." : "Keep pushing to reach the monthly goal.")
                             .font(.system(size: 12))
-                            .foregroundColor(progress >= 1.0 ? .green : .gray)
+                            .foregroundColor(progress >= 1.0 ? Color.green : CatalogTheme.mutedText)
+                            .italic()
                     }
+                    .padding(.top, 4)
                 }
             }
+            .padding(16)
+            .background(Color.white)
+            .cornerRadius(20)
+            .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 4)
         }
-    }
-
-    @ViewBuilder
-    private func whiteCard<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            content()
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white)
-        .cornerRadius(20)
-        .overlay(
-            RoundedRectangle(cornerRadius: 20)
-                .stroke(Color.black.opacity(0.05), lineWidth: 1)
-        )
-        .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 5)
     }
 
     private var detailDivider: some View {
         Divider()
-            .background(Color.gray.opacity(0.1))
+            .background(CatalogTheme.divider)
     }
 
     private func infoRow(title: String, value: String) -> some View {
         HStack(alignment: .top, spacing: 16) {
             Text(title)
-                .font(.system(size: 15))
-                .foregroundColor(.gray)
+                .font(.system(size: 14))
+                .foregroundColor(CatalogTheme.secondaryText)
             Spacer()
             Text(value)
-                .font(.system(size: 15, weight: .medium))
+                .font(.system(size: 14, weight: .semibold))
                 .multilineTextAlignment(.trailing)
-                .foregroundColor(.black)
+                .foregroundColor(CatalogTheme.primaryText)
         }
+        .padding(.vertical, 12)
     }
 
     private func formattedCurrency(_ value: Double) -> String {
         let formatter = NumberFormatter()
         formatter.numberStyle = .currency
         formatter.currencySymbol = "₹"
-        return formatter.string(from: NSNumber(value: value)) ?? "₹0.00"
+        formatter.maximumFractionDigits = 0
+        return formatter.string(from: NSNumber(value: value)) ?? "₹0"
     }
 
     private func handleTargetAction() async {
@@ -191,6 +197,6 @@ public struct StoreOverviewTab: View {
 
     private func displayValue(_ value: String?) -> String {
         let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return trimmed.isEmpty ? "Not set" : trimmed
+        return trimmed.isEmpty ? "Not available" : trimmed
     }
 }
