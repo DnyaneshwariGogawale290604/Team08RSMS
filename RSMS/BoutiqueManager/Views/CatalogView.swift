@@ -120,16 +120,17 @@ struct CategoryPill: View {
 struct ProductCard: View {
     let product: Product
     @State private var isPressed = false
-    
+    @State private var selectedSize: String? = nil
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Product icon area
+            // Product image / icon area
             ZStack {
-                RoundedRectangle(cornerRadius: 16)
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .fill(CatalogTheme.imageBackground)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 140)
-                
+                    .frame(height: 130)
+
                 if let imageUrl = product.imageUrl,
                    !imageUrl.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
                    let url = URL(string: imageUrl) {
@@ -154,49 +155,69 @@ struct ProductCard: View {
                             }
                         }
                     }
-                    .frame(height: 140)
+                    .frame(height: 130)
                 } else {
                     fallbackIcon(for: product)
                 }
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 140)
+            .frame(height: 130)
             .clipped()
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+
             // Product info
             VStack(alignment: .leading, spacing: 6) {
+
+                // Name
                 Text(product.name)
-                    .font(.system(size: 15, weight: .bold))
+                    .font(.system(size: 13, weight: .bold))
                     .foregroundColor(CatalogTheme.primaryText)
                     .lineLimit(2)
-                    .frame(height: 44, alignment: .topLeading)
+                    .fixedSize(horizontal: false, vertical: true)
 
+                // Category
                 if !product.category.isEmpty {
-                    Text(product.category)
-                        .font(.system(size: 12, weight: .regular))
-                        .foregroundColor(CatalogTheme.subtleCategory)
+                    Text(product.category.uppercased())
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundColor(CatalogTheme.mutedText)
+                        .tracking(1.2)
                         .lineLimit(1)
                 }
 
+                // Size selector
+                if let sizes = product.sizeOptions, !sizes.isEmpty {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("SIZES")
+                            .font(.system(size: 8, weight: .bold))
+                            .foregroundColor(CatalogTheme.mutedText)
+                            .tracking(1.5)
+
+                        // Wrap chips: use a simple FlowLayout approximation
+                        SizeChipRow(sizes: sizes, selectedSize: $selectedSize)
+                    }
+                    .padding(.top, 2)
+                }
+
+                Spacer(minLength: 0)
+
+                // Price
                 if product.price > 0 {
                     Text(formatPrice(product.price))
-                        .font(.system(size: 15, weight: .bold))
+                        .font(.system(size: 14, weight: .bold))
                         .foregroundColor(CatalogTheme.deepAccent)
-                        .padding(.top, 2)
                 }
 
             }
-            .padding(12)
+            .padding(10)
         }
         .frame(maxWidth: .infinity)
-        .frame(height: 290, alignment: .top)
+        .frame(minHeight: 290, alignment: .top)
         .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .fill(CatalogTheme.card)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .stroke(CatalogTheme.divider, lineWidth: 0.8)
         )
         .shadow(color: Color.black.opacity(0.03), radius: 4, x: 0, y: 2)
@@ -206,14 +227,14 @@ struct ProductCard: View {
             isPressed = pressing
         }, perform: {})
     }
-    
+
     @ViewBuilder
     private func fallbackIcon(for product: Product) -> some View {
         VStack(spacing: 6) {
             Image(systemName: iconForCategory(product.category))
-                .font(.system(size: 36))
+                .font(.system(size: 32))
                 .foregroundColor(CatalogTheme.mutedText)
-            
+
             if !product.category.isEmpty {
                 Text(product.category.uppercased())
                     .font(.system(size: 8, weight: .semibold))
@@ -222,7 +243,7 @@ struct ProductCard: View {
             }
         }
     }
-    
+
     private func iconForCategory(_ category: String) -> String {
         switch category.lowercased() {
         case "bags", "handbags": return "bag"
@@ -236,7 +257,7 @@ struct ProductCard: View {
         default: return "tag"
         }
     }
-    
+
     private func formatPrice(_ value: Double) -> String {
         let formatter = NumberFormatter()
         formatter.numberStyle = .currency
@@ -245,3 +266,63 @@ struct ProductCard: View {
         return formatter.string(from: NSNumber(value: value)) ?? "$\(Int(value))"
     }
 }
+
+// MARK: - Size Chip Row (wrapping layout)
+
+struct SizeChipRow: View {
+    let sizes: [String]
+    @Binding var selectedSize: String?
+
+    var body: some View {
+        // Show up to 6 sizes in a scrollable horizontal row
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 5) {
+                ForEach(sizes.prefix(8), id: \.self) { size in
+                    SizeChip(
+                        label: size,
+                        isSelected: selectedSize == size
+                    ) {
+                        withAnimation(.easeInOut(duration: 0.15)) {
+                            selectedSize = (selectedSize == size) ? nil : size
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Individual Size Chip
+
+struct SizeChip: View {
+    let label: String
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(label)
+                .font(.system(size: 10, weight: isSelected ? .bold : .medium))
+                .foregroundColor(isSelected ? .white : CatalogTheme.primary)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(isSelected ? CatalogTheme.primary : CatalogTheme.surface)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .stroke(
+                            isSelected ? CatalogTheme.primary : CatalogTheme.primary.opacity(0.35),
+                            lineWidth: isSelected ? 0 : 0.8
+                        )
+                )
+                .shadow(
+                    color: isSelected ? CatalogTheme.primary.opacity(0.3) : .clear,
+                    radius: 3, x: 0, y: 1
+                )
+        }
+        .buttonStyle(.plain)
+    }
+}
+

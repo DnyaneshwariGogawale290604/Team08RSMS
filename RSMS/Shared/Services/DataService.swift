@@ -85,25 +85,30 @@ public actor DataService {
             .execute()
             .value
             
-        // Fetch rating metrics from sales_orders
-        struct OrderRating: Decodable {
+        // Fetch rating and sales metrics from sales_orders
+        struct OrderMetric: Decodable {
             let sales_associate_id: UUID?
             let rating_value: Int?
+            let total_amount: Double
         }
         
-        let ratings: [OrderRating] = try await client
+        let orderMetrics: [OrderMetric] = try await client
             .from("sales_orders")
-            .select("sales_associate_id, rating_value")
+            .select("sales_associate_id, rating_value, total_amount")
             .eq("store_id", value: storeId.uuidString)
-            .gte("rating_value", value: 1)
             .execute()
             .value
             
         var ratingStats: [UUID: (sum: Int, count: Int)] = [:]
-        for r in ratings {
-            if let saId = r.sales_associate_id, let val = r.rating_value {
-                let current = ratingStats[saId] ?? (0, 0)
-                ratingStats[saId] = (current.sum + val, current.count + 1)
+        var salesStats: [UUID: Double] = [:]
+
+        for r in orderMetrics {
+            if let saId = r.sales_associate_id {
+                if let val = r.rating_value, val >= 1 {
+                    let current = ratingStats[saId] ?? (0, 0)
+                    ratingStats[saId] = (current.sum + val, current.count + 1)
+                }
+                salesStats[saId, default: 0] += r.total_amount
             }
         }
             
@@ -114,6 +119,7 @@ public actor DataService {
                 u.averageRating = Double(stats.sum) / Double(stats.count)
                 u.ratingCount = stats.count
             }
+            u.totalSales = salesStats[u.id] ?? 0.0
             return u
         }
     }
@@ -167,6 +173,37 @@ public actor DataService {
             .execute()
     }
 
+    // MARK: - Appointments
+    public func fetchAppointments(salesAssociateId: UUID) async throws -> [Appointment] {
+        return try await client
+            .from("appointments")
+            .select("*, customers(*), appointment_products(*, products(*))")
+            .eq("sales_associate_id", value: salesAssociateId.uuidString)
+            .order("appointment_at", ascending: true)
+            .execute()
+            .value
+    }
+
+    public func fetchTodayAppointmentsForStore(storeId: UUID) async throws -> [Appointment] {
+        // Fetch all appointments for the store, then filter for today.
+        // (Supabase date filtering can be tricky with timezones, so we filter in Swift for simplicity)
+        let allAppointments: [Appointment] = try await client
+            .from("appointments")
+            .select("*, customers(*), appointment_products(*, products(*))")
+            .eq("store_id", value: storeId.uuidString)
+            .order("appointment_at", ascending: true)
+            .execute()
+            .value
+        
+        let today = Calendar.current
+        return allAppointments.filter { appt in
+            if let date = appt.appointmentDate {
+                return today.isDateInToday(date)
+            }
+            return false
+        }
+    }
+
     // MARK: - Boutique Managers count
     public func fetchBoutiqueManagers() async throws -> [BoutiqueManagerRecord] {
         return try await client
@@ -177,7 +214,7 @@ public actor DataService {
     }
 
     // MARK: - Products (Catalog)
-    private static let productColumns = "product_id,name,brand_id,category,price,sku,making_price,image_url,is_active"
+    private static let productColumns = "product_id,name,brand_id,category,price,sku,making_price,image_url,is_active,size_options,tax,total_price"
 
     public func fetchProducts() async throws -> [Product] {
         return try await client

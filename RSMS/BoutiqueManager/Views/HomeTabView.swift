@@ -2,6 +2,7 @@ import SwiftUI
 
 public struct HomeTabView: View {
     @EnvironmentObject var dashboardVM: BoutiqueDashboardViewModel
+    @EnvironmentObject var sessionViewModel: SessionViewModel
 
     public var body: some View {
         NavigationView {
@@ -47,17 +48,61 @@ public struct HomeTabView: View {
                             } else {
                                 HStack(spacing: 10) {
                                     Image(systemName: "checkmark.circle.fill")
-                                        .foregroundColor(Theme.success)
+                                        .foregroundColor(Theme.primary)
                                     Text("All stock levels are healthy")
                                         .font(.subheadline)
-                                        .foregroundColor(Theme.textSecondary)
+                                        .foregroundColor(Theme.textPrimary)
                                 }
                                 .padding()
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(Theme.success.opacity(0.08))
-                                .cornerRadius(12)
+                                .background(Theme.surface)
+                                .cornerRadius(20)
                                 .transition(.opacity)
                             }
+                            
+                            // Today's Appointments Section
+                            VStack(spacing: 8) {
+                                HStack {
+                                    HStack(spacing: 6) {
+                                        Image(systemName: "calendar")
+                                            .foregroundColor(Theme.textPrimary)
+                                            .font(.system(size: 11))
+                                        Text("TODAY'S APPOINTMENTS")
+                                            .font(.caption)
+                                            .fontWeight(.semibold)
+                                            .foregroundColor(Theme.textSecondary)
+                                            .tracking(1)
+                                    }
+                                    Spacer()
+                                    if dashboardVM.todayAppointments.count > 0 {
+                                        Text("\(dashboardVM.todayAppointments.count)")
+                                            .font(.caption)
+                                            .fontWeight(.bold)
+                                            .foregroundColor(Theme.textPrimary)
+                                    }
+                                }
+                                
+                                if dashboardVM.todayAppointments.isEmpty {
+                                    HStack(spacing: 10) {
+                                        Image(systemName: "calendar.badge.minus")
+                                            .foregroundColor(Theme.textSecondary)
+                                        Text("No appointments scheduled for today")
+                                            .font(.subheadline)
+                                            .foregroundColor(Theme.textSecondary)
+                                    }
+                                    .padding()
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .background(Theme.textSecondary.opacity(0.08))
+                                    .cornerRadius(20)
+                                    .transition(.opacity)
+                                } else {
+                                    ForEach(dashboardVM.todayAppointments) { appt in
+                                        AppointmentCard(appointment: appt)
+                                    }
+                                }
+                            }
+                            .padding(.top, 8)
+                            .transition(.opacity)
 
                         } else if let error = dashboardVM.errorMessage {
                             VStack(spacing: 10) {
@@ -85,6 +130,21 @@ public struct HomeTabView: View {
                 }
             }
             .navigationTitle("Dashboard")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Menu {
+                        Button(role: .destructive, action: {
+                            Task { await sessionViewModel.signOut() }
+                        }) {
+                            Label("Logout", systemImage: "rectangle.portrait.and.arrow.right")
+                        }
+                    } label: {
+                        Image(systemName: "person.crop.circle")
+                            .font(.title2)
+                            .foregroundColor(Theme.textPrimary)
+                    }
+                }
+            }
             .onAppear {
                 // Only load if no data yet; use refresh to force reload
                 if dashboardVM.summary == nil {
@@ -142,8 +202,8 @@ struct DashboardSkeleton: View {
                 }
                 .padding(.vertical, 10)
                 .padding(.horizontal, 14)
-                .background(Color.white)
-                .cornerRadius(12)
+                .background(Theme.beige)
+                .cornerRadius(20)
             }
         }
     }
@@ -215,10 +275,10 @@ struct AlertRow: View {
         HStack(spacing: 14) {
             ZStack {
                 Circle()
-                    .fill(Theme.error.opacity(0.1))
+                    .fill(Theme.surface)
                     .frame(width: 36, height: 36)
                 Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundColor(Theme.error)
+                    .foregroundColor(Theme.primary)
                     .font(.system(size: 13))
             }
 
@@ -238,7 +298,7 @@ struct AlertRow: View {
                 Text("\(alert.stockQuantity)")
                     .font(.subheadline)
                     .fontWeight(.bold)
-                    .foregroundColor(alert.stockQuantity == 0 ? Theme.error : Color(red: 0.7, green: 0.5, blue: 0.0))
+                    .foregroundColor(Theme.primary)
                 Text("left")
                     .font(.caption2)
                     .foregroundColor(Theme.textSecondary)
@@ -246,9 +306,8 @@ struct AlertRow: View {
         }
         .padding(.vertical, 10)
         .padding(.horizontal, 14)
-        .background(Color.white)
-        .cornerRadius(12)
-        .shadow(color: Color.black.opacity(0.03), radius: 4, x: 0, y: 1)
+        .background(Theme.beige)
+        .cornerRadius(20)
     }
 }
 
@@ -280,7 +339,7 @@ struct SalesTargetCard: View {
                         .stroke(Theme.border, lineWidth: 10)
                     Circle()
                         .trim(from: 0, to: CGFloat(percent))
-                        .stroke(Theme.textPrimary, style: StrokeStyle(lineWidth: 10, lineCap: .round))
+                        .stroke(Theme.primary, style: StrokeStyle(lineWidth: 10, lineCap: .round))
                         .rotationEffect(.degrees(-90))
                         .animation(.easeOut(duration: 0.8), value: percent)
                     Text("\(Int(percent * 100))%")

@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		188A6CAF2F9B3ABE007F6F34 /* schema.md in Resources */ = {isa = PBXBuildFile; fileRef = 188A6CAE2F9B3ABE007F6F34 /* schema.md */; };
 		F00074B72F9A136300D34BB8 /* Auth in Frameworks */ = {isa = PBXBuildFile; productRef = F00074B62F9A136300D34BB8 /* Auth */; };
 		F00074B92F9A136300D34BB8 /* Functions in Frameworks */ = {isa = PBXBuildFile; productRef = F00074B82F9A136300D34BB8 /* Functions */; };
 		F00074BB2F9A136300D34BB8 /* PostgREST in Frameworks */ = {isa = PBXBuildFile; productRef = F00074BA2F9A136300D34BB8 /* PostgREST */; };
@@ -16,6 +17,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		188A6CAE2F9B3ABE007F6F34 /* schema.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = schema.md; sourceTree = "<group>"; };
 		F00073C12F99FF7300D34BB8 /* RSMS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RSMS.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -47,6 +49,7 @@
 		F00073B82F99FF7300D34BB8 = {
 			isa = PBXGroup;
 			children = (
+				188A6CAE2F9B3ABE007F6F34 /* schema.md */,
 				F00073C32F99FF7300D34BB8 /* RSMS */,
 				F00073C22F99FF7300D34BB8 /* Products */,
 			);
@@ -133,6 +136,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				188A6CAF2F9B3ABE007F6F34 /* schema.md in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
