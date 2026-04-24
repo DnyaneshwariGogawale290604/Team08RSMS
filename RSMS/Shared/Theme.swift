@@ -8,6 +8,8 @@ public struct Theme {
     public static let textSecondary = CatalogTheme.secondaryText
     
     // Semantic Colors
+    public static let primary = CatalogTheme.primary
+    public static let surface = CatalogTheme.surface
     public static let success = CatalogTheme.primary
     public static let warning = CatalogTheme.deepAccent
     public static let error = CatalogTheme.error
