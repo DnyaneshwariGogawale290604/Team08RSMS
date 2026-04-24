@@ -16,7 +16,7 @@ public struct DashboardView: View {
                         VStack(alignment: .leading, spacing: 10) {
                             Text("Stock Summary")
                                 .font(.headline)
-                                .foregroundColor(.appPrimaryText)
+                                .foregroundColor(CatalogTheme.primaryText)
                                 .padding(.horizontal)
                             
                             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
@@ -34,7 +34,7 @@ public struct DashboardView: View {
                             HStack {
                                 Text("Recent Transfers")
                                     .font(.headline)
-                                    .foregroundColor(.appPrimaryText)
+                                    .foregroundColor(CatalogTheme.primaryText)
                                 Spacer()
                                 NavigationLink("View All", destination: TransfersTabView(selectedTab: .constant(1), prefilledSKUMagic: .constant(nil as String?)))
                                     .font(.subheadline)
@@ -56,7 +56,7 @@ public struct DashboardView: View {
                         VStack(alignment: .leading, spacing: 10) {
                             Text("Exceptions")
                                 .font(.headline)
-                                .foregroundColor(.appPrimaryText)
+                                .foregroundColor(CatalogTheme.primaryText)
                                 .padding(.horizontal)
                             
                             ReusableCardView {
@@ -100,11 +100,11 @@ public struct DashboardView: View {
             
             Text(value)
                 .font(.title2.bold())
-                .foregroundColor(.appPrimaryText)
+                .foregroundColor(CatalogTheme.primaryText)
                 
             Text(title)
                 .font(.subheadline)
-                .foregroundColor(.appSecondaryText)
+                .foregroundColor(CatalogTheme.secondaryText)
         }
         .padding(16)
         .appCardChrome()
@@ -117,7 +117,7 @@ public struct DashboardView: View {
                 HStack {
                     Text(shipment.request?.product?.name ?? "Order ID: \(shipment.id.uuidString.prefix(6))")
                         .font(.subheadline.bold())
-                        .foregroundColor(.appPrimaryText)
+                        .foregroundColor(CatalogTheme.primaryText)
                     Spacer()
                     Text(shipment.status.capitalized)
                         .font(.caption2.bold())
@@ -129,7 +129,7 @@ public struct DashboardView: View {
                 }
                 Text("To: Store")
                     .font(.caption)
-                    .foregroundColor(.appSecondaryText)
+                    .foregroundColor(CatalogTheme.secondaryText)
             }
         }
     }
@@ -142,7 +142,7 @@ public struct DashboardView: View {
                 .font(.title3)
             Text(text)
                 .font(.subheadline)
-                .foregroundColor(.appPrimaryText)
+                .foregroundColor(CatalogTheme.primaryText)
             Spacer()
             Image(systemName: "chevron.right")
                 .foregroundColor(.appBorder)

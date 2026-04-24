@@ -32,7 +32,7 @@ public struct StoreFormView: View {
     public var body: some View {
         NavigationView {
             ZStack {
-                Color(.systemGroupedBackground).ignoresSafeArea()
+                CatalogTheme.background.ignoresSafeArea()
 
                 ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 28) {
@@ -68,29 +68,29 @@ public struct StoreFormView: View {
     private var headerView: some View {
         HStack {
             Button("Cancel") { dismiss() }
-                .font(.system(size: 16, weight: .medium))
-                .foregroundColor(.black)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(CatalogTheme.deepAccent)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
-                .background(Color.white)
+                .background(CatalogTheme.surface)
                 .clipShape(Capsule())
             
             Spacer()
             
             Text("Add Store")
-                .font(.system(size: 17, weight: .bold))
-                .foregroundColor(.black)
+                .font(.system(size: 17, weight: .bold, design: .serif))
+                .foregroundColor(CatalogTheme.primaryText)
             
             Spacer()
             
             Button("Save") {
                 Task { await saveStore() }
             }
-            .font(.system(size: 16, weight: .medium))
-            .foregroundColor(canSave ? .black : .gray.opacity(0.4))
-            .padding(.horizontal, 16)
+            .font(.system(size: 14, weight: .semibold))
+            .foregroundColor(.white)
+            .padding(.horizontal, 20)
             .padding(.vertical, 8)
-            .background(Color.white)
+            .background(canSave ? CatalogTheme.deepAccent : CatalogTheme.inactiveBadge)
             .clipShape(Capsule())
             .disabled(!canSave)
         }
@@ -101,11 +101,15 @@ public struct StoreFormView: View {
     private var storeDetailsSection: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Store Information")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundColor(.appSecondaryText)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundColor(CatalogTheme.deepAccent)
 
             whiteCard {
-                inlineTextField("Location", text: $name)
+                inlineTextField("Store Name", text: $name)
+
+                divider
+
+                inlineTextField("Location (City/Area)", text: $location)
 
                 divider
 
@@ -149,8 +153,8 @@ public struct StoreFormView: View {
     private var addressSection: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Address")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundColor(.appSecondaryText)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundColor(CatalogTheme.deepAccent)
 
             whiteCard {
                 TextEditor(text: $address)
@@ -176,8 +180,8 @@ public struct StoreFormView: View {
     private var inventorySection: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Inventory Details")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundColor(.appSecondaryText)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundColor(CatalogTheme.deepAccent)
 
             whiteCard {
                 VStack(alignment: .leading, spacing: 16) {
@@ -281,6 +285,10 @@ public struct StoreFormView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.white)
         .cornerRadius(20)
+        .overlay(
+            RoundedRectangle(cornerRadius: 20)
+                .stroke(CatalogTheme.divider, lineWidth: 0.8)
+        )
     }
 
     private func detailRow<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
@@ -472,10 +480,10 @@ private struct StoreProductPickerSheet: View {
                             HStack {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(product.name)
-                                        .foregroundColor(.appPrimaryText)
+                                        .foregroundColor(CatalogTheme.primaryText)
                                     Text(product.category)
                                         .font(.caption)
-                                        .foregroundColor(.appSecondaryText)
+                                        .foregroundColor(CatalogTheme.secondaryText)
                                 }
                                 Spacer()
                             }

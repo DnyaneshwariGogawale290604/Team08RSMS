@@ -69,52 +69,6 @@ public final class StoreService: @unchecked Sendable {
                 )
             )
             .execute()
-            
-        // Setup inventory and baseline with initial quantity of 10
-        do {
-            struct ProductRow: Decodable { let product_id: UUID }
-            let products: [ProductRow] = try await client
-                .from("products")
-                .select("product_id")
-                .eq("brand_id", value: brandId)
-                .execute()
-                .value
-            
-            if !products.isEmpty {
-                struct InventoryInsert: Encodable {
-                    let store_id: UUID
-                    let product_id: UUID
-                    let quantity: Int
-                }
-                
-                struct BaselineInsert: Encodable {
-                    let store_id: UUID
-                    let product_id: UUID
-                    let baseline_quantity: Int
-                    let current_quantity: Int
-                }
-                
-                let inventoryPayload = products.map { 
-                    InventoryInsert(store_id: store.id, product_id: $0.product_id, quantity: 10) 
-                }
-                
-                let baselinePayload = products.map {
-                    BaselineInsert(store_id: store.id, product_id: $0.product_id, baseline_quantity: 10, current_quantity: 10)
-                }
-                
-                try await client
-                    .from("store_inventory")
-                    .insert(inventoryPayload)
-                    .execute()
-                    
-                try await client
-                    .from("store_inventory_baseline")
-                    .insert(baselinePayload)
-                    .execute()
-            }
-        } catch {
-            print("Failed to initialize inventory for new store: \(error)")
-        }
     }
     
     public func updateStoreTarget(id: UUID, target: Double) async throws {

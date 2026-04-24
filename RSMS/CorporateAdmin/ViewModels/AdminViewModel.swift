@@ -15,6 +15,21 @@ public final class AdminViewModel: ObservableObject {
     @Published public var errorMessage: String?
     @Published public var successMessage: String?
 
+    public var nextEmployeeNumber: String {
+        let total = boutiqueManagers.count + inventoryManagers.count + 1
+        return String(format: "%06d", total)
+    }
+
+    public var availableStores: [Store] {
+        let assignedStoreIds = Set(boutiqueManagers.compactMap { $0.assignmentId })
+        return stores.filter { !assignedStoreIds.contains($0.id) }
+    }
+
+    public var availableWarehouses: [Warehouse] {
+        let assignedWarehouseIds = Set(inventoryManagers.compactMap { $0.assignmentId })
+        return warehouses.filter { !assignedWarehouseIds.contains($0.id) }
+    }
+
     private let service = AdminService.shared
 
     public init() {}
@@ -52,6 +67,7 @@ public final class AdminViewModel: ObservableObject {
                         id: row.id,
                         role: .boutiqueManager,
                         user: user,
+                        assignmentId: row.storeId,
                         assignmentName: row.store?.displayName ?? "Unassigned Store",
                         assignmentDetail: row.store?.location ?? "No location"
                     )
@@ -65,6 +81,7 @@ public final class AdminViewModel: ObservableObject {
                         id: row.id,
                         role: .inventoryManager,
                         user: user,
+                        assignmentId: row.warehouseId,
                         assignmentName: row.warehouse?.displayLabel ?? "Unassigned Warehouse",
                         assignmentDetail: row.warehouse?.location ?? "No location"
                     )

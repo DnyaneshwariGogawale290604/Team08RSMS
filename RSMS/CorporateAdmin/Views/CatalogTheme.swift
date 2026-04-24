@@ -9,6 +9,7 @@ enum CatalogTheme {
     static let secondaryText = Color(hex: "#6B5B5B")
     static let mutedText = Color(hex: "#9A8A8A")
     static let divider = Color.black.opacity(0.08)
+    static let error = Color(hex: "#A07070") // Desaturated red tone
     static let card = Color.white
     static let chipInactiveText = Color(hex: "#4A2E32")
     static let inactiveBadge = Color(hex: "#D8C6C6")
@@ -20,6 +21,5 @@ enum CatalogTheme {
     static let imageBackground = surface
     static let searchField = surface
     static let accent = primary
-    static let lightGreen = surface
     static let border = divider
 }

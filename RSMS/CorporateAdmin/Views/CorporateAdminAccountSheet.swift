@@ -34,11 +34,11 @@ private struct CorporateAdminAccountView: View {
 
                 Image(systemName: "person.crop.circle")
                     .font(.system(size: 72))
-                    .foregroundColor(.appSecondaryText)
+                    .foregroundColor(CatalogTheme.secondaryText)
 
                 Text("Corporate Admin")
                     .font(.title3.weight(.semibold))
-                    .foregroundColor(.appPrimaryText)
+                    .foregroundColor(CatalogTheme.primaryText)
 
                 Button {
                     Task { await sessionViewModel.signOut() }

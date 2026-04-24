@@ -43,7 +43,7 @@ public struct AddStoreProductModal: View {
                         HStack(spacing: 8) {
                             Text("Set Bulk Qty:")
                                 .font(.caption)
-                                .foregroundColor(.appSecondaryText)
+                                .foregroundColor(CatalogTheme.secondaryText)
                             TextField("10", text: $bulkQuantity)
                                 .keyboardType(.numberPad)
                                 .textFieldStyle(RoundedBorderTextFieldStyle())

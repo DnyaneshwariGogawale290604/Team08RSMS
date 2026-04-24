@@ -89,8 +89,6 @@ public struct ProductListView: View {
                             .background(Circle().fill(CatalogTheme.deepAccent))
                             .shadow(color: Color.black.opacity(0.12), radius: 4, x: 0, y: 2)
                     }
-
-                    CorporateAdminProfileButton(sessionViewModel: sessionViewModel)
                 }
             }
             .task {
@@ -125,7 +123,7 @@ public struct ProductListView: View {
     private var headerSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Catalog")
-                .font(.system(.largeTitle, design: .serif).weight(.bold))
+                .font(.largeTitle.weight(.bold))
                 .foregroundColor(CatalogTheme.primaryText)
 
             Text("Manage your product library")
@@ -151,7 +149,7 @@ public struct ProductListView: View {
         .padding(.horizontal, 14)
         .frame(height: 44)
         .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .fill(CatalogTheme.searchField)
         )
     }
@@ -259,11 +257,11 @@ private struct StatsCardView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
         .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .fill(Color(hex: "#EFE6E6"))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .stroke(CatalogTheme.divider, lineWidth: 0.8)
         )
         .shadow(color: Color.black.opacity(0.03), radius: 4, x: 0, y: 2)
@@ -309,24 +307,7 @@ private struct ProductCardView: View {
                 .frame(maxWidth: .infinity)
                 .frame(height: 140)
                 .clipped()
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-
-                VStack(alignment: .trailing, spacing: 8) {
-                    Menu {
-                        Button("View", action: onView)
-                        Button("Edit", action: onEdit)
-                    } label: {
-                        Image(systemName: "ellipsis")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(CatalogTheme.primaryText)
-                            .padding(8)
-                            .background(Color.white.opacity(0.95))
-                            .clipShape(Circle())
-                    }
-
-                    statusBadge
-                }
-                .padding(10)
+                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
             }
 
             VStack(alignment: .leading, spacing: 4) {
@@ -344,39 +325,22 @@ private struct ProductCardView: View {
                 Text(formattedPrice(product.price))
                     .font(.system(size: 15, weight: .bold))
                     .foregroundColor(CatalogTheme.deepAccent)
-
-                Text(makingPriceText)
-                    .font(.system(size: 11, weight: .regular))
-                    .foregroundColor(CatalogTheme.softSubtext)
-                    .lineLimit(1)
-
-                if let tax = product.tax, tax > 0 {
-                    Text("Tax: \(formattedPrice(tax))")
-                        .font(.system(size: 11, weight: .regular))
-                        .foregroundColor(CatalogTheme.secondaryText)
-                        .lineLimit(1)
-                }
-
-                if let totalPrice = product.totalPrice, totalPrice > 0 {
-                    Text("Total: \(formattedPrice(totalPrice))")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(CatalogTheme.primaryText)
-                        .lineLimit(1)
-                }
             }
             .padding(.horizontal, 12)
             .padding(.bottom, 12)
         }
         .frame(maxWidth: .infinity)
-        .frame(height: 330, alignment: .top)
+        .frame(height: 250, alignment: .top)
         .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .fill(CatalogTheme.card)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .stroke(CatalogTheme.divider, lineWidth: 0.8)
         )
+        .grayscale(product.isActive ?? true ? 0 : 1.0)
+        .opacity(product.isActive ?? true ? 1 : 0.4)
         .shadow(color: Color.black.opacity(0.03), radius: 4, x: 0, y: 2)
         .scaleEffect(isPressed ? 1.02 : 1)
         .animation(.easeInOut(duration: 0.25), value: isPressed)
