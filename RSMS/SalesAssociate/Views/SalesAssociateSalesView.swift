@@ -730,11 +730,27 @@ struct ProductPickerSheet: View {
 
     private func productCard(_ product: Product) -> some View {
         let isAdded = addedProducts.contains(product.id)
+        let isRecommended = vm.recommendedProducts.contains(where: { $0.id == product.id })
+        
         return VStack(alignment: .leading, spacing: Spacing.sm) {
-            HStack {
+            HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(product.name).font(BrandFont.body(15, weight: .medium)).foregroundStyle(Color.brandWarmBlack)
                     Text(product.category).font(BrandFont.body(12)).foregroundStyle(Color.brandWarmGrey)
+                    
+                    if isRecommended {
+                        HStack(spacing: 4) {
+                            Image(systemName: "sparkles")
+                            Text("AI Recommended")
+                        }
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(Color(hex: "#6E5155"))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(Color(hex: "#6E5155").opacity(0.1))
+                        .clipShape(Capsule())
+                        .padding(.top, 2)
+                    }
                 }
                 Spacer()
                 Text("₹\(Int(product.price))").font(.system(size: 17, weight: .semibold, design: .serif)).foregroundStyle(Color.brandWarmBlack)

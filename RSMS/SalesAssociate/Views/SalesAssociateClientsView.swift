@@ -189,6 +189,11 @@ struct ClientProfileView: View {
     let customer: Customer
     @State private var orders: [SAOrder] = []
     @State private var isLoading = false
+    
+    // AI Recommendations state
+    @State private var recommendedProducts: [Product] = []
+    @State private var isFetchingRecommendations = false
+    
     @Environment(\.dismiss) var dismiss
     @EnvironmentObject var orderStore: SharedOrderStore
 
@@ -277,6 +282,9 @@ struct ClientProfileView: View {
                             statCard(icon: "calendar", label: "Last Purchase", value: lastPurchaseDate)
                         }
                         .padding(.horizontal, 16)
+                        
+                        // AI Stylist Recommendations
+                        aiRecommendationsSection
 
                         // Purchase History
                         VStack(alignment: .leading, spacing: 12) {
@@ -331,6 +339,41 @@ struct ClientProfileView: View {
             }
             .task {
                 await fetchOrders()
+                await fetchAIRecommendations()
+            }
+        }
+    }
+
+    // MARK: - AI Recommendations UI
+    private var aiRecommendationsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: "sparkles")
+                    .foregroundStyle(Color(hex: "#C8913A"))
+                Text("AI STYLIST PICKS")
+                    .font(.system(size: 11, weight: .semibold))
+                    .kerning(1.2)
+                    .foregroundStyle(Color.brandWarmGrey)
+            }
+            .padding(.horizontal, 16)
+
+            if isFetchingRecommendations {
+                ProgressView()
+                    .frame(maxWidth: .infinity, minHeight: 120)
+            } else if recommendedProducts.isEmpty {
+                Text("No recommendations available right now.")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Color.brandWarmGrey)
+                    .padding(.horizontal, 16)
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        ForEach(recommendedProducts) { product in
+                            AIRecoCard(product: product)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                }
             }
         }
     }
@@ -428,5 +471,104 @@ struct ClientProfileView: View {
         } catch {
             print("Failed to fetch client orders: \(error)")
         }
+    }
+    
+    // MARK: - Fetch AI Logic
+    private func fetchAIRecommendations() async {
+        isFetchingRecommendations = true
+        defer { isFetchingRecommendations = false }
+        
+        do {
+            // 1. Fetch your store's active catalog
+            let catalog: [Product] = try await SupabaseManager.shared.client
+                .from("products")
+                .select()
+                .eq("is_active", value: true)
+                .execute()
+                .value
+                
+            // 2. Fetch past products bought by this customer for AI context
+            struct OrderItemRow: Decodable {
+                struct ProductData: Decodable {
+                    let name: String?
+                    let category: String?
+                }
+                let products: ProductData?
+            }
+            
+            let pastOrderIds = self.orders.map { $0.id.uuidString }
+            var pastContext = ""
+            
+            if !pastOrderIds.isEmpty {
+                if let pastItems: [OrderItemRow] = try? await SupabaseManager.shared.client
+                    .from("order_items")
+                    .select("products(name, category)")
+                    .in("order_id", values: pastOrderIds)
+                    .limit(10)
+                    .execute()
+                    .value {
+                    let names = pastItems.compactMap { $0.products?.name }
+                    if !names.isEmpty {
+                        pastContext = "Previously bought: \(names.joined(separator: ", ")). "
+                    }
+                }
+            }
+                
+            // 3. Create a "dummy" cart based on the client's preferences and past purchases
+            let clientContextProduct = Product(
+                id: UUID(), 
+                name: "\(pastContext)Client Prefers: \(customer.notes ?? "Luxury Goods")", 
+                category: customer.customerCategory ?? "General",
+                price: 0.0
+            )
+            
+            // 4. Call your Generative Service
+            self.recommendedProducts = await GenerativeRecommendationService.shared.getRecommendations(
+                cartItems: [clientContextProduct], 
+                availableCatalog: catalog
+            )
+        } catch {
+            print("Failed to fetch AI recommendations for profile: \(error)")
+        }
+    }
+}
+
+// MARK: - AI Stylist Card
+struct AIRecoCard: View {
+    let product: Product
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            // Placeholder for product image
+            Rectangle()
+                .fill(Color.brandPebble.opacity(0.3))
+                .frame(width: 140, height: 140)
+                .overlay(
+                    Image(systemName: "photo")
+                        .foregroundStyle(Color.brandWarmGrey.opacity(0.5))
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(product.name)
+                    .font(BrandFont.body(13, weight: .semibold))
+                    .foregroundStyle(Color.brandWarmBlack)
+                    .lineLimit(1)
+                
+                Text(product.category)
+                    .font(BrandFont.body(11))
+                    .foregroundStyle(Color.brandWarmGrey)
+                
+                Text("₹\(Int(product.price))")
+                    .font(.system(size: 13, weight: .semibold, design: .serif))
+                    .foregroundStyle(Color(hex: "#C8913A"))
+                    .padding(.top, 2)
+            }
+        }
+        .frame(width: 140)
+        .padding(10)
+        .background(Color.brandLinen)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.brandPebble, lineWidth: 0.5))
     }
 }

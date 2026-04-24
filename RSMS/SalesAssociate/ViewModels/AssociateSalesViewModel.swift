@@ -17,6 +17,7 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
 
     // MARK: Cart
     @Published var cartItems: [CartItem] = []
+    @Published var recommendedProducts: [Product] = []
 
     // MARK: Products
     @Published var products: [Product] = []
@@ -168,8 +169,27 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
                 $0.name.localizedCaseInsensitiveContains(search) ||
                 $0.category.localizedCaseInsensitiveContains(search)
             }
+            
+            // Also fetch recommendations based on cart if cart is not empty
+            if !cartItems.isEmpty {
+                Task {
+                    await fetchRecommendations(from: all)
+                }
+            } else {
+                recommendedProducts = []
+            }
         } catch {
             errorMessage = "Could not load products."
+        }
+    }
+
+    private func fetchRecommendations(from catalog: [Product]) async {
+        let recs = await GenerativeRecommendationService.shared.getRecommendations(
+            cartItems: cartItems.map { $0.product },
+            availableCatalog: catalog
+        )
+        await MainActor.run {
+            self.recommendedProducts = recs
         }
     }
 
