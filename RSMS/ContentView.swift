@@ -24,7 +24,7 @@ public struct ContentView: View {
                 LoginView(viewModel: sessionViewModel)
             }
         }
-        .tint(Color.appAccent)
+        .tint(Color.luxuryPrimary)
         .task {
             await sessionViewModel.restoreSession()
         }

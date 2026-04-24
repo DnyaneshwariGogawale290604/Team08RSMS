@@ -8,15 +8,19 @@ public struct LoadingView: View {
     }
     
     public var body: some View {
-        VStack(spacing: 16) {
-            ProgressView()
-                .scaleEffect(1.5)
-                .tint(Color.appAccent)
-            
-            Text(message)
-                .font(.system(size: 14, weight: .medium, design: .default))
-                .foregroundColor(Color.appSecondaryText)
+        ZStack {
+            Color.luxuryBackground.ignoresSafeArea()
+
+            VStack(spacing: 16) {
+                ProgressView()
+                    .scaleEffect(1.5)
+                    .tint(Color.luxuryPrimary)
+
+                Text(message)
+                    .font(.system(size: 14, weight: .medium, design: .default))
+                    .foregroundColor(Color.luxurySecondaryText)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
