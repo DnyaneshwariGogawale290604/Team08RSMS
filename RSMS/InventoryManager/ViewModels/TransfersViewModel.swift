@@ -3,35 +3,62 @@ import Combine
 
 @MainActor
 public final class TransfersViewModel: ObservableObject {
+    // MARK: - Published state
+
+    /// Purchase Orders — vendor_orders placed by IM to restock from vendors
     @Published public var vendorOrders: [VendorOrder] = []
-    @Published public var pickLists: [ProductRequest] = []       // All requests (pending + approved)
-    @Published public var shipmentsOut: [Shipment] = []           // Warehouse-scoped shipments
-    @Published public var brandVendors: [Vendor] = []             // Brand-scoped vendor list
-    @Published public var stockAvailability: [UUID: Int] = [:]    // productId → warehouse qty
+    /// Pending boutique requests awaiting Accept/Reject decision
+    @Published public var pendingRequests: [ProductRequest] = []
+    /// Pick Lists — approved boutique requests ready to be physically picked & dispatched
+    @Published public var pickLists: [ProductRequest] = []
+    /// Shipments Out — shipments dispatched from this warehouse
+    @Published public var shipmentsOut: [Shipment] = []
+    /// Brand-scoped vendor list for PO creation
+    @Published public var brandVendors: [Vendor] = []
+    /// Brand-scoped products for PO creation
+    @Published public var brandProducts: [Product] = []
+    /// Cached warehouse stock qty per productId
+    @Published public var stockAvailability: [UUID: Int] = [:]
+
     @Published public var lastGeneratedASN: String? = nil
     @Published public var isLoading = false
     @Published public var errorMessage: String? = nil
 
     public init() {}
 
-    // MARK: - Load
+    // MARK: - Load All
 
     public func loadData() async {
         isLoading = true
         defer { isLoading = false }
         do {
-            async let requestsFetch = RequestService.shared.fetchRequestsForCurrentWarehouse()
-            async let shipmentsFetch = RequestService.shared.fetchShipmentsForCurrentWarehouse()
-            async let vendorOrdersFetch = RequestService.shared.fetchAllVendorOrders()
-            async let vendorsFetch = RequestService.shared.fetchVendorsForCurrentInventoryManager()
+            // Parallel fetches
+            async let pendingFetch  = RequestService.shared.fetchPendingRequests()
+            async let pickFetch     = RequestService.shared.fetchApprovedPickLists()
+            async let shipFetch     = RequestService.shared.fetchShipmentsForCurrentWarehouse()
+            async let poFetch       = RequestService.shared.fetchVendorOrdersForCurrentWarehouse()
+            async let vendorFetch   = RequestService.shared.fetchVendorsForCurrentInventoryManager()
+            async let productFetch  = fetchBrandProducts()
 
-            pickLists = try await requestsFetch
-            shipmentsOut = try await shipmentsFetch
-            vendorOrders = try await vendorOrdersFetch
-            brandVendors = try await vendorsFetch
+            pendingRequests = try await pendingFetch
+            pickLists       = try await pickFetch
+            shipmentsOut    = try await shipFetch
+            vendorOrders    = try await poFetch
+            brandVendors    = try await vendorFetch
+            brandProducts   = await productFetch
+            errorMessage    = nil
         } catch {
             errorMessage = error.localizedDescription
             print("TransfersViewModel.loadData error: \(error)")
+        }
+    }
+
+    private func fetchBrandProducts() async -> [Product] {
+        do {
+            return try await RequestService.shared.fetchProductsForCurrentInventoryManager()
+        } catch {
+            print("fetchBrandProducts error: \(error)")
+            return []
         }
     }
 
@@ -50,9 +77,9 @@ public final class TransfersViewModel: ObservableObject {
         }
     }
 
-    // MARK: - Accept (Step 1)
+    // MARK: - Accept Request (Step 1)
 
-    /// Only updates the status to 'approved'. Does NOT auto-ship.
+    /// Updates status to 'approved' — moves request to Pick Lists.
     public func acceptRequest(request: ProductRequest) async {
         isLoading = true
         defer { isLoading = false }
@@ -64,7 +91,7 @@ public final class TransfersViewModel: ObservableObject {
         }
     }
 
-    // MARK: - Ship with ASN (Step 2)
+    // MARK: - Ship with ASN (Step 2 — from Pick Lists)
 
     /// Creates the shipment with full ASN details. Returns the generated ASN number.
     @discardableResult
@@ -86,6 +113,8 @@ public final class TransfersViewModel: ObservableObject {
                 estimatedDelivery: estimatedDelivery,
                 notes: notes
             )
+            // Mark request as shipped
+            try await RequestService.shared.updateRequestStatus(id: request.id, status: "shipped")
             // Decrement warehouse stock
             if let productId = request.productId {
                 try await decrementWarehouseStock(productId: productId, deductQuantity: request.requestedQuantity)
@@ -99,7 +128,7 @@ public final class TransfersViewModel: ObservableObject {
         }
     }
 
-    // MARK: - Reject
+    // MARK: - Reject Request
 
     public func rejectRequest(request: ProductRequest, reason: String = "Rejected by Inventory Manager") async {
         isLoading = true
@@ -116,21 +145,80 @@ public final class TransfersViewModel: ObservableObject {
         }
     }
 
+    // MARK: - Purchase Orders
+
+    /// Creates a real PO in the vendor_orders table.
+    public func createPurchaseOrder(vendorId: UUID, productId: UUID, quantity: Int, notes: String) async -> Bool {
+        isLoading = true
+        defer { isLoading = false }
+        do {
+            _ = try await RequestService.shared.createPurchaseOrder(
+                vendorId: vendorId,
+                productId: productId,
+                quantity: quantity,
+                notes: notes
+            )
+            await loadData()
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
+        }
+    }
+
+    /// Marks a PO as received — stock will be added manually or via a separate flow.
+    public func markPOReceived(order: VendorOrder) async {
+        isLoading = true
+        defer { isLoading = false }
+        do {
+            try await RequestService.shared.updateVendorOrderStatus(id: order.id, status: "received")
+            await loadData()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
     // MARK: - Private Helpers
 
     private func decrementWarehouseStock(productId: UUID, deductQuantity: Int) async throws {
-        let inventoryRows = try await DataService.shared.fetchInventory()
-        let productRows = inventoryRows.filter { $0.productId == productId }
-        guard let mainRow = productRows.first else {
-            print("No inventory row found for product \(productId)")
-            return
-        }
-        let newQuantity = max(0, mainRow.quantity - deductQuantity)
-        try await DataService.shared.updateInventory(productId: productId, newQuantity: newQuantity)
+        // Resolve the warehouse this IM manages
+        let warehouseId = try await resolveWarehouseId()
 
-        if newQuantity < 5 {
-            print("Stock fell below 5! Auto-generating Vendor Order for product \(productId)")
+        // Decrement via WarehouseService (handles upsert safely)
+        try await WarehouseService.shared.decrementStock(
+            warehouseId: warehouseId,
+            productId: productId,
+            by: deductQuantity
+        )
+
+        // Auto-reorder if stock after decrement is critically low
+        let remaining = try await WarehouseService.shared.stockQuantity(
+            warehouseId: warehouseId,
+            productId: productId
+        )
+        if remaining < 5 {
+            print("⚠️ Stock < 5 for product \(productId) — auto-creating vendor reorder")
             try await RequestService.shared.createVendorOrder(quantity: 20)
         }
+    }
+
+    private func resolveWarehouseId() async throws -> UUID {
+        let userId = try await SupabaseManager.shared.client.auth.session.user.id
+        struct Row: Decodable {
+            let warehouseId: UUID
+            enum CodingKeys: String, CodingKey { case warehouseId = "warehouse_id" }
+        }
+        let rows: [Row] = try await SupabaseManager.shared.client
+            .from("inventory_managers")
+            .select("warehouse_id")
+            .eq("user_id", value: userId)
+            .limit(1)
+            .execute()
+            .value
+        guard let id = rows.first?.warehouseId else {
+            throw NSError(domain: "TransfersViewModel", code: 1,
+                          userInfo: [NSLocalizedDescriptionKey: "No warehouse assigned to this inventory manager."])
+        }
+        return id
     }
 }

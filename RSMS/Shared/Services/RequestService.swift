@@ -28,6 +28,55 @@ public final class RequestService: @unchecked Sendable {
             .value
     }
 
+    /// Only approved requests not yet dispatched — shown as Pick Lists for IM to dispatch.
+    public func fetchApprovedPickLists() async throws -> [ProductRequest] {
+        return try await client
+            .from("product_requests")
+            .select("*, product:products(*), store:stores(*)")
+            .eq("status", value: "approved")
+            .order("created_at", ascending: false)
+            .execute()
+            .value
+    }
+
+    /// Pending requests awaiting IM Accept/Reject — warehouse-brand scoped.
+    public func fetchPendingRequests() async throws -> [ProductRequest] {
+        do {
+            let warehouseId = try await resolveCurrentInventoryManagerWarehouseId()
+            struct WarehouseBrand: Decodable {
+                let brandId: UUID
+                enum CodingKeys: String, CodingKey { case brandId = "brand_id" }
+            }
+            let rows: [WarehouseBrand] = try await client
+                .from("warehouses")
+                .select("brand_id")
+                .eq("warehouse_id", value: warehouseId)
+                .limit(1)
+                .execute()
+                .value
+            if let brandId = rows.first?.brandId {
+                return try await client
+                    .from("product_requests")
+                    .select("*, product:products(*), store:stores(*)")
+                    .eq("brand_id", value: brandId)
+                    .eq("status", value: "pending")
+                    .order("created_at", ascending: false)
+                    .execute()
+                    .value
+            }
+        } catch {
+            print("fetchPendingRequests brand resolve error: \(error) — falling back to all pending")
+        }
+        // Fallback: all pending requests
+        return try await client
+            .from("product_requests")
+            .select("*, product:products(*), store:stores(*)")
+            .eq("status", value: "pending")
+            .order("created_at", ascending: false)
+            .execute()
+            .value
+    }
+
     /// Fetches requests scoped to the warehouse managed by the current inventory manager.
     public func fetchRequestsForCurrentWarehouse() async throws -> [ProductRequest] {
         let warehouseId = try await resolveCurrentInventoryManagerWarehouseId()
@@ -182,30 +231,105 @@ public final class RequestService: @unchecked Sendable {
         return asnNumber
     }
 
-    // MARK: - Vendor Orders
+    // MARK: - Vendor Orders (Purchase Orders)
 
+    /// Fetches all vendor orders with joined vendor and product data.
     public func fetchAllVendorOrders() async throws -> [VendorOrder] {
         return try await client
             .from("vendor_orders")
-            .select("*, product_requests(*, products(*))")
+            .select("*, vendors(*), products(*)")
             .order("created_at", ascending: false)
             .execute()
             .value
     }
 
+    /// Fetches vendor orders scoped to the current warehouse's brand.
+    public func fetchVendorOrdersForCurrentWarehouse() async throws -> [VendorOrder] {
+        let warehouseId = try await resolveCurrentInventoryManagerWarehouseId()
+        struct WarehouseBrand: Decodable {
+            let brandId: UUID
+            enum CodingKeys: String, CodingKey { case brandId = "brand_id" }
+        }
+        let rows: [WarehouseBrand] = try await client
+            .from("warehouses")
+            .select("brand_id")
+            .eq("warehouse_id", value: warehouseId)
+            .limit(1)
+            .execute()
+            .value
+        guard let brandId = rows.first?.brandId else {
+            return try await fetchAllVendorOrders()
+        }
+        // Vendor orders linked to vendors of the same brand
+        return try await client
+            .from("vendor_orders")
+            .select("*, vendors!inner(*), products(*)")
+            .eq("vendors.brand_id", value: brandId)
+            .order("created_at", ascending: false)
+            .execute()
+            .value
+    }
+
+    /// Creates a real Purchase Order in the vendor_orders table.
+    public func createPurchaseOrder(
+        vendorId: UUID,
+        productId: UUID,
+        quantity: Int,
+        notes: String
+    ) async throws -> VendorOrder {
+        struct POInsert: Encodable {
+            let vendorId: UUID
+            let productId: UUID
+            let quantity: Int
+            let status: String
+            let notes: String
+            enum CodingKeys: String, CodingKey {
+                case vendorId = "vendor_id"
+                case productId = "product_id"
+                case quantity
+                case status
+                case notes
+            }
+        }
+        let payload = POInsert(
+            vendorId: vendorId,
+            productId: productId,
+            quantity: quantity,
+            status: "pending",
+            notes: notes
+        )
+        let result: VendorOrder = try await client
+            .from("vendor_orders")
+            .insert(payload)
+            .select("*, vendors(*), products(*)")
+            .single()
+            .execute()
+            .value
+        return result
+    }
+
+    /// Updates a vendor order's status (e.g. pending → received).
+    public func updateVendorOrderStatus(id: UUID, status: String) async throws {
+        struct StatusUpdate: Encodable {
+            let status: String
+        }
+        try await client
+            .from("vendor_orders")
+            .update(StatusUpdate(status: status))
+            .eq("vendor_order_id", value: id)
+            .execute()
+    }
+
+    /// Lightweight auto-reorder — used when warehouse stock falls below threshold.
     public func createVendorOrder(quantity: Int) async throws {
         struct VendorOrderInsert: Encodable {
             let quantity: Int
             let status: String
-            enum CodingKeys: String, CodingKey {
-                case quantity
-                case status
-            }
+            enum CodingKeys: String, CodingKey { case quantity; case status }
         }
-        let payload = VendorOrderInsert(quantity: quantity, status: "pending")
         try await client
             .from("vendor_orders")
-            .insert(payload)
+            .insert(VendorOrderInsert(quantity: quantity, status: "pending"))
             .execute()
     }
 
@@ -231,6 +355,32 @@ public final class RequestService: @unchecked Sendable {
             .from("vendors")
             .select()
             .eq("brand_id", value: brandId)
+            .order("name", ascending: true)
+            .execute()
+            .value
+    }
+
+    /// Fetches products scoped to the brand of the current inventory manager.
+    public func fetchProductsForCurrentInventoryManager() async throws -> [Product] {
+        let warehouseId = try await resolveCurrentInventoryManagerWarehouseId()
+        struct WarehouseBrand: Decodable {
+            let brandId: UUID
+            enum CodingKeys: String, CodingKey { case brandId = "brand_id" }
+        }
+        let rows: [WarehouseBrand] = try await client
+            .from("warehouses")
+            .select("brand_id")
+            .eq("warehouse_id", value: warehouseId)
+            .limit(1)
+            .execute()
+            .value
+        guard let brandId = rows.first?.brandId else { return [] }
+
+        return try await client
+            .from("products")
+            .select()
+            .eq("brand_id", value: brandId)
+            .eq("is_active", value: true)
             .order("name", ascending: true)
             .execute()
             .value
@@ -348,6 +498,18 @@ public final class RequestService: @unchecked Sendable {
             .order("created_at", ascending: false)
             .execute()
             .value
+    }
+
+    // MARK: - Warehouse Stock Check
+
+    /// Returns the current warehouse stock qty for a given product.
+    /// Used by IM to verify availability before accepting / dispatching a request.
+    public func warehouseStockForProduct(productId: UUID) async throws -> Int {
+        let warehouseId = try await resolveCurrentInventoryManagerWarehouseId()
+        return try await WarehouseService.shared.stockQuantity(
+            warehouseId: warehouseId,
+            productId: productId
+        )
     }
 
     // MARK: - Private Helpers

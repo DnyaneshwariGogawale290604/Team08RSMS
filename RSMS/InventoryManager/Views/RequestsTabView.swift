@@ -82,10 +82,10 @@ public struct RequestsTabView: View {
 
     @ViewBuilder
     private func incomingRequestsSection() -> some View {
-        let incoming = viewModel.pickLists
+        let incoming = viewModel.pendingRequests
         if incoming.isEmpty {
             Spacer()
-            EmptyStateView(icon: "tray", title: "No Requests", message: "No incoming requests from boutiques right now.")
+            EmptyStateView(icon: "tray", title: "No Pending Requests", message: "All boutique requests have been actioned. Check Workflows → Pick Lists for approved ones.")
             Spacer()
         } else {
             List {
@@ -210,38 +210,42 @@ public struct RequestsTabView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
 
         default: // "pending"
-            HStack(spacing: 8) {
-                // Reject button
-                Button {
-                    rejectTargetRequest = request
-                    showRejectAlert = true
-                } label: {
-                    Text("Reject")
-                        .font(.caption.bold())
-                        .foregroundColor(.red)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.red, lineWidth: 1))
-                }
-
-                // Accept button (Step 1)
-                Button {
-                    Task {
-                        // Run stock check first
-                        let hasSufficientStock = await viewModel.checkWarehouseStock(for: request)
-                        stockCheckResults[request.id] = hasSufficientStock
-                        // Accept the request regardless (IM makes the call)
-                        await viewModel.acceptRequest(request: request)
+            VStack(spacing: 8) {
+                HStack(spacing: 8) {
+                    // Reject button
+                    Button {
+                        rejectTargetRequest = request
+                        showRejectAlert = true
+                    } label: {
+                        Text("Reject")
+                            .font(.caption.bold())
+                            .foregroundColor(.red)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.red, lineWidth: 1))
                     }
-                } label: {
-                    Text("Accept")
-                        .font(.caption.bold())
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
-                        .background(canShip == false ? Color.orange : Color.green)
-                        .cornerRadius(8)
+
+                    // Accept button — moves to Pick Lists
+                    Button {
+                        Task {
+                            let hasSufficientStock = await viewModel.checkWarehouseStock(for: request)
+                            stockCheckResults[request.id] = hasSufficientStock
+                            await viewModel.acceptRequest(request: request)
+                        }
+                    } label: {
+                        Text("Accept → Pick List")
+                            .font(.caption.bold())
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
+                            .background(canShip == false ? Color.orange : Color.green)
+                            .cornerRadius(8)
+                    }
                 }
+                // Hint
+                Text("Accepting moves this to Workflows → Pick Lists for dispatch.")
+                    .font(.caption2)
+                    .foregroundColor(.appSecondaryText)
             }
         }
     }
@@ -253,7 +257,7 @@ public struct RequestsTabView: View {
         let outgoing = viewModel.vendorOrders
         if outgoing.isEmpty {
             Spacer()
-            EmptyStateView(icon: "shippingbox", title: "No Vendor Orders", message: "No outgoing vendor orders yet.")
+            EmptyStateView(icon: "shippingbox", title: "No Vendor Orders", message: "No outgoing purchase orders yet. Go to Workflows → Purchase Orders to create one.")
             Spacer()
         } else {
             List {
@@ -261,16 +265,34 @@ public struct RequestsTabView: View {
                     ReusableCardView {
                         VStack(alignment: .leading, spacing: 8) {
                             HStack {
-                                Text("VO-\(order.id.uuidString.prefix(5).uppercased())")
-                                    .font(.headline).foregroundColor(.appPrimaryText)
+                                Text("PO-\(order.id.uuidString.prefix(5).uppercased())")
+                                    .font(.system(.subheadline, design: .monospaced).bold())
+                                    .foregroundColor(.appPrimaryText)
                                 Spacer()
+                                let sc: Color = order.status == "received" ? .green : (order.status == "pending" ? .orange : .gray)
                                 Text(order.status?.capitalized ?? "Pending")
                                     .font(.caption.bold())
-                                    .foregroundColor(order.status == "approved" || order.status == "delivered" ? .green : .orange)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 4)
+                                    .background(sc.opacity(0.15))
+                                    .foregroundColor(sc)
+                                    .clipShape(Capsule())
                             }
-                            Text("Quantity: \(order.quantity ?? 0) units")
-                                .font(.subheadline)
-                                .foregroundColor(.appSecondaryText)
+                            if let vendor = order.vendor {
+                                Label(vendor.name, systemImage: "building.2")
+                                    .font(.subheadline)
+                                    .foregroundColor(.appSecondaryText)
+                            }
+                            if let product = order.product {
+                                Label(product.name, systemImage: "tag")
+                                    .font(.subheadline)
+                                    .foregroundColor(.appSecondaryText)
+                            }
+                            HStack {
+                                Image(systemName: "number").font(.caption)
+                                Text("\(order.quantity ?? 0) units").font(.caption)
+                            }
+                            .foregroundColor(.appSecondaryText)
                         }
                     }
                     .listRowInsets(EdgeInsets())

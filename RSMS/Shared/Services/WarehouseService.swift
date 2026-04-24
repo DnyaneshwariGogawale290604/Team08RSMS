@@ -99,6 +99,58 @@ public final class WarehouseService: @unchecked Sendable {
             .execute()
     }
 
+    // MARK: - Warehouse Inventory
+
+    /// Returns the quantity of a specific product in a given warehouse.
+    public func stockQuantity(warehouseId: UUID, productId: UUID) async throws -> Int {
+        struct StockRow: Decodable {
+            let quantity: Int
+            enum CodingKeys: String, CodingKey { case quantity }
+        }
+        let rows: [StockRow] = try await client
+            .from("warehouse_inventory")
+            .select("quantity")
+            .eq("warehouse_id", value: warehouseId)
+            .eq("product_id", value: productId)
+            .limit(1)
+            .execute()
+            .value
+        return rows.first?.quantity ?? 0
+    }
+
+    /// Decrements warehouse stock by `quantity` after a shipment is dispatched.
+    public func decrementStock(warehouseId: UUID, productId: UUID, by quantity: Int) async throws {
+        let current = try await stockQuantity(warehouseId: warehouseId, productId: productId)
+        let newQty = max(0, current - quantity)
+        struct StockUpsert: Encodable {
+            let warehouseId: UUID
+            let productId: UUID
+            let quantity: Int
+            enum CodingKeys: String, CodingKey {
+                case warehouseId = "warehouse_id"
+                case productId   = "product_id"
+                case quantity
+            }
+        }
+        try await client
+            .from("warehouse_inventory")
+            .upsert(
+                StockUpsert(warehouseId: warehouseId, productId: productId, quantity: newQty),
+                onConflict: "warehouse_id,product_id"
+            )
+            .execute()
+    }
+
+    /// Fetch all inventory rows for a given warehouse (with product join).
+    public func fetchInventory(warehouseId: UUID) async throws -> [WarehouseInventoryRow] {
+        return try await client
+            .from("warehouse_inventory")
+            .select("*, products(*)")
+            .eq("warehouse_id", value: warehouseId)
+            .execute()
+            .value
+    }
+
     private func fetchCurrentCorporateAdminBrandId() async throws -> UUID {
         struct CorporateAdminBrandRow: Decodable {
             let brandId: UUID
@@ -134,5 +186,24 @@ private enum WarehouseServiceContextError: LocalizedError {
         case .missingCorporateAdminContext:
             return "Only corporate admins can create stores and warehouses."
         }
+    }
+}
+
+// MARK: - WarehouseInventoryRow
+
+/// One row from the `warehouse_inventory` table, optionally joined with `products`.
+public struct WarehouseInventoryRow: Identifiable, Decodable, Hashable, Sendable {
+    public var id: UUID
+    public var warehouseId: UUID
+    public var productId: UUID?
+    public var quantity: Int
+    public var product: Product?
+
+    enum CodingKeys: String, CodingKey {
+        case id          = "inventory_id"
+        case warehouseId = "warehouse_id"
+        case productId   = "product_id"
+        case quantity
+        case product     = "products"
     }
 }

@@ -4,57 +4,77 @@ public struct TransfersTabView: View {
     @StateObject private var viewModel = TransfersViewModel()
     @Binding var selectedTab: Int
     @Binding var prefilledSKUMagic: String?
-    
-    @State private var selectedSection: Int = 0 // 0: Purchase Orders, 1: Pick Lists, 2: Shipments Out
+
+    @State private var selectedSection: Int = 1   // default to Pick Lists (most active)
     @State private var showingCreatePO = false
-    
+
+    // Pick list dispatch
+    @State private var pickListForDispatch: ProductRequest? = nil
+    @State private var stockCheckCache: [UUID: Bool] = [:]
+    @State private var lastASN: String? = nil
+    @State private var showASNToast = false
+
+    // PO detail
+    @State private var selectedPO: VendorOrder? = nil
+
     public init(selectedTab: Binding<Int>, prefilledSKUMagic: Binding<String?>) {
         self._selectedTab = selectedTab
         self._prefilledSKUMagic = prefilledSKUMagic
     }
-    
+
     public var body: some View {
         ZStack {
             Color.appBackground.ignoresSafeArea()
-            
+
             VStack(spacing: 0) {
-                // Custom Pill Picker
+                // Section picker
                 Picker("Section", selection: $selectedSection) {
                     Text("Purchase Orders").tag(0)
                     Text("Pick Lists").tag(1)
                     Text("Shipments Out").tag(2)
                 }
                 .pickerStyle(SegmentedPickerStyle())
-                .padding()
-                
-                if selectedSection == 0 {
-                    purchaseOrdersSection()
-                } else if selectedSection == 1 {
-                    pickListsSection()
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+
+                if viewModel.isLoading && viewModel.pickLists.isEmpty && viewModel.vendorOrders.isEmpty {
+                    Spacer()
+                    ProgressView().progressViewStyle(CircularProgressViewStyle(tint: .appAccent))
+                    Spacer()
                 } else {
-                    shipmentsOutSection()
+                    switch selectedSection {
+                    case 0: purchaseOrdersSection()
+                    case 1: pickListsSection()
+                    default: shipmentsOutSection()
+                    }
                 }
             }
-            
-            // FAB for new orders
-            VStack {
-                Spacer()
-                HStack {
+
+            // FAB — only visible on Purchase Orders tab
+            if selectedSection == 0 {
+                VStack {
                     Spacer()
-                    Button(action: {
-                        showingCreatePO = true
-                    }) {
-                        Image(systemName: "plus")
-                            .font(.system(size: 24, weight: .bold))
-                            .foregroundColor(.white)
-                            .padding(20)
-                            .background(Color.appAccent)
-                            .clipShape(Circle())
-                            .shadow(radius: 5)
+                    HStack {
+                        Spacer()
+                        Button { showingCreatePO = true } label: {
+                            Image(systemName: "plus")
+                                .font(.system(size: 22, weight: .bold))
+                                .foregroundColor(.white)
+                                .padding(20)
+                                .background(Color.appAccent)
+                                .clipShape(Circle())
+                                .shadow(color: Color.appAccent.opacity(0.4), radius: 8, x: 0, y: 4)
+                        }
+                        .padding(.trailing, 20)
+                        .padding(.bottom, 24)
                     }
-                    .padding(.trailing, 20)
-                    .padding(.bottom, 20)
                 }
+            }
+
+            // ASN Toast
+            if showASNToast, let asn = lastASN {
+                asnToast(asn: asn)
+                    .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
         .navigationTitle("Workflows")
@@ -65,78 +85,41 @@ public struct TransfersTabView: View {
                 showingCreatePO = true
             }
         }
-        .task {
-            await viewModel.loadData()
-        }
-        .refreshable {
-            await viewModel.loadData()
-        }
+        .task { await viewModel.loadData() }
+        .refreshable { await viewModel.loadData() }
         .sheet(isPresented: $showingCreatePO) {
-            CreatePOView(prefilledSKU: $prefilledSKUMagic, brandVendors: viewModel.brandVendors)
+            CreatePurchaseOrderSheet(viewModel: viewModel)
+        }
+        .sheet(item: $pickListForDispatch) { req in
+            ShipmentDetailsSheet(request: req) { asn in
+                lastASN = asn
+                withAnimation(.spring()) { showASNToast = true }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+                    withAnimation { showASNToast = false }
+                }
+            }
+        }
+        .sheet(item: $selectedPO) { po in
+            PurchaseOrderDetailSheet(order: po, viewModel: viewModel)
         }
     }
-    
-    // MARK: - Sections
-    
+
+    // MARK: - ① Purchase Orders
+
     @ViewBuilder
     private func purchaseOrdersSection() -> some View {
-        let pos = viewModel.vendorOrders.map { Transfer(fromVendorOrder: $0) }
-        List {
-            ForEach(pos) { transfer in
-                NavigationLink(destination: TransferDetailView(transfer: transfer)) {
-                    transferRow(for: transfer)
-                }
-                .listRowInsets(EdgeInsets())
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
-                .padding(.vertical, 6)
-                .padding(.horizontal, 16)
-            }
-        }
-        .listStyle(.plain)
-    }
-    
-    @ViewBuilder
-    private func pickListsSection() -> some View {
-        // IM-15: Show pending/approved demands that need picking
-        let approvedPicks = viewModel.pickLists.map { Transfer(fromProductRequest: $0) }
-        if approvedPicks.isEmpty {
-            Spacer()
-            Text("No approved pick lists right now.")
-                .foregroundColor(.appSecondaryText)
-            Spacer()
+        if viewModel.vendorOrders.isEmpty {
+            emptyState(icon: "shippingbox", title: "No Purchase Orders", message: "Tap + to create a PO to a vendor for restocking.")
         } else {
             List {
-                ForEach(approvedPicks) { demand in
-                    NavigationLink(destination: PickListScanningView(demand: demand)) {
-                        transferRow(for: demand)
-                    }
-                    .listRowInsets(EdgeInsets())
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
-                    .padding(.vertical, 6)
-                    .padding(.horizontal, 16)
-                }
-            }
-            .listStyle(.plain)
-        }
-    }
-    
-    @ViewBuilder
-    private func shipmentsOutSection() -> some View {
-        if viewModel.shipmentsOut.isEmpty {
-            Spacer()
-            Text("No outbound shipments yet.")
-                .foregroundColor(.appSecondaryText)
-            Spacer()
-        } else {
-            List {
-                ForEach(viewModel.shipmentsOut) { shipment in
-                    shipmentOutCard(for: shipment)
+                ForEach(viewModel.vendorOrders) { order in
+                    purchaseOrderCard(order)
+                        .contentShape(Rectangle())
+                        .onTapGesture { selectedPO = order }
                         .listRowInsets(EdgeInsets())
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
-                        .padding(.vertical, 6)
+                        .padding(.vertical, 5)
                         .padding(.horizontal, 16)
                 }
             }
@@ -145,13 +128,241 @@ public struct TransfersTabView: View {
     }
 
     @ViewBuilder
-    private func shipmentOutCard(for shipment: Shipment) -> some View {
+    private func purchaseOrderCard(_ order: VendorOrder) -> some View {
+        let statusColor = poStatusColor(order.status ?? "pending")
+        ReusableCardView {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("PO-\(order.id.uuidString.prefix(6).uppercased())")
+                            .font(.system(.subheadline, design: .monospaced).bold())
+                            .foregroundColor(.appPrimaryText)
+                        if let vendor = order.vendor {
+                            Text(vendor.name)
+                                .font(.caption)
+                                .foregroundColor(.appSecondaryText)
+                        }
+                    }
+                    Spacer()
+                    Text((order.status ?? "pending").capitalized)
+                        .font(.caption.bold())
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(statusColor.opacity(0.15))
+                        .foregroundColor(statusColor)
+                        .clipShape(Capsule())
+                }
+
+                Divider()
+
+                HStack(spacing: 16) {
+                    // Product
+                    VStack(alignment: .leading, spacing: 2) {
+                        Label("Product", systemImage: "tag")
+                            .font(.caption2)
+                            .foregroundColor(.appSecondaryText)
+                        Text(order.product?.name ?? "Unknown Product")
+                            .font(.subheadline.bold())
+                            .foregroundColor(.appPrimaryText)
+                    }
+                    Spacer()
+                    // Quantity
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("\(order.quantity ?? 0)")
+                            .font(.title2.bold())
+                            .foregroundColor(.appAccent)
+                        Text("units")
+                            .font(.caption2)
+                            .foregroundColor(.appSecondaryText)
+                    }
+                }
+
+                if let notes = order.notes, !notes.isEmpty {
+                    Text(notes)
+                        .font(.caption)
+                        .foregroundColor(.appSecondaryText)
+                        .lineLimit(2)
+                }
+
+                // Date
+                if let date = order.createdAt {
+                    Text(date.formatted(date: .abbreviated, time: .shortened))
+                        .font(.caption2)
+                        .foregroundColor(.appSecondaryText)
+                }
+            }
+        }
+    }
+
+    // MARK: - ② Pick Lists
+
+    @ViewBuilder
+    private func pickListsSection() -> some View {
+        if viewModel.pickLists.isEmpty {
+            emptyState(
+                icon: "checklist",
+                title: "No Pick Lists",
+                message: "Approved boutique requests ready to dispatch will appear here."
+            )
+        } else {
+            List {
+                ForEach(viewModel.pickLists) { request in
+                    pickListCard(request)
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                        .padding(.vertical, 5)
+                        .padding(.horizontal, 16)
+                }
+            }
+            .listStyle(.plain)
+        }
+    }
+
+    @ViewBuilder
+    private func pickListCard(_ request: ProductRequest) -> some View {
+        let stockQty = request.productId.flatMap { viewModel.stockAvailability[$0] }
+        let canShip = request.productId.flatMap { stockCheckCache[$0] }
+
+        ReusableCardView {
+            VStack(alignment: .leading, spacing: 10) {
+                // Header
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("REQ-\(request.id.uuidString.prefix(4).uppercased())")
+                            .font(.system(.subheadline, design: .monospaced).bold())
+                            .foregroundColor(.appPrimaryText)
+                        Text("Boutique Order")
+                            .font(.caption)
+                            .foregroundColor(.appSecondaryText)
+                    }
+                    Spacer()
+                    // Approved badge
+                    Text("Ready to Pick")
+                        .font(.caption.bold())
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(Color.blue.opacity(0.12))
+                        .foregroundColor(.blue)
+                        .clipShape(Capsule())
+                }
+
+                // Product + Quantity
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(request.product?.name ?? "Unknown Product")
+                            .font(.headline)
+                            .foregroundColor(.appPrimaryText)
+                        if let store = request.store {
+                            HStack(spacing: 4) {
+                                Image(systemName: "location.fill")
+                                    .font(.caption2)
+                                Text("→ \(store.name)")
+                                    .font(.caption)
+                            }
+                            .foregroundColor(.appSecondaryText)
+                        }
+                    }
+                    Spacer()
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("\(request.requestedQuantity)")
+                            .font(.title2.bold())
+                            .foregroundColor(canShip == false ? .orange : .appAccent)
+                        Text("UNITS")
+                            .font(.caption2.bold())
+                            .foregroundColor(.appSecondaryText)
+                    }
+                }
+
+                // Stock availability (shown once checked)
+                if let qty = stockQty {
+                    HStack(spacing: 4) {
+                        Image(systemName: qty >= request.requestedQuantity ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                            .font(.caption)
+                            .foregroundColor(qty >= request.requestedQuantity ? .green : .orange)
+                        Text("\(qty) in warehouse stock")
+                            .font(.caption)
+                            .foregroundColor(.appSecondaryText)
+                    }
+                }
+
+                Divider()
+
+                // Action buttons
+                HStack(spacing: 10) {
+                    // Check Stock button
+                    Button {
+                        Task {
+                            let ok = await viewModel.checkWarehouseStock(for: request)
+                            if let pid = request.productId {
+                                stockCheckCache[pid] = ok
+                            }
+                        }
+                    } label: {
+                        Label("Check Stock", systemImage: "cube.box")
+                            .font(.caption.bold())
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(Color.appSecondaryText.opacity(0.1))
+                            .foregroundColor(.appSecondaryText)
+                            .cornerRadius(8)
+                    }
+
+                    Spacer()
+
+                    // Dispatch button
+                    Button {
+                        pickListForDispatch = request
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "shippingbox.fill")
+                            Text("Dispatch")
+                                .font(.caption.bold())
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(Color.appAccent)
+                        .foregroundColor(.white)
+                        .cornerRadius(8)
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - ③ Shipments Out
+
+    @ViewBuilder
+    private func shipmentsOutSection() -> some View {
+        if viewModel.shipmentsOut.isEmpty {
+            emptyState(icon: "arrow.up.forward.square", title: "No Outbound Shipments", message: "Shipments created after dispatching pick lists will appear here.")
+        } else {
+            List {
+                ForEach(viewModel.shipmentsOut) { shipment in
+                    shipmentOutCard(shipment)
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                        .padding(.vertical, 5)
+                        .padding(.horizontal, 16)
+                }
+            }
+            .listStyle(.plain)
+        }
+    }
+
+    @ViewBuilder
+    private func shipmentOutCard(_ shipment: Shipment) -> some View {
         ReusableCardView {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
                         if let asn = shipment.asnNumber {
                             Text(asn)
+                                .font(.system(.caption, design: .monospaced).bold())
+                                .foregroundColor(.appAccent)
+                        } else {
+                            Text("SHP-\(shipment.id.uuidString.prefix(6).uppercased())")
                                 .font(.system(.caption, design: .monospaced).bold())
                                 .foregroundColor(.appAccent)
                         }
@@ -163,10 +374,17 @@ public struct TransfersTabView: View {
                     shipmentStatusBadge(shipment.status)
                 }
 
+                if let store = shipment.request?.store {
+                    HStack(spacing: 4) {
+                        Image(systemName: "storefront").font(.caption).foregroundColor(.appSecondaryText)
+                        Text("To: \(store.name)").font(.subheadline).foregroundColor(.appSecondaryText)
+                    }
+                }
+
                 if let carrier = shipment.carrier {
                     HStack(spacing: 4) {
                         Image(systemName: "shippingbox").font(.caption).foregroundColor(.appSecondaryText)
-                        Text(carrier).font(.subheadline).foregroundColor(.appSecondaryText)
+                        Text(carrier).font(.caption).foregroundColor(.appSecondaryText)
                         if let tracking = shipment.trackingNumber {
                             Text("· \(tracking)").font(.caption).foregroundColor(.appSecondaryText)
                         }
@@ -180,15 +398,28 @@ public struct TransfersTabView: View {
                     }
                 }
 
+                if let qty = shipment.request?.requestedQuantity {
+                    HStack(spacing: 4) {
+                        Image(systemName: "number").font(.caption).foregroundColor(.appSecondaryText)
+                        Text("\(qty) units").font(.caption).foregroundColor(.appSecondaryText)
+                    }
+                }
+
                 if shipment.hasGRN == true {
                     HStack(spacing: 4) {
                         Image(systemName: "checkmark.seal.fill").font(.caption).foregroundColor(.green)
-                        Text("GRN Received").font(.caption.bold()).foregroundColor(.green)
+                        Text("GRN Received by Boutique").font(.caption.bold()).foregroundColor(.green)
                     }
+                    .padding(.vertical, 4)
+                    .padding(.horizontal, 10)
+                    .background(Color.green.opacity(0.08))
+                    .cornerRadius(6)
                 }
             }
         }
     }
+
+    // MARK: - Helpers
 
     private func shipmentStatusBadge(_ status: String) -> some View {
         let (color, label): (Color, String) = {
@@ -207,181 +438,343 @@ public struct TransfersTabView: View {
             .foregroundColor(color)
             .clipShape(Capsule())
     }
-    
-    @ViewBuilder
-    private func transferRow(for transfer: Transfer) -> some View {
-        let totalQuantity = transfer.items.reduce(0) { $0 + $1.quantity }
-        let itemNames = transfer.items.map { $0.productName }.joined(separator: ", ")
-        let displayNames = itemNames.isEmpty ? "Unknown Product" : itemNames
-        
-        ReusableCardView {
-            VStack(alignment: .leading, spacing: 12) {
-                // Header: Order ID & Status
-                HStack {
-                    Text(transfer.orderId)
-                        .font(.headline)
-                        .foregroundColor(.appPrimaryText)
-                    Spacer()
-                    Text(transfer.status.rawValue)
-                        .font(.caption.bold())
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(statusColor(transfer.status).opacity(0.15))
-                        .foregroundColor(statusColor(transfer.status))
-                        .clipShape(Capsule())
-                }
-                
-                // Content: Type, Products, Quantity
-                HStack(alignment: .center) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack {
-                            Image(systemName: transfer.type == .boutique ? "building.2.crop.circle" : "truck.box")
-                                .foregroundColor(.appSecondaryText)
-                                .font(.caption)
-                            Text(transfer.type == .boutique ? "Boutique Order" : "Vendor Order")
-                                .font(.caption.weight(.medium))
-                                .foregroundColor(.appSecondaryText)
-                        }
-                        
-                        Text(displayNames)
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundColor(.appPrimaryText)
-                            .lineLimit(2)
-                    }
-                    
-                    Spacer()
-                    
-                    VStack(alignment: .trailing, spacing: 2) {
-                        Text("\(totalQuantity)")
-                            .font(.title2.bold())
-                            .foregroundColor(.appAccent)
-                        Text(totalQuantity == 1 ? "unit" : "units")
-                            .font(.caption2.weight(.medium))
-                            .foregroundColor(.appSecondaryText)
-                            .textCase(.uppercase)
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(Color.appAccent.opacity(0.1))
-                    .cornerRadius(8)
-                }
-                
-                Divider()
-                
-                // Footer: Routing
-                HStack(spacing: 6) {
-                    Image(systemName: "location.circle.fill")
-                        .foregroundColor(.appSecondaryText)
-                        .font(.caption)
-                    Text("\(transfer.fromLocation)")
-                        .font(.caption.weight(.medium))
-                        .foregroundColor(.appPrimaryText)
-                    
-                    Image(systemName: "arrow.right")
-                        .font(.caption)
-                        .foregroundColor(.appSecondaryText)
-                        .padding(.horizontal, 2)
-                        
-                    Text("\(transfer.toLocation)")
-                        .font(.caption.weight(.medium))
-                        .foregroundColor(.appPrimaryText)
-                }
-                .padding(.top, 2)
-            }
+
+    private func poStatusColor(_ status: String) -> Color {
+        switch status.lowercased() {
+        case "received": return .green
+        case "pending": return .orange
+        case "cancelled": return .red
+        default: return .gray
         }
     }
-    
-    private func statusColor(_ status: TransferStatus) -> Color {
-        switch status {
-        case .pending, .approved: return .orange
-        case .placed: return .blue
-        case .dispatched, .inTransit: return .blue
-        case .delivered, .received: return .green
-        case .returned, .rejected: return .red
+
+    @ViewBuilder
+    private func emptyState(icon: String, title: String, message: String) -> some View {
+        Spacer()
+        VStack(spacing: 14) {
+            Image(systemName: icon)
+                .font(.system(size: 48))
+                .foregroundColor(Color.appBorder)
+            Text(title)
+                .font(.headline)
+                .foregroundColor(.appPrimaryText)
+            Text(message)
+                .font(.subheadline)
+                .foregroundColor(.appSecondaryText)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 32)
         }
+        Spacer()
+    }
+
+    @ViewBuilder
+    private func asnToast(asn: String) -> some View {
+        VStack {
+            HStack(spacing: 10) {
+                Image(systemName: "checkmark.seal.fill").foregroundColor(.green)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("ASN Generated").font(.caption.bold()).foregroundColor(.appPrimaryText)
+                    Text(asn).font(.system(.caption, design: .monospaced).bold()).foregroundColor(.appAccent)
+                }
+                Spacer()
+                Button { withAnimation { showASNToast = false } } label: {
+                    Image(systemName: "xmark").font(.caption).foregroundColor(.appSecondaryText)
+                }
+            }
+            .padding(14)
+            .background(Color.appCard)
+            .cornerRadius(14)
+            .shadow(radius: 10)
+            .padding(.horizontal, 16)
+            Spacer()
+        }
+        .padding(.top, 8)
     }
 }
 
-// Basic form for Create PO
-/// Create Purchase Order form — uses brand-scoped vendor list from TransfersViewModel.
-struct CreatePOView: View {
-    @Environment(\.presentationMode) var presentationMode
-    @Binding var prefilledSKU: String?
-    /// Passed in from parent TransfersTabView to access brand-scoped vendors.
-    let brandVendors: [Vendor]
+// MARK: - Create Purchase Order Sheet
 
-    @State private var sku: String = ""
-    @State private var quantity: String = "1"
+struct CreatePurchaseOrderSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @ObservedObject var viewModel: TransfersViewModel
+
     @State private var selectedVendorId: UUID? = nil
+    @State private var selectedProductId: UUID? = nil
+    @State private var quantityText: String = ""
+    @State private var notes: String = ""
 
-    private var selectedVendorName: String {
-        brandVendors.first(where: { $0.id == selectedVendorId })?.name ?? "Select Vendor"
+    private var isValid: Bool {
+        selectedVendorId != nil && selectedProductId != nil && (Int(quantityText) ?? 0) > 0
     }
 
     var body: some View {
         NavigationView {
-            Form {
-                Section(header: Text("Vendor Order Details")) {
-                    // Brand-scoped vendor picker
-                    if brandVendors.isEmpty {
-                        Text("No vendors available for this brand.")
-                            .foregroundColor(.secondary)
-                            .font(.subheadline)
-                    } else {
-                        Picker("Vendor", selection: $selectedVendorId) {
-                            Text("Select Vendor").tag(UUID?.none)
-                            ForEach(brandVendors) { vendor in
-                                Text(vendor.name).tag(Optional(vendor.id))
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 18) {
+                    // Info banner
+                    HStack(spacing: 10) {
+                        Image(systemName: "info.circle.fill").foregroundColor(.appAccent)
+                        Text("A Purchase Order requests stock from a vendor. Once the vendor ships, mark it as Received.")
+                            .font(.caption)
+                            .foregroundColor(.appSecondaryText)
+                    }
+                    .padding(12)
+                    .background(Color.appAccent.opacity(0.08))
+                    .cornerRadius(10)
+
+                    // Vendor Picker
+                    formCard(title: "Vendor") {
+                        if viewModel.brandVendors.isEmpty {
+                            Text("No vendors — ask Corporate Admin to add vendors first.")
+                                .font(.caption)
+                                .foregroundColor(.orange)
+                        } else {
+                            Picker("Select Vendor", selection: $selectedVendorId) {
+                                Text("Select Vendor").tag(UUID?.none)
+                                ForEach(viewModel.brandVendors) { v in
+                                    Text(v.name).tag(Optional(v.id))
+                                }
                             }
+                            .pickerStyle(MenuPickerStyle())
+                            .frame(maxWidth: .infinity, alignment: .trailing)
                         }
                     }
 
-                    TextField("Product / SKU", text: $sku)
+                    // Product Picker
+                    formCard(title: "Product") {
+                        if viewModel.brandProducts.isEmpty {
+                            Text("No products found.").font(.caption).foregroundColor(.orange)
+                        } else {
+                            Picker("Select Product", selection: $selectedProductId) {
+                                Text("Select Product").tag(UUID?.none)
+                                ForEach(viewModel.brandProducts) { p in
+                                    Text(p.name).tag(Optional(p.id))
+                                }
+                            }
+                            .pickerStyle(MenuPickerStyle())
+                            .frame(maxWidth: .infinity, alignment: .trailing)
+                        }
+                    }
 
-                    TextField("Quantity", text: $quantity)
+                    // Quantity
+                    formCard(title: "Quantity") {
+                        TextField("Units to order", text: $quantityText)
+                            .multilineTextAlignment(.trailing)
+                            .font(.headline)
 #if canImport(UIKit)
-                        .keyboardType(.numberPad)
+                            .keyboardType(.numberPad)
 #endif
+                    }
+
+                    // Notes
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Notes (optional)")
+                            .font(.caption.weight(.semibold))
+                            .foregroundColor(.appSecondaryText)
+                        TextEditor(text: $notes)
+                            .frame(minHeight: 70)
+                            .font(.system(size: 14))
+                            .padding(8)
+                            .background(Color.appBackground)
+                            .cornerRadius(10)
+                    }
+                    .padding(16)
+                    .background(Color.appCard)
+                    .cornerRadius(14)
+                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.appBorder, lineWidth: 0.8))
+
+                    // Submit
+                    Button {
+                        Task {
+                            guard let vId = selectedVendorId, let pId = selectedProductId,
+                                  let qty = Int(quantityText), qty > 0 else { return }
+                            let ok = await viewModel.createPurchaseOrder(vendorId: vId, productId: pId, quantity: qty, notes: notes)
+                            if ok { dismiss() }
+                        }
+                    } label: {
+                        Group {
+                            if viewModel.isLoading {
+                                ProgressView().tint(.white)
+                            } else {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "plus.circle.fill")
+                                    Text("Create Purchase Order")
+                                        .font(.system(size: 16, weight: .semibold))
+                                }
+                                .foregroundColor(.white)
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                    }
+                    .background(
+                        RoundedRectangle(cornerRadius: 50)
+                            .fill(isValid && !viewModel.isLoading ? Color.appAccent : Color.appBorder)
+                    )
+                    .disabled(!isValid || viewModel.isLoading)
                 }
+                .padding(20)
             }
-            .navigationTitle("Create Purchase Order")
-            .navigationBarItems(
-                leading: Button(action: {
-                    prefilledSKU = nil
-                    presentationMode.wrappedValue.dismiss()
-                }) {
-                    Image(systemName: "xmark")
-                },
-                trailing: Button(action: { submitOrder() }) {
-                    Text("Submit").font(.headline)
-                }
-                .disabled(sku.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || selectedVendorId == nil)
-            )
-            .onAppear {
-                if let prefill = prefilledSKU {
-                    self.sku = prefill
-                }
-                if selectedVendorId == nil {
-                    selectedVendorId = brandVendors.first?.id
+            .background(Color.appBackground.ignoresSafeArea())
+            .navigationTitle("New Purchase Order")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }.foregroundColor(.appAccent)
                 }
             }
         }
     }
 
-    private func submitOrder() {
-        let vendorName = selectedVendorName
-        let newReq = Transfer(
-            type: .vendor,
-            orderId: "PO-\(Int.random(in: 1000...9999))",
-            fromLocation: vendorName,
-            toLocation: "Warehouse",
-            status: .pending,
-            batchNumber: "NEW",
-            items: [TransferItem(productName: sku, quantity: Int(quantity) ?? 1)],
-            isAdminApproved: false
-        )
-        InventoryEngine.shared.demands.append(newReq)
-        prefilledSKU = nil
-        presentationMode.wrappedValue.dismiss()
+    @ViewBuilder
+    private func formCard<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
+        HStack {
+            Text(title)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(.appSecondaryText)
+                .frame(minWidth: 70, alignment: .leading)
+            Spacer()
+            content()
+                .font(.system(size: 14))
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .background(Color.appCard)
+        .cornerRadius(14)
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.appBorder, lineWidth: 0.8))
+    }
+}
+
+// MARK: - Purchase Order Detail Sheet
+
+struct PurchaseOrderDetailSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let order: VendorOrder
+    @ObservedObject var viewModel: TransfersViewModel
+
+    var body: some View {
+        NavigationView {
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 18) {
+                    // Header card
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            Text("PO-\(order.id.uuidString.prefix(6).uppercased())")
+                                .font(.system(.title3, design: .monospaced).bold())
+                                .foregroundColor(.appPrimaryText)
+                            Spacer()
+                            let sc = poStatusColor(order.status ?? "pending")
+                            Text((order.status ?? "pending").capitalized)
+                                .font(.caption.bold())
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 5)
+                                .background(sc.opacity(0.12))
+                                .foregroundColor(sc)
+                                .clipShape(Capsule())
+                        }
+
+                        if let date = order.createdAt {
+                            Text("Created: \(date.formatted(date: .long, time: .shortened))")
+                                .font(.caption)
+                                .foregroundColor(.appSecondaryText)
+                        }
+                    }
+                    .padding(16)
+                    .background(Color.appCard)
+                    .cornerRadius(14)
+                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.appBorder, lineWidth: 0.8))
+
+                    // Vendor card
+                    detailCard(icon: "building.2", title: "Vendor") {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(order.vendor?.name ?? "Unknown Vendor")
+                                .font(.headline).foregroundColor(.appPrimaryText)
+                            if let contact = order.vendor?.contactInfo {
+                                Text(contact).font(.subheadline).foregroundColor(.appSecondaryText)
+                            }
+                        }
+                    }
+
+                    // Product card
+                    detailCard(icon: "tag", title: "Product") {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(order.product?.name ?? "Unknown Product")
+                                    .font(.headline).foregroundColor(.appPrimaryText)
+                                if let cat = order.product?.category {
+                                    Text(cat).font(.caption).foregroundColor(.appSecondaryText)
+                                }
+                            }
+                            Spacer()
+                            VStack(alignment: .trailing) {
+                                Text("\(order.quantity ?? 0)")
+                                    .font(.title2.bold()).foregroundColor(.appAccent)
+                                Text("units").font(.caption2).foregroundColor(.appSecondaryText)
+                            }
+                        }
+                    }
+
+                    // Notes card
+                    if let notes = order.notes, !notes.isEmpty {
+                        detailCard(icon: "note.text", title: "Notes") {
+                            Text(notes).font(.subheadline).foregroundColor(.appPrimaryText)
+                        }
+                    }
+
+                    // Mark Received button
+                    if order.status?.lowercased() == "pending" {
+                        Button {
+                            Task {
+                                await viewModel.markPOReceived(order: order)
+                                dismiss()
+                            }
+                        } label: {
+                            HStack(spacing: 8) {
+                                Image(systemName: "checkmark.circle.fill")
+                                Text("Mark as Received")
+                                    .font(.system(size: 16, weight: .semibold))
+                            }
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                        }
+                        .background(RoundedRectangle(cornerRadius: 50).fill(Color.green))
+                        .padding(.top, 8)
+                    }
+                }
+                .padding(20)
+            }
+            .background(Color.appBackground.ignoresSafeArea())
+            .navigationTitle("Purchase Order")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close") { dismiss() }.foregroundColor(.appAccent)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func detailCard<Content: View>(icon: String, title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label(title, systemImage: icon)
+                .font(.caption.weight(.semibold))
+                .foregroundColor(.appSecondaryText)
+            content()
+        }
+        .padding(16)
+        .background(Color.appCard)
+        .cornerRadius(14)
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.appBorder, lineWidth: 0.8))
+    }
+
+    private func poStatusColor(_ status: String) -> Color {
+        switch status.lowercased() {
+        case "received": return .green
+        case "pending": return .orange
+        case "cancelled": return .red
+        default: return .gray
+        }
     }
 }
