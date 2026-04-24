@@ -413,16 +413,6 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
                     .insert(payload)
                     .execute()
 
-                try await SupabaseManager.shared.client
-                    .from("transactions")
-                    .insert(TxInsert(
-                        order_id: order.id.uuidString,
-                        payment_method: "cash",
-                        payment_status: "completed",
-                        amount_paid: order.totalAmount
-                    ))
-                    .execute()
-
                 // Mark the sales order as completed
                 struct OrderStatusUpdate: Encodable { let status: String }
                 try? await SupabaseManager.shared.client
@@ -430,6 +420,7 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
                     .update(OrderStatusUpdate(status: "completed"))
                     .eq("order_id", value: order.id.uuidString)
                     .execute()
+
 
                 paymentCompleted = true
                 isLoading = false
