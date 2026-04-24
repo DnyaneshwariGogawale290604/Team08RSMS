@@ -61,6 +61,7 @@ public class InventoryEngine: ObservableObject {
     public var availableCount: Int { inventory.filter { $0.status == .available }.count }
     public var reservedCount: Int { inventory.filter { $0.status == .reserved }.count }
     public var inTransitCount: Int { inventory.filter { $0.status == .inTransit }.count }
+    public var underRepairCount: Int { inventory.filter { $0.status == .underRepair }.count }
     public var soldCount: Int { inventory.filter { $0.status == .sold }.count }
     
     // MARK: - Flow 3: Dispatch & Fulfillment

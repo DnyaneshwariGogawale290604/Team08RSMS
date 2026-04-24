@@ -6,6 +6,7 @@ import Combine
 public final class InventoryDashboardViewModel: ObservableObject {
     @Published public var products: [Product] = []
     @Published public var storeInventory: [StoreInventory] = []
+    @Published public var inventoryItems: [InventoryItem] = []
     @Published public var pendingRequests: [ProductRequest] = []
     @Published public var recentActivity: [Shipment] = [] 
     @Published public var sales: [SalesOrder] = []
@@ -19,8 +20,11 @@ public final class InventoryDashboardViewModel: ObservableObject {
             // 1. Fetch Products
             products = try await DataService.shared.fetchProducts()
             
-            // 2. Fetch all inventory (Inventory Manager needs global view)
+            // 2. Fetch all inventory aggregates
             storeInventory = try await DataService.shared.fetchInventory()
+            
+            // 2.5 Fetch individual items (for repairs/serialization)
+            inventoryItems = try await DataService.shared.fetchInventoryItems()
             
             // 3. Fetch pending vendor orders / boutique requests
             pendingRequests = try await RequestService.shared.fetchPendingRequests()
@@ -73,8 +77,11 @@ public final class InventoryDashboardViewModel: ObservableObject {
     // MARK: - Stock Summary Metrics
     
     public var availableCount: Int {
-        let total = storeInventory.reduce(0) { sum, item in sum + item.quantity }
-        return total
+        return inventoryItems.filter { $0.status == .available }.count
+    }
+    
+    public var underRepairCount: Int {
+        return inventoryItems.filter { $0.status == .underRepair }.count
     }
     
     public var reservedCount: Int {
@@ -95,19 +102,26 @@ public final class InventoryDashboardViewModel: ObservableObject {
         sales.count * 2
     }
     
-    public func availableItems(for category: String) -> Int {
-        let categoryProducts = products.filter { ($0.category.isEmpty ? "General" : $0.category) == category }
-        let categoryProductIds = Set(categoryProducts.map { $0.id })
-        
-        let totalQuantity = storeInventory
-            .filter { inventory in
-                if let pid = inventory.productId {
-                    return categoryProductIds.contains(pid)
-                }
-                return false
+    public func filteredItemCount(for category: String, filter: ItemsTabView.RepairFilter) -> Int {
+        return inventoryItems.filter { item in
+            let cat = item.category.isEmpty ? "General" : item.category
+            guard cat == category else { return false }
+            
+            // Scrapped items are excluded from ALL counts
+            guard item.status != .scrapped else { return false }
+            
+            switch filter {
+            case .all:
+                return true
+            case .available:
+                return item.status == .available
+            case .underRepair:
+                return item.status == .underRepair
             }
-            .reduce(0) { $0 + $1.quantity }
-        
-        return totalQuantity
+        }.count
+    }
+    
+    public func availableItems(for category: String) -> Int {
+        return filteredItemCount(for: category, filter: .available)
     }
 }
