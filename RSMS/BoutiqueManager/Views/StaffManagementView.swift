@@ -119,9 +119,12 @@ struct StaffRow: View {
                     .fontWeight(.medium)
                     .foregroundColor(Theme.textPrimary)
 
-                Text(staff.email ?? "No email")
-                    .font(.caption)
-                    .foregroundColor(Theme.textSecondary)
+                if let sales = staff.totalSales {
+                    Text(formatCurrency(sales))
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(CatalogTheme.deepAccent)
+                }
             }
 
             Spacer()
@@ -147,7 +150,15 @@ struct StaffRow: View {
         .padding(.vertical, 10)
         .padding(.horizontal, 14)
         .background(Color.white)
-        .cornerRadius(14)
-        .shadow(color: Color.black.opacity(0.04), radius: 4, x: 0, y: 1)
+        .cornerRadius(20)
+        .shadow(color: Color.black.opacity(0.02), radius: 6, x: 0, y: 2)
+    }
+    
+    private func formatCurrency(_ value: Double) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.currencyCode = "USD"
+        formatter.maximumFractionDigits = 0
+        return formatter.string(from: NSNumber(value: value)) ?? "$0"
     }
 }

@@ -28,7 +28,16 @@ public final class StoreInventoryService: @unchecked Sendable {
             let current_quantity: Int
         }
         
-        let payloads = items.map {
+        struct InventoryInsertPayload: Encodable {
+            let store_id: UUID
+            let product_id: UUID
+            let quantity: Int
+            let updated_at: String
+        }
+        
+        let now = ISO8601DateFormatter().string(from: Date())
+        
+        let baselinePayloads = items.map {
             BaselineInsertPayload(
                 store_id: storeId,
                 product_id: $0.productId,
@@ -37,9 +46,24 @@ public final class StoreInventoryService: @unchecked Sendable {
             )
         }
         
+        let inventoryPayloads = items.map {
+            InventoryInsertPayload(
+                store_id: storeId,
+                product_id: $0.productId,
+                quantity: $0.quantity,
+                updated_at: now
+            )
+        }
+        
+        // Insert into both tables
         try await client
             .from("store_inventory_baseline")
-            .insert(payloads)
+            .insert(baselinePayloads)
+            .execute()
+            
+        try await client
+            .from("store_inventory")
+            .insert(inventoryPayloads)
             .execute()
     }
     

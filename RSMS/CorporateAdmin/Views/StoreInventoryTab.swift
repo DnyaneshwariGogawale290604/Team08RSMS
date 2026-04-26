@@ -19,7 +19,7 @@ public struct StoreInventoryTab: View {
                     VStack(spacing: 24) {
                         // Smart Insights
                         HStack(spacing: 12) {
-                            StatCard(title: "Total", value: viewModel.totalProducts, color: .appPrimaryText)
+                            StatCard(title: "Total", value: viewModel.totalProducts, color: CatalogTheme.primaryText)
                             StatCard(title: "Low Stock", value: viewModel.lowStockCount, color: .yellow)
                             StatCard(title: "Urgent", value: viewModel.criticalStockCount, color: .red)
                         }
@@ -123,9 +123,9 @@ struct StatCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
         .background(Color.white)
-        .cornerRadius(16)
+        .cornerRadius(20)
         .overlay(
-            RoundedRectangle(cornerRadius: 16)
+            RoundedRectangle(cornerRadius: 20)
                 .stroke(Color.black.opacity(0.05), lineWidth: 1)
         )
         .shadow(color: Color.black.opacity(0.03), radius: 8, x: 0, y: 4)

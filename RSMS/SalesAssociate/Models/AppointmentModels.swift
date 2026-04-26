@@ -1,22 +1,22 @@
 import Foundation
 
 // MARK: - Appointment
-struct Appointment: Identifiable, Decodable, Sendable {
-    let id: UUID
-    let customerId: UUID
-    let salesAssociateId: UUID
-    let storeId: UUID?
-    let appointmentAt: String       // ISO8601 timestamptz string from Supabase
-    let durationMins: Int
-    var status: String              // "scheduled" | "completed" | "cancelled" | "no_show"
-    let notes: String?
-    let createdAt: String?
+public struct Appointment: Identifiable, Decodable, Sendable {
+    public let id: UUID
+    public let customerId: UUID
+    public let salesAssociateId: UUID
+    public let storeId: UUID?
+    public let appointmentAt: String       // ISO8601 timestamptz string from Supabase
+    public let durationMins: Int
+    public var status: String              // "scheduled" | "completed" | "cancelled" | "no_show"
+    public let notes: String?
+    public let createdAt: String?
 
     // Joined relations (populated via Supabase select embedding)
-    let customer: AppointmentCustomer?
-    let appointmentProducts: [AppointmentProductItem]?
+    public let customer: AppointmentCustomer?
+    public let appointmentProducts: [AppointmentProductItem]?
 
-    enum CodingKeys: String, CodingKey {
+    public enum CodingKeys: String, CodingKey {
         case id
         case customerId          = "customer_id"
         case salesAssociateId    = "sales_associate_id"
@@ -33,7 +33,7 @@ struct Appointment: Identifiable, Decodable, Sendable {
     // MARK: Computed helpers
 
     /// Parses the ISO8601 timestamptz string into a Swift Date.
-    var appointmentDate: Date? {
+    public var appointmentDate: Date? {
         let fmt = ISO8601DateFormatter()
         fmt.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         if let d = fmt.date(from: appointmentAt) { return d }
@@ -42,7 +42,7 @@ struct Appointment: Identifiable, Decodable, Sendable {
     }
 
     /// Human-readable date+time: "Today · 3:30 PM", "Tomorrow · 10:00 AM", "Thu, 24 Apr · 2:00 PM"
-    var displayDateTime: String {
+    public var displayDateTime: String {
         guard let date = appointmentDate else { return appointmentAt }
         let cal = Calendar.current
         let time = date.formatted(date: .omitted, time: .shortened)
@@ -53,10 +53,10 @@ struct Appointment: Identifiable, Decodable, Sendable {
     }
 
     /// e.g. "30 min"
-    var durationDisplay: String { "\(durationMins) min" }
+    public var durationDisplay: String { "\(durationMins) min" }
 
     /// Status colour name for display
-    var statusColor: String {
+    public var statusColor: String {
         switch status {
         case "completed":  return "#4A7C59"
         case "cancelled", "no_show": return "#C0392B"
@@ -67,12 +67,12 @@ struct Appointment: Identifiable, Decodable, Sendable {
 
 // MARK: - AppointmentCustomer
 // Joined from the `customers` table via Supabase embedding.
-struct AppointmentCustomer: Decodable, Sendable {
-    let name: String
-    let phone: String?
-    let customerCategory: String?
+public struct AppointmentCustomer: Decodable, Sendable {
+    public let name: String
+    public let phone: String?
+    public let customerCategory: String?
 
-    enum CodingKeys: String, CodingKey {
+    public enum CodingKeys: String, CodingKey {
         case name
         case phone
         case customerCategory = "customer_category"
@@ -81,13 +81,13 @@ struct AppointmentCustomer: Decodable, Sendable {
 
 // MARK: - AppointmentProductItem
 // Joined from the `appointment_products` table.
-struct AppointmentProductItem: Identifiable, Decodable, Sendable {
-    let id: UUID
-    let quantity: Int
-    let notes: String?
-    let product: AppointmentProductDetail?  // further joined from `products`
+public struct AppointmentProductItem: Identifiable, Decodable, Sendable {
+    public let id: UUID
+    public let quantity: Int
+    public let notes: String?
+    public let product: AppointmentProductDetail?  // further joined from `products`
 
-    enum CodingKeys: String, CodingKey {
+    public enum CodingKeys: String, CodingKey {
         case id
         case quantity
         case notes
@@ -97,13 +97,13 @@ struct AppointmentProductItem: Identifiable, Decodable, Sendable {
 
 // MARK: - AppointmentProductDetail
 // Joined from the `products` table via appointment_products embedding.
-struct AppointmentProductDetail: Decodable, Sendable {
-    let productId: UUID
-    let name: String
-    let price: Double
-    let imageUrl: String?
+public struct AppointmentProductDetail: Decodable, Sendable {
+    public let productId: UUID
+    public let name: String
+    public let price: Double
+    public let imageUrl: String?
 
-    enum CodingKeys: String, CodingKey {
+    public enum CodingKeys: String, CodingKey {
         case productId = "product_id"
         case name
         case price

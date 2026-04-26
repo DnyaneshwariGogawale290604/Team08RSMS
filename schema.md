@@ -1,6 +1,31 @@
 -- WARNING: This schema is for context only and is not meant to be run.
 -- Table order and constraints may not be valid for execution.
 
+CREATE TABLE public.appointment_products (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  appointment_id uuid NOT NULL,
+  product_id uuid NOT NULL,
+  quantity integer DEFAULT 1,
+  notes text,
+  CONSTRAINT appointment_products_pkey PRIMARY KEY (id),
+  CONSTRAINT appointment_products_appointment_id_fkey FOREIGN KEY (appointment_id) REFERENCES public.appointments(id),
+  CONSTRAINT appointment_products_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(product_id)
+);
+CREATE TABLE public.appointments (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  customer_id uuid NOT NULL,
+  sales_associate_id uuid NOT NULL,
+  store_id uuid,
+  appointment_at timestamp with time zone NOT NULL,
+  duration_mins integer DEFAULT 30,
+  status text NOT NULL DEFAULT 'scheduled'::text CHECK (status = ANY (ARRAY['scheduled'::text, 'completed'::text, 'cancelled'::text, 'no_show'::text])),
+  notes text,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT appointments_pkey PRIMARY KEY (id),
+  CONSTRAINT appointments_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES public.customers(customer_id),
+  CONSTRAINT appointments_sales_associate_id_fkey FOREIGN KEY (sales_associate_id) REFERENCES public.sales_associates(user_id),
+  CONSTRAINT appointments_store_id_fkey FOREIGN KEY (store_id) REFERENCES public.stores(store_id)
+);
 CREATE TABLE public.associate_product_requests (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   sales_associate_id uuid NOT NULL,
@@ -14,17 +39,6 @@ CREATE TABLE public.associate_product_requests (
   CONSTRAINT associate_product_requests_sales_associate_id_fkey FOREIGN KEY (sales_associate_id) REFERENCES public.sales_associates(user_id),
   CONSTRAINT associate_product_requests_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(product_id),
   CONSTRAINT associate_product_requests_manager_id_fkey FOREIGN KEY (manager_id) REFERENCES public.boutique_managers(user_id)
-);
-CREATE TABLE public.associate_ratings (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  sales_associate_id uuid,
-  rating_value numeric CHECK (rating_value >= 1::numeric AND rating_value <= 5::numeric),
-  customer_id uuid,
-  feedback_text text,
-  created_at timestamp without time zone DEFAULT now(),
-  CONSTRAINT associate_ratings_pkey PRIMARY KEY (id),
-  CONSTRAINT associate_ratings_sales_associate_id_fkey FOREIGN KEY (sales_associate_id) REFERENCES public.sales_associates(user_id),
-  CONSTRAINT associate_ratings_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES public.customers(customer_id)
 );
 CREATE TABLE public.batches (
   batch_id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -53,6 +67,21 @@ CREATE TABLE public.brands (
   name text NOT NULL,
   created_at timestamp without time zone DEFAULT now(),
   CONSTRAINT brands_pkey PRIMARY KEY (brand_id)
+);
+CREATE TABLE public.cash_records (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  brand_id uuid NOT NULL,
+  sales_order_id uuid NOT NULL,
+  amount numeric NOT NULL,
+  tendered numeric,
+  change numeric,
+  note text,
+  recorded_by uuid NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT cash_records_pkey PRIMARY KEY (id),
+  CONSTRAINT cash_records_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(brand_id),
+  CONSTRAINT cash_records_sales_order_id_fkey FOREIGN KEY (sales_order_id) REFERENCES public.sales_orders(order_id),
+  CONSTRAINT cash_records_recorded_by_fkey FOREIGN KEY (recorded_by) REFERENCES public.users(user_id)
 );
 CREATE TABLE public.corporate_admins (
   user_id uuid NOT NULL,
@@ -107,6 +136,20 @@ CREATE TABLE public.customers (
   CONSTRAINT customers_pkey PRIMARY KEY (customer_id),
   CONSTRAINT customers_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(brand_id)
 );
+CREATE TABLE public.gateway_configs (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  brand_id uuid NOT NULL,
+  gateway USER-DEFINED NOT NULL DEFAULT 'razorpay'::gateway_type,
+  key_id text,
+  key_secret_id uuid NOT NULL,
+  webhook_secret_id uuid,
+  enabled_methods ARRAY DEFAULT ARRAY['upi'::text, 'card'::text, 'netbanking'::text],
+  is_active boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  key_id_vault_id uuid,
+  CONSTRAINT gateway_configs_pkey PRIMARY KEY (id),
+  CONSTRAINT gateway_configs_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(brand_id)
+);
 CREATE TABLE public.inventory_managers (
   user_id uuid NOT NULL,
   warehouse_id uuid NOT NULL UNIQUE,
@@ -136,6 +179,43 @@ CREATE TABLE public.order_tracking (
   updated_at timestamp without time zone DEFAULT now(),
   CONSTRAINT order_tracking_pkey PRIMARY KEY (id),
   CONSTRAINT order_tracking_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.sales_orders(order_id)
+);
+CREATE TABLE public.payment_orders (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  brand_id uuid NOT NULL,
+  sales_order_id uuid NOT NULL,
+  gateway USER-DEFINED NOT NULL,
+  gateway_order_id text UNIQUE,
+  amount numeric NOT NULL,
+  currency text DEFAULT 'INR'::text,
+  status USER-DEFINED DEFAULT 'pending'::payment_status_type,
+  method text,
+  expires_at timestamp with time zone,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT payment_orders_pkey PRIMARY KEY (id),
+  CONSTRAINT payment_orders_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(brand_id),
+  CONSTRAINT payment_orders_sales_order_id_fkey FOREIGN KEY (sales_order_id) REFERENCES public.sales_orders(order_id)
+);
+CREATE TABLE public.payment_sessions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  payment_order_id uuid NOT NULL,
+  token text NOT NULL UNIQUE,
+  expires_at timestamp with time zone NOT NULL,
+  accessed_at timestamp with time zone,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT payment_sessions_pkey PRIMARY KEY (id),
+  CONSTRAINT payment_sessions_payment_order_id_fkey FOREIGN KEY (payment_order_id) REFERENCES public.payment_orders(id)
+);
+CREATE TABLE public.payment_transactions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  payment_order_id uuid NOT NULL,
+  gateway_payment_id text,
+  gateway_signature text,
+  verified boolean DEFAULT false,
+  raw_webhook_payload jsonb,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT payment_transactions_pkey PRIMARY KEY (id),
+  CONSTRAINT payment_transactions_payment_order_id_fkey FOREIGN KEY (payment_order_id) REFERENCES public.payment_orders(id)
 );
 CREATE TABLE public.product_requests (
   request_id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -279,7 +359,7 @@ CREATE TABLE public.stores (
 CREATE TABLE public.transactions (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   order_id uuid,
-  payment_method text CHECK (payment_method = ANY (ARRAY['cash'::text, 'card'::text, 'upi'::text, 'split'::text])),
+  payment_method text CHECK (payment_method = ANY (ARRAY['cash'::text, 'card'::text, 'upi'::text, 'split'::text, 'netbanking'::text])),
   payment_status text CHECK (payment_status = ANY (ARRAY['pending'::text, 'completed'::text, 'failed'::text])),
   amount_paid numeric,
   transaction_time timestamp without time zone DEFAULT now(),

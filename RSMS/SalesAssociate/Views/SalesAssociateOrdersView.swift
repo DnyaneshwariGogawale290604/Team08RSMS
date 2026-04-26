@@ -6,6 +6,7 @@ struct SalesAssociateOrdersView: View {
     @EnvironmentObject var orderStore: SharedOrderStore
     @State private var selectedOrder: PlacedOrder? = nil
     @State private var selectedRemoteOrder: SAOrder? = nil
+    @State private var showNewSale = false
 
     var body: some View {
         NavigationStack {
@@ -63,6 +64,26 @@ struct SalesAssociateOrdersView: View {
                 SAOrderDetailSheet(order: order)
             }
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showNewSale = true
+                    } label: {
+                        Image(systemName: "plus")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(Color.brandWarmBlack)
+                    }
+                }
+            }
+            .fullScreenCover(isPresented: $showNewSale) {
+                SalesAssociateSalesView(isModal: true) {
+                    showNewSale = false
+                    Task {
+                        await viewModel.refresh()
+                    }
+                }
+                .environmentObject(orderStore)
+            }
             .task {
                 await viewModel.refresh()
             }

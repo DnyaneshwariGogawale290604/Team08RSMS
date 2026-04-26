@@ -25,14 +25,38 @@ public struct StoreFormView: View {
     private let inventoryService = StoreInventoryService.shared
     private let productService = ProductService.shared
 
-    public init(viewModel: StoreViewModel) {
+    private let editingStore: Store?
+
+    public init(viewModel: StoreViewModel, editingStore: Store? = nil) {
         self.viewModel = viewModel
+        self.editingStore = editingStore
+        
+        if let store = editingStore {
+            _generatedStoreId = State(initialValue: store.id)
+            _name = State(initialValue: store.name)
+            _location = State(initialValue: store.location)
+            _address = State(initialValue: store.address ?? "")
+            _salesTargetStr = State(initialValue: store.salesTarget != nil ? String(format: "%.0f", store.salesTarget!) : "")
+            // Parse openingDate (stored as String in format yyyy-MM-dd) into Date
+            if let openingDateStr = store.openingDate {
+                let formatter = DateFormatter()
+                formatter.calendar = .current
+                formatter.locale = .current
+                formatter.timeZone = .current
+                formatter.dateFormat = "yyyy-MM-dd"
+                let parsedDate = formatter.date(from: openingDateStr) ?? Date()
+                _openingDate = State(initialValue: parsedDate)
+            } else {
+                _openingDate = State(initialValue: Date())
+            }
+            _storeStatus = State(initialValue: StoreDraftStatus(rawValue: store.status ?? "active") ?? .active)
+        }
     }
 
     public var body: some View {
         NavigationView {
             ZStack {
-                Color(.systemGroupedBackground).ignoresSafeArea()
+                CatalogTheme.background.ignoresSafeArea()
 
                 ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 28) {
@@ -68,29 +92,29 @@ public struct StoreFormView: View {
     private var headerView: some View {
         HStack {
             Button("Cancel") { dismiss() }
-                .font(.system(size: 16, weight: .medium))
-                .foregroundColor(.black)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(CatalogTheme.deepAccent)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
-                .background(Color.white)
+                .background(CatalogTheme.surface)
                 .clipShape(Capsule())
             
             Spacer()
             
-            Text("Add Store")
-                .font(.system(size: 17, weight: .bold))
-                .foregroundColor(.black)
+            Text(editingStore == nil ? "Add Store" : "Edit Store")
+                .font(.system(size: 17, weight: .bold, design: .serif))
+                .foregroundColor(CatalogTheme.primaryText)
             
             Spacer()
             
             Button("Save") {
                 Task { await saveStore() }
             }
-            .font(.system(size: 16, weight: .medium))
-            .foregroundColor(canSave ? .black : .gray.opacity(0.4))
-            .padding(.horizontal, 16)
+            .font(.system(size: 14, weight: .semibold))
+            .foregroundColor(.white)
+            .padding(.horizontal, 20)
             .padding(.vertical, 8)
-            .background(Color.white)
+            .background(canSave ? CatalogTheme.deepAccent : CatalogTheme.inactiveBadge)
             .clipShape(Capsule())
             .disabled(!canSave)
         }
@@ -101,11 +125,15 @@ public struct StoreFormView: View {
     private var storeDetailsSection: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Store Information")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundColor(.appSecondaryText)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundColor(CatalogTheme.deepAccent)
 
             whiteCard {
-                inlineTextField("Location", text: $name)
+                inlineTextField("Store Name", text: $name)
+
+                divider
+
+                inlineTextField("Location (City/Area)", text: $location)
 
                 divider
 
@@ -149,8 +177,8 @@ public struct StoreFormView: View {
     private var addressSection: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Address")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundColor(.appSecondaryText)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundColor(CatalogTheme.deepAccent)
 
             whiteCard {
                 TextEditor(text: $address)
@@ -176,8 +204,8 @@ public struct StoreFormView: View {
     private var inventorySection: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Inventory Details")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundColor(.appSecondaryText)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundColor(CatalogTheme.deepAccent)
 
             whiteCard {
                 VStack(alignment: .leading, spacing: 16) {
@@ -281,6 +309,10 @@ public struct StoreFormView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.white)
         .cornerRadius(20)
+        .overlay(
+            RoundedRectangle(cornerRadius: 20)
+                .stroke(CatalogTheme.divider, lineWidth: 0.8)
+        )
     }
 
     private func detailRow<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
@@ -400,12 +432,18 @@ public struct StoreFormView: View {
                 status: storeStatus.rawValue,
                 address: trimmedAddress.isEmpty ? nil : trimmedAddress
             )
+            
 
-            try await storeService.createStore(newStore)
 
-            let inventoryPayload = selectedInventory.map { (productId: $0.product.id, quantity: $0.quantity) }
-            if !inventoryPayload.isEmpty {
-                try await inventoryService.assignProducts(storeId: generatedStoreId, items: inventoryPayload)
+            if let _ = editingStore {
+                try await storeService.updateStore(newStore)
+            } else {
+                try await storeService.createStore(newStore)
+                
+                let inventoryPayload = selectedInventory.map { (productId: $0.product.id, quantity: $0.quantity) }
+                if !inventoryPayload.isEmpty {
+                    try await inventoryService.assignProducts(storeId: generatedStoreId, items: inventoryPayload)
+                }
             }
 
             await viewModel.fetchStores()
@@ -472,10 +510,10 @@ private struct StoreProductPickerSheet: View {
                             HStack {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(product.name)
-                                        .foregroundColor(.appPrimaryText)
+                                        .foregroundColor(CatalogTheme.primaryText)
                                     Text(product.category)
                                         .font(.caption)
-                                        .foregroundColor(.appSecondaryText)
+                                        .foregroundColor(CatalogTheme.secondaryText)
                                 }
                                 Spacer()
                             }

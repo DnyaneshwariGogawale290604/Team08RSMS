@@ -67,8 +67,6 @@ public struct AdminManagementView: View {
                             .background(Circle().fill(CatalogTheme.deepAccent))
                             .shadow(color: Color.black.opacity(0.12), radius: 4, x: 0, y: 2)
                     }
-
-                    CorporateAdminProfileButton(sessionViewModel: sessionViewModel)
                 }
             }
             .task {
@@ -113,25 +111,25 @@ public struct AdminManagementView: View {
 
     private var rolePicker: some View {
         let roles = StaffRoleTab.allCases
-        return HStack(spacing: 0) {
+        return HStack(spacing: 4) {
             ForEach(roles, id: \.self) { role in
                 Button(action: {
-                    withAnimation(.easeInOut(duration: 0.22)) {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                         viewModel.selectedRole = role
                     }
                     Task { await viewModel.fetchStaff(for: role) }
                 }) {
                     Text(role.rawValue)
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(viewModel.selectedRole == role ? .white : CatalogTheme.deepAccent)
+                        .padding(.vertical, 10)
                         .frame(maxWidth: .infinity)
-                        .frame(minHeight: 44)
                         .background(
-                            Group {
+                            ZStack {
                                 if viewModel.selectedRole == role {
-                                    Capsule(style: .continuous)
+                                    Capsule()
                                         .fill(CatalogTheme.primary)
-                                        .padding(4)
+                                        .matchedGeometryEffect(id: "activeTab", in: tabNamespace)
                                 }
                             }
                         )
@@ -139,15 +137,15 @@ public struct AdminManagementView: View {
                 .buttonStyle(.plain)
             }
         }
-        .frame(maxWidth: .infinity)
-        .background(
-            Capsule(style: .continuous)
-                .fill(CatalogTheme.surface)
-        )
+        .padding(4)
+        .background(CatalogTheme.surface)
+        .clipShape(Capsule())
         .padding(.horizontal, 20)
         .padding(.top, 16)
         .padding(.bottom, 20)
     }
+
+    @Namespace private var tabNamespace
 
 
     @ViewBuilder
@@ -168,7 +166,7 @@ public struct AdminManagementView: View {
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(CatalogTheme.primaryText)
 
-                Text(item.user.id.uuidString)
+                Text("ID: \(item.user.id.uuidString.prefix(8).uppercased())")
                     .font(.caption)
                     .foregroundColor(CatalogTheme.mutedText)
                     .lineLimit(1)
@@ -229,7 +227,7 @@ public struct AdminManagementView: View {
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(CatalogTheme.primaryText)
 
-                Text(vendor.id.uuidString)
+                Text("ID: \(vendor.id.uuidString.prefix(8).uppercased())")
                     .font(.caption)
                     .foregroundColor(CatalogTheme.mutedText)
                     .lineLimit(1)
@@ -564,7 +562,6 @@ private struct StaffCreationSheet: View {
     let role: StaffRoleTab
 
     @State private var name: String = ""
-    @State private var employeeId: String = UUID().uuidString
     @State private var phone: String = ""
     @State private var email: String = ""
     @State private var password: String = ""
@@ -575,8 +572,15 @@ private struct StaffCreationSheet: View {
     var body: some View {
         NavigationView {
             ScrollView(showsIndicators: false) {
-                VStack(spacing: 18) {
-                    formCard
+                VStack(alignment: .leading, spacing: 28) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Staff Information")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(CatalogTheme.deepAccent)
+                            .padding(.leading, 4)
+                        
+                        formCard
+                    }
 
                     Button(action: save) {
                         Group {
@@ -592,7 +596,7 @@ private struct StaffCreationSheet: View {
                         .padding(.vertical, 16)
                     }
                     .background(
-                        RoundedRectangle(cornerRadius: 50, style: .continuous)
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
                             .fill(isFormValid && !viewModel.isLoading ? CatalogTheme.deepAccent : CatalogTheme.surface)
                     )
                     .foregroundColor(isFormValid && !viewModel.isLoading ? .white : CatalogTheme.mutedText)
@@ -601,9 +605,14 @@ private struct StaffCreationSheet: View {
                 .padding(20)
             }
             .background(CatalogTheme.background.ignoresSafeArea())
-            .navigationTitle(role.rawValue)
+            .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text(role.rawValue)
+                        .font(.system(size: 17, weight: .bold, design: .serif))
+                        .foregroundColor(CatalogTheme.primaryText)
+                }
                 ToolbarItem(placement: .cancellationAction) {
                     Button(action: { dismiss() }) {
                         Text("Cancel")
@@ -638,10 +647,13 @@ private struct StaffCreationSheet: View {
             divider
 
             fieldRow(label: "Employee ID") {
-                TextField("UUID", text: $employeeId)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .multilineTextAlignment(.trailing)
+                Text(viewModel.nextEmployeeNumber)
+                    .font(.system(size: 14, weight: .bold, design: .monospaced))
+                    .foregroundColor(CatalogTheme.deepAccent)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(CatalogTheme.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
             }
 
             divider
@@ -692,14 +704,14 @@ private struct StaffCreationSheet: View {
             Menu {
                 switch role {
                 case .boutiqueManager:
-                    ForEach(viewModel.stores) { store in
+                    ForEach(viewModel.availableStores) { store in
                         Button(store.displayName) {
                             selectedStoreId = store.id
                         }
                     }
 
                 case .inventoryManager:
-                    ForEach(viewModel.warehouses) { warehouse in
+                    ForEach(viewModel.availableWarehouses) { warehouse in
                         Button(warehouse.displayLabel) {
                             selectedWarehouseId = warehouse.id
                         }
@@ -792,10 +804,7 @@ private struct StaffCreationSheet: View {
     }
 
     private func save() {
-        guard let employeeUUID = UUID(uuidString: employeeId.trimmingCharacters(in: .whitespacesAndNewlines)) else {
-            localError = StaffCreationError.invalidEmployeeId.localizedDescription
-            return
-        }
+        let employeeUUID = UUID()
 
         let request = StaffCreationRequest(
             role: role,

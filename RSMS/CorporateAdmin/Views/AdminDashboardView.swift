@@ -31,31 +31,6 @@ struct AdminDashboardView: View {
                         // Gross Sales vs Target Card
                         grossSalesCard
 
-                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 14) {
-                            metricCard(
-                                title: "Boutique Managers",
-                                value: "\(adminViewModel.boutiqueManagers.count)",
-                                icon: "person.2.fill"
-                            )
-
-                            metricCard(
-                                title: "Inventory Managers",
-                                value: "\(adminViewModel.inventoryManagers.count)",
-                                icon: "shippingbox.fill"
-                            )
-
-                            metricCard(
-                                title: "Stores",
-                                value: "\(storeViewModel.stores.count)",
-                                icon: "storefront.fill"
-                            )
-
-                            metricCard(
-                                title: "Products",
-                                value: "\(activeProductCount)/\(productViewModel.products.count)",
-                                icon: "tag.fill"
-                            )
-                        }
 
                         if adminViewModel.isLoading || storeViewModel.isLoading || productViewModel.isLoading {
                             LoadingView(message: "Refreshing dashboard...")
@@ -374,22 +349,25 @@ struct AdminDashboardView: View {
     }
 
     private var topPerformingStoresCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Image(systemName: "crown.fill")
-                    .font(.title3.weight(.semibold))
-                    .foregroundColor(.orange)
-                    .padding(10)
-                    .background(Color.orange.opacity(0.12))
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(spacing: 12) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(CatalogTheme.surface)
+                        .frame(width: 44, height: 44)
+                    
+                    Image(systemName: "crown.fill")
+                        .foregroundColor(CatalogTheme.primary)
+                        .font(.system(size: 20))
+                }
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Top Performing Stores")
-                        .font(.headline)
-                        .foregroundColor(.appPrimaryText)
+                        .font(.system(size: 18, weight: .bold, design: .serif))
+                        .foregroundColor(.primary)
                     Text("Ranked by sales completed this month")
                         .font(.caption)
-                        .foregroundColor(.appSecondaryText)
+                        .foregroundColor(CatalogTheme.secondaryText)
                 }
 
                 Spacer()
@@ -406,10 +384,10 @@ struct AdminDashboardView: View {
                     VStack(spacing: 8) {
                         Image(systemName: "storefront")
                             .font(.title2)
-                            .foregroundColor(.appSecondaryText)
+                            .foregroundColor(CatalogTheme.secondaryText)
                         Text("No data for current month")
                             .font(.subheadline)
-                            .foregroundColor(.appSecondaryText)
+                            .foregroundColor(CatalogTheme.secondaryText)
                     }
                     .padding(.vertical, 20)
                     Spacer()
@@ -419,29 +397,29 @@ struct AdminDashboardView: View {
                     HStack(spacing: 12) {
                         Text("\(index + 1)")
                             .font(.subheadline.bold())
-                            .foregroundColor(index == 0 ? .orange : .appSecondaryText)
+                            .foregroundColor(index == 0 ? CatalogTheme.deepAccent : CatalogTheme.secondaryText)
                             .frame(width: 24)
 
                         VStack(alignment: .leading, spacing: 2) {
                             Text(item.store.name)
                                 .font(.subheadline.weight(.semibold))
-                                .foregroundColor(.appPrimaryText)
+                                .foregroundColor(CatalogTheme.primaryText)
                             Text(item.store.location)
                                 .font(.caption2)
-                                .foregroundColor(.appSecondaryText)
+                                .foregroundColor(CatalogTheme.secondaryText)
                         }
 
                         Spacer()
 
                         Text(formatCurrency(item.totalSales))
                             .font(.subheadline.bold())
-                            .foregroundColor(.appAccent)
+                            .foregroundColor(CatalogTheme.primary)
                     }
                     .padding(.vertical, 8)
 
                     if index < min(4, dashboardViewModel.topPerformingStores.count - 1) {
                         Divider()
-                            .background(Color.appBorder.opacity(0.4))
+                            .background(CatalogTheme.divider)
                     }
                 }
             }
@@ -488,14 +466,14 @@ struct AdminDashboardView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
         .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .fill(Color.white)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .stroke(CatalogTheme.divider, lineWidth: 0.8)
         )
-        .shadow(color: Color.black.opacity(0.03), radius: 6, x: 0, y: 2)
+        .shadow(color: Color.black.opacity(0.02), radius: 4, x: 0, y: 2)
     }
     
     @ViewBuilder
@@ -530,11 +508,11 @@ struct AdminDashboardView: View {
         }
         .padding()
         .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .fill(Color.white)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .stroke(CatalogTheme.primary.opacity(0.35), lineWidth: 1)
         )
         .shadow(color: Color.black.opacity(0.03), radius: 6, x: 0, y: 2)

@@ -23,6 +23,64 @@ public struct Customer: Codable, Identifiable, Sendable {
         case customerCategory = "customer_category"
         case brandId = "brand_id"; case createdAt = "created_at"
     }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        name = (try? c.decodeIfPresent(String.self, forKey: .name)) ?? "Unnamed Client"
+        phone = try? c.decodeIfPresent(String.self, forKey: .phone)
+        email = try? c.decodeIfPresent(String.self, forKey: .email)
+        gender = try? c.decodeIfPresent(String.self, forKey: .gender)
+        dateOfBirth = try? c.decodeIfPresent(String.self, forKey: .dateOfBirth)
+        address = try? c.decodeIfPresent(String.self, forKey: .address)
+        nationality = try? c.decodeIfPresent(String.self, forKey: .nationality)
+        notes = try? c.decodeIfPresent(String.self, forKey: .notes)
+        customerCategory = try? c.decodeIfPresent(String.self, forKey: .customerCategory)
+        brandId = try? c.decodeIfPresent(UUID.self, forKey: .brandId)
+
+        if let date = try? c.decodeIfPresent(Date.self, forKey: .createdAt) {
+            createdAt = date
+        } else if let raw = try? c.decodeIfPresent(String.self, forKey: .createdAt) {
+            createdAt = Self.parseDate(raw)
+        } else {
+            createdAt = nil
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(name, forKey: .name)
+        try c.encodeIfPresent(phone, forKey: .phone)
+        try c.encodeIfPresent(email, forKey: .email)
+        try c.encodeIfPresent(gender, forKey: .gender)
+        try c.encodeIfPresent(dateOfBirth, forKey: .dateOfBirth)
+        try c.encodeIfPresent(address, forKey: .address)
+        try c.encodeIfPresent(nationality, forKey: .nationality)
+        try c.encodeIfPresent(notes, forKey: .notes)
+        try c.encodeIfPresent(customerCategory, forKey: .customerCategory)
+        try c.encodeIfPresent(brandId, forKey: .brandId)
+        try c.encodeIfPresent(createdAt, forKey: .createdAt)
+    }
+
+    private static func parseDate(_ raw: String?) -> Date? {
+        guard let raw, !raw.isEmpty else { return nil }
+
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = iso.date(from: raw) { return date }
+
+        iso.formatOptions = [.withInternetDateTime]
+        if let date = iso.date(from: raw) { return date }
+
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        if let date = formatter.date(from: raw) { return date }
+
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.date(from: raw)
+    }
 }
 
 // MARK: - CustomerPreference

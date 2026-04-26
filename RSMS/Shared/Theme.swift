@@ -1,16 +1,18 @@
 import SwiftUI
 
 public struct Theme {
-    public static let offWhite = Color.appBackground
-    public static let beige = Color.appCard
-    public static let border = Color.appBorder
-    public static let textPrimary = Color.appPrimaryText
-    public static let textSecondary = Color.appSecondaryText
+    public static let offWhite = CatalogTheme.background
+    public static let beige = Color.white
+    public static let border = CatalogTheme.divider
+    public static let textPrimary = CatalogTheme.primaryText
+    public static let textSecondary = CatalogTheme.secondaryText
     
     // Semantic Colors
-    public static let success = Color.green.opacity(0.8)
-    public static let warning = Color.orange.opacity(0.8)
-    public static let error = Color.red.opacity(0.8)
+    public static let primary = CatalogTheme.primary
+    public static let surface = CatalogTheme.surface
+    public static let success = CatalogTheme.primary
+    public static let warning = CatalogTheme.deepAccent
+    public static let error = CatalogTheme.error
 }
 
 

@@ -6,6 +6,7 @@ import Combine
 public class BoutiqueDashboardViewModel: ObservableObject {
     @Published public var summary: DashboardSummary?
     @Published public var activeAlerts: [InventoryProduct] = []
+    @Published public var todayAppointments: [Appointment] = []
     @Published public var isLoading = false
     @Published public var errorMessage: String?
 
@@ -94,6 +95,15 @@ public class BoutiqueDashboardViewModel: ObservableObject {
             print("Dashboard/Inventory: \(error)")
         }
 
+        var fetchedAppointments: [Appointment] = []
+        do {
+            if let store = try await DataService.shared.fetchCurrentStore() {
+                fetchedAppointments = try await DataService.shared.fetchTodayAppointmentsForStore(storeId: store.id)
+            }
+        } catch {
+            print("Dashboard/Appointments: \(error)")
+        }
+
         withAnimation(.easeInOut(duration: 0.3)) {
             self.summary = DashboardSummary(
                 dailyRevenue: todayRevenue,
@@ -101,6 +111,7 @@ public class BoutiqueDashboardViewModel: ObservableObject {
                 activeAlertsCount: lowStockItems.count
             )
             self.activeAlerts = lowStockItems
+            self.todayAppointments = fetchedAppointments
             self.isLoading = false
         }
     }

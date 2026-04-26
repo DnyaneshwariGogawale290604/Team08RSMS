@@ -148,6 +148,11 @@ struct SalesAssociateSalesView: View {
             )) {
                 Button("OK") { vm.successMessage = nil }
             } message: { Text(vm.successMessage ?? "") }
+            .onReceive(NotificationCenter.default.publisher(
+                for: NSNotification.Name("OpenRazorpayCheckout")
+            )) { _ in
+                vm.openRazorpayCheckout()
+            }
         }
         .task { await vm.fetchCustomers() }
     }
@@ -331,7 +336,7 @@ struct SalesAssociateSalesView: View {
     // MARK: - Normal checkout FAB
     private var checkoutFAB: some View {
         Button {
-            Task { await vm.placeOrder(orderStore: orderStore, appointmentId: appointmentId, appointmentsVM: appointmentsVM) }
+            Task { await beginCheckout() }
         } label: {
             HStack(spacing: Spacing.md) {
                 if vm.isLoading {
@@ -381,7 +386,7 @@ struct SalesAssociateSalesView: View {
 
             // Checkout — places order and closes screen
             Button {
-                Task { await vm.placeOrder(orderStore: orderStore, appointmentId: appointmentId, appointmentsVM: appointmentsVM) }
+                Task { await beginCheckout() }
             } label: {
                 HStack(spacing: 6) {
                     if vm.isLoading {
@@ -460,6 +465,20 @@ struct SalesAssociateSalesView: View {
         }
     }
 
+    private func beginCheckout() async {
+        if vm.currentOrder != nil {
+            vm.showReceipt = false
+            vm.showPayment = true
+            return
+        }
+
+        await vm.placeOrder(orderStore: orderStore, appointmentId: appointmentId, appointmentsVM: appointmentsVM)
+
+        guard vm.currentOrder != nil, vm.errorMessage == nil else { return }
+        vm.showReceipt = false
+        vm.showPayment = true
+    }
+
     private func formatINR(_ v: Double) -> String {
         let f = NumberFormatter(); f.numberStyle = .decimal; f.maximumFractionDigits = 0
         return f.string(from: NSNumber(value: v)) ?? "\(Int(v))"
@@ -502,13 +521,18 @@ struct CartItemRow: View {
 struct CustomerSheet: View {
     @ObservedObject var vm: AssociateSalesViewModel
     @Environment(\.dismiss) var dismiss
-    @State private var mode: SheetMode = .list
+    @State private var mode: SheetMode
     @State private var searchText = ""
     @State private var name = ""; @State private var phone = ""; @State private var email = ""
     @State private var gender = ""; @State private var dob = ""; @State private var address = ""
     @State private var nationality = ""; @State private var notes = ""; @State private var category = "Regular"
 
     enum SheetMode { case list, create }
+
+    init(vm: AssociateSalesViewModel, initialMode: SheetMode = .list) {
+        self.vm = vm
+        _mode = State(initialValue: initialMode)
+    }
 
     var filteredCustomers: [Customer] {
         searchText.isEmpty ? vm.customers : vm.customers.filter {
@@ -706,11 +730,27 @@ struct ProductPickerSheet: View {
 
     private func productCard(_ product: Product) -> some View {
         let isAdded = addedProducts.contains(product.id)
+        let isRecommended = vm.recommendedProducts.contains(where: { $0.id == product.id })
+        
         return VStack(alignment: .leading, spacing: Spacing.sm) {
-            HStack {
+            HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(product.name).font(BrandFont.body(15, weight: .medium)).foregroundStyle(Color.brandWarmBlack)
                     Text(product.category).font(BrandFont.body(12)).foregroundStyle(Color.brandWarmGrey)
+                    
+                    if isRecommended {
+                        HStack(spacing: 4) {
+                            Image(systemName: "sparkles")
+                            Text("AI Recommended")
+                        }
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(Color(hex: "#6E5155"))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(Color(hex: "#6E5155").opacity(0.1))
+                        .clipShape(Capsule())
+                        .padding(.top, 2)
+                    }
                 }
                 Spacer()
                 Text("₹\(Int(product.price))").font(.system(size: 17, weight: .semibold, design: .serif)).foregroundStyle(Color.brandWarmBlack)
@@ -738,34 +778,80 @@ struct ProductPickerSheet: View {
     }
 }
 
-// MARK: - PaymentSheet (kept for future use)
+// MARK: - PaymentSheet
 struct PaymentSheet: View {
     @ObservedObject var vm: AssociateSalesViewModel
     @Environment(\.dismiss) var dismiss
-    @State private var selectedMethod = "card"
-    let methods: [(String, String, String)] = [("card","creditcard","Card"),("cash","banknote","Cash"),("upi","qrcode","UPI"),("split","arrow.triangle.branch","Split")]
+    @State private var upiMode = "qr"
+    @State private var upiPhoneNumber = ""
+    @State private var upiChannel = "whatsapp"
+    @State private var upiLinkSent = false
+    @State private var netbankingMode = "qr"
+    @State private var netbankingPhoneNumber = ""
+    @State private var netbankingChannel = "whatsapp"
+    @State private var netbankingDeliveryPrepared = false
+
+    private let methods: [(String, String, String)] = [
+        ("upi", "qrcode", "UPI"),
+        ("cash", "banknote", "Cash"),
+        ("netbanking", "building.columns", "Net Banking")
+    ]
 
     var body: some View {
         NavigationStack {
             ZStack {
                 Color.brandOffWhite.ignoresSafeArea()
-                VStack(spacing: Spacing.xl) {
-                    orderSummary; paymentMethods
-                    if let err = vm.errorMessage { ErrorBanner(message: err) { vm.errorMessage = nil } }
-                    Spacer()
-                    PrimaryButton(title: "Confirm Payment — ₹\(Int(vm.cartTotal))", isLoading: vm.isLoading) {
-                        Task { await vm.processPayment(method: selectedMethod) }
+
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: Spacing.lg) {
+                        orderSummary
+                        paymentMethods
+                        paymentContent
+                        if let err = vm.errorMessage {
+                            ErrorBanner(message: err) { vm.errorMessage = nil }
+                        }
                     }
-                    .padding(.horizontal, Spacing.md).padding(.bottom, Spacing.lg)
+                    .padding(.vertical, Spacing.lg)
                 }
-                .padding(.top, Spacing.lg)
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .principal) { Text("PAYMENT").font(.system(size: 13, weight: .semibold)).kerning(2).foregroundStyle(Color.brandWarmBlack) }
-                ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() }.foregroundStyle(Color.brandWarmGrey) }
+                ToolbarItem(placement: .principal) {
+                    Text("PAYMENT")
+                        .font(.system(size: 13, weight: .semibold))
+                        .kerning(2)
+                        .foregroundStyle(Color.brandWarmBlack)
+                }
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Cancel") { dismiss() }
+                        .foregroundStyle(Color.brandWarmGrey)
+                }
             }
         }
+    }
+
+    private var amountDue: Double {
+        vm.currentOrder?.totalAmount ?? vm.cartTotal
+    }
+
+    private var cashChange: Double {
+        vm.cashTendered - amountDue
+    }
+
+    private var cashTenderedText: Binding<String> {
+        Binding(
+            get: {
+                guard vm.cashTendered > 0 else { return "" }
+                if vm.cashTendered.rounded(.towardZero) == vm.cashTendered {
+                    return String(Int(vm.cashTendered))
+                }
+                return String(format: "%.2f", vm.cashTendered)
+            },
+            set: { newValue in
+                let filtered = newValue.filter { "0123456789.".contains($0) }
+                vm.cashTendered = Double(filtered) ?? 0
+            }
+        )
     }
 
     private var orderSummary: some View {
@@ -787,29 +873,419 @@ struct PaymentSheet: View {
             HStack {
                 Text("Total").font(BrandFont.body(15, weight: .semibold)).foregroundStyle(Color.brandWarmBlack)
                 Spacer()
-                Text("₹\(Int(vm.cartTotal))").font(.system(size: 22, weight: .semibold, design: .serif)).foregroundStyle(Color.brandWarmBlack)
-            }.padding(Spacing.md)
+                Text("₹\(Int(amountDue))").font(.system(size: 22, weight: .semibold, design: .serif)).foregroundStyle(Color.brandWarmBlack)
+            }
+            .padding(Spacing.md)
         }
-        .background(Color.brandLinen).clipShape(RoundedRectangle(cornerRadius: Radius.lg))
-        .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.brandPebble, lineWidth: 0.5)).padding(.horizontal, Spacing.md)
+        .background(Color.brandLinen)
+        .clipShape(RoundedRectangle(cornerRadius: Radius.lg))
+        .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.brandPebble, lineWidth: 0.5))
+        .padding(.horizontal, Spacing.md)
     }
 
     private var paymentMethods: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
-            Text("PAYMENT METHOD").font(.system(size: 10, weight: .semibold)).kerning(1.2).foregroundStyle(Color.brandWarmGrey).padding(.horizontal, Spacing.md)
+            Text("PAYMENT METHOD")
+                .font(.system(size: 10, weight: .semibold))
+                .kerning(1.2)
+                .foregroundStyle(Color.brandWarmGrey)
+                .padding(.horizontal, Spacing.md)
+
             HStack(spacing: Spacing.sm) {
                 ForEach(methods, id: \.0) { method in
-                    Button { selectedMethod = method.0 } label: {
-                        VStack(spacing: 6) { Image(systemName: method.1).font(.title3); Text(method.2).font(BrandFont.body(12, weight: .medium)) }
-                        .frame(maxWidth: .infinity).padding(.vertical, Spacing.md)
-                        .background(selectedMethod == method.0 ? Color.brandWarmBlack : Color.brandLinen)
-                        .foregroundStyle(selectedMethod == method.0 ? Color.brandOffWhite : Color.brandWarmBlack)
+                    methodButton(id: method.0, icon: method.1, title: method.2)
+                }
+            }
+            .padding(.horizontal, Spacing.md)
+        }
+    }
+
+    @ViewBuilder
+    private var paymentContent: some View {
+        switch vm.paymentMethod {
+        case "cash":
+            cashView
+        case "netbanking":
+            netBankingView
+        default:
+            upiView
+        }
+    }
+
+    private var upiView: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            sectionTitle("UPI FLOW")
+            deliveryModeSelector(
+                selection: $upiMode,
+                options: [("qr", "Show QR"), ("link", "Share Link"), ("both", "Both")]
+            )
+
+            if upiMode == "qr" || upiMode == "both" {
+                VStack(alignment: .leading, spacing: Spacing.md) {
+                    qrPlaceholder(title: "QR will appear here", footer: "yourshop@upi")
+                    appPills(["GPay", "PhonePe", "Paytm", "BHIM"])
+                }
+            }
+
+            if upiMode == "link" || upiMode == "both" {
+                VStack(alignment: .leading, spacing: Spacing.md) {
+                    phoneField(title: "Phone Number", text: $upiPhoneNumber)
+                    channelSelector(selection: $upiChannel)
+
+                    Button {
+                        upiLinkSent = !upiPhoneNumber.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    } label: {
+                        HStack {
+                            Image(systemName: upiChannel == "whatsapp" ? "message.badge" : "message")
+                            Text("Send Link")
+                                .font(BrandFont.body(14, weight: .medium))
+                        }
+                        .foregroundStyle(Color.brandWarmBlack)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Color.brandLinen)
                         .clipShape(RoundedRectangle(cornerRadius: Radius.md))
                         .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(Color.brandPebble, lineWidth: 0.5))
-                    }.buttonStyle(.plain)
+                    }
+                    .buttonStyle(.plain)
+
+                    if upiLinkSent {
+                        statusBox(
+                            title: "Payment link ready",
+                            message: "Share the payment link with the customer on \(upiChannel == "whatsapp" ? "WhatsApp" : "SMS")."
+                        )
+                    }
                 }
-            }.padding(.horizontal, Spacing.md)
+            }
+
+            PrimaryButton(title: "Customer has paid — Confirm", isLoading: vm.isLoading) {
+                Task { await vm.processPayment(method: "upi") }
+            }
         }
+        .padding(.horizontal, Spacing.md)
+    }
+
+    private var cashView: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            sectionTitle("CASH")
+            amountCard(label: "Amount Due", value: "₹\(formatAmount(amountDue))")
+
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                Text("QUICK ADD")
+                    .font(.system(size: 10, weight: .semibold))
+                    .kerning(1.2)
+                    .foregroundStyle(Color.brandWarmGrey)
+
+                HStack(spacing: Spacing.sm) {
+                    cashChip(title: "+₹500") { vm.cashTendered += 500 }
+                    cashChip(title: "+₹1000") { vm.cashTendered += 1000 }
+                    cashChip(title: "+₹2000") { vm.cashTendered += 2000 }
+                    cashChip(title: "Exact") { vm.cashTendered = amountDue }
+                }
+            }
+
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                Text("TENDERED AMOUNT")
+                    .font(.system(size: 10, weight: .semibold))
+                    .kerning(1.2)
+                    .foregroundStyle(Color.brandWarmGrey)
+
+                TextField("Enter amount received", text: cashTenderedText)
+                    .keyboardType(.decimalPad)
+                    .font(BrandFont.body(15))
+                    .padding(Spacing.md)
+                    .background(Color.brandLinen)
+                    .clipShape(RoundedRectangle(cornerRadius: Radius.md))
+                    .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(Color.brandPebble, lineWidth: 0.5))
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text(cashChange >= 0 ? "Change" : "Short")
+                    .font(.system(size: 10, weight: .semibold))
+                    .kerning(1.2)
+                    .foregroundStyle(Color.brandWarmGrey)
+                Text("₹\(formatAmount(abs(cashChange)))")
+                    .font(.system(size: 22, weight: .semibold, design: .serif))
+                    .foregroundStyle(cashChange >= 0 ? Color(hex: "#4A7C59") ?? Color.brandWarmBlack : Color(hex: "#9B4444") ?? Color.brandWarmBlack)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(Spacing.md)
+            .background(Color.brandLinen)
+            .clipShape(RoundedRectangle(cornerRadius: Radius.lg))
+            .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.brandPebble, lineWidth: 0.5))
+
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                Text("NOTE (OPTIONAL)")
+                    .font(.system(size: 10, weight: .semibold))
+                    .kerning(1.2)
+                    .foregroundStyle(Color.brandWarmGrey)
+                TextField("Cash note...", text: $vm.cashNote, axis: .vertical)
+                    .lineLimit(2...4)
+                    .font(BrandFont.body(14))
+                    .padding(Spacing.md)
+                    .background(Color.brandLinen)
+                    .clipShape(RoundedRectangle(cornerRadius: Radius.md))
+                    .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(Color.brandPebble, lineWidth: 0.5))
+            }
+
+            PrimaryButton(
+                title: "Save & Confirm",
+                isLoading: vm.isLoading,
+                isDisabled: vm.cashTendered < amountDue
+            ) {
+                Task { await vm.processPayment(method: "cash") }
+            }
+        }
+        .padding(.horizontal, Spacing.md)
+    }
+
+    private var netBankingView: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            sectionTitle("NET BANKING")
+            deliveryModeSelector(
+                selection: $netbankingMode,
+                options: [("qr", "Scan QR"), ("link", "Send Link"), ("both", "Both")]
+            )
+
+            if netbankingMode == "qr" || netbankingMode == "both" {
+                VStack(alignment: .leading, spacing: Spacing.md) {
+                    qrPlaceholder(title: "QR will appear here", footer: "Scan with your bank app")
+                    Button {
+                        netbankingDeliveryPrepared = true
+                    } label: {
+                        Text("Prepare QR")
+                            .font(BrandFont.body(14, weight: .medium))
+                            .foregroundStyle(Color.brandWarmBlack)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(Color.brandLinen)
+                            .clipShape(RoundedRectangle(cornerRadius: Radius.md))
+                            .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(Color.brandPebble, lineWidth: 0.5))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            if netbankingMode == "link" || netbankingMode == "both" {
+                VStack(alignment: .leading, spacing: Spacing.md) {
+                    phoneField(title: "Phone Number", text: $netbankingPhoneNumber)
+                    channelSelector(selection: $netbankingChannel)
+
+                    Button {
+                        netbankingDeliveryPrepared = !netbankingPhoneNumber.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    } label: {
+                        HStack {
+                            Image(systemName: netbankingChannel == "whatsapp" ? "message.badge" : "message")
+                            Text("Generate Link")
+                                .font(BrandFont.body(14, weight: .medium))
+                        }
+                        .foregroundStyle(Color.brandWarmBlack)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Color.brandLinen)
+                        .clipShape(RoundedRectangle(cornerRadius: Radius.md))
+                        .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(Color.brandPebble, lineWidth: 0.5))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            if netbankingDeliveryPrepared || vm.paymentSessionUrl != nil {
+                statusBox(
+                    title: "Waiting for customer...",
+                    message: vm.paymentSessionUrl ?? "Session is ready. Once the customer completes payment, the receipt can be shown."
+                )
+            }
+
+            PrimaryButton(title: "Mark as Paid", isLoading: vm.isLoading) {
+                Task { await vm.processPayment(method: "netbanking") }
+            }
+        }
+        .padding(.horizontal, Spacing.md)
+    }
+
+    private func methodButton(id: String, icon: String, title: String) -> some View {
+        Button {
+            vm.paymentMethod = id
+        } label: {
+            VStack(spacing: 6) {
+                Image(systemName: icon).font(.title3)
+                Text(title).font(BrandFont.body(12, weight: .medium))
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, Spacing.md)
+            .background(vm.paymentMethod == id ? Color.brandWarmBlack : Color.brandLinen)
+            .foregroundStyle(vm.paymentMethod == id ? Color.brandOffWhite : Color.brandWarmBlack)
+            .clipShape(RoundedRectangle(cornerRadius: Radius.md))
+            .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(Color.brandPebble, lineWidth: 0.5))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func deliveryModeSelector(
+        selection: Binding<String>,
+        options: [(String, String)]
+    ) -> some View {
+        HStack(spacing: Spacing.sm) {
+            ForEach(options, id: \.0) { option in
+                Button {
+                    selection.wrappedValue = option.0
+                } label: {
+                    Text(option.1)
+                        .font(BrandFont.body(13, weight: .medium))
+                        .foregroundStyle(selection.wrappedValue == option.0 ? Color.brandOffWhite : Color.brandWarmBlack)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .frame(maxWidth: .infinity)
+                        .background(selection.wrappedValue == option.0 ? Color.brandWarmBlack : Color.brandLinen)
+                        .clipShape(RoundedRectangle(cornerRadius: Radius.md))
+                        .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(Color.brandPebble, lineWidth: 0.5))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private func channelSelector(selection: Binding<String>) -> some View {
+        HStack(spacing: Spacing.sm) {
+            smallPill(title: "WhatsApp", isSelected: selection.wrappedValue == "whatsapp") {
+                selection.wrappedValue = "whatsapp"
+            }
+            smallPill(title: "SMS", isSelected: selection.wrappedValue == "sms") {
+                selection.wrappedValue = "sms"
+            }
+        }
+    }
+
+    private func appPills(_ apps: [String]) -> some View {
+        HStack(spacing: Spacing.sm) {
+            ForEach(apps, id: \.self) { app in
+                Text(app)
+                    .font(BrandFont.body(12, weight: .medium))
+                    .foregroundStyle(Color.brandWarmBlack)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(Color.brandLinen)
+                    .clipShape(Capsule())
+                    .overlay(Capsule().stroke(Color.brandPebble, lineWidth: 0.5))
+            }
+        }
+    }
+
+    private func qrPlaceholder(title: String, footer: String) -> some View {
+        VStack(spacing: Spacing.md) {
+            RoundedRectangle(cornerRadius: Radius.lg)
+                .fill(Color.brandOffWhite)
+                .frame(height: 180)
+                .overlay(
+                    VStack(spacing: 8) {
+                        Image(systemName: "qrcode")
+                            .font(.system(size: 44))
+                            .foregroundStyle(Color.brandPebble)
+                        Text(title)
+                            .font(BrandFont.body(14))
+                            .foregroundStyle(Color.brandWarmGrey)
+                    }
+                )
+            Text(footer)
+                .font(BrandFont.body(13, weight: .medium))
+                .foregroundStyle(Color.brandWarmBlack)
+        }
+        .padding(Spacing.md)
+        .background(Color.brandLinen)
+        .clipShape(RoundedRectangle(cornerRadius: Radius.lg))
+        .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.brandPebble, lineWidth: 0.5))
+    }
+
+    private func phoneField(title: String, text: Binding<String>) -> some View {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            Text(title.uppercased())
+                .font(.system(size: 10, weight: .semibold))
+                .kerning(1.2)
+                .foregroundStyle(Color.brandWarmGrey)
+            TextField("Enter customer phone number", text: text)
+                .keyboardType(.phonePad)
+                .font(BrandFont.body(14))
+                .padding(Spacing.md)
+                .background(Color.brandLinen)
+                .clipShape(RoundedRectangle(cornerRadius: Radius.md))
+                .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(Color.brandPebble, lineWidth: 0.5))
+        }
+    }
+
+    private func amountCard(label: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(label.uppercased())
+                .font(.system(size: 10, weight: .semibold))
+                .kerning(1.2)
+                .foregroundStyle(Color.brandWarmGrey)
+            Text(value)
+                .font(.system(size: 24, weight: .semibold, design: .serif))
+                .foregroundStyle(Color.brandWarmBlack)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(Spacing.md)
+        .background(Color.brandLinen)
+        .clipShape(RoundedRectangle(cornerRadius: Radius.lg))
+        .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.brandPebble, lineWidth: 0.5))
+    }
+
+    private func cashChip(title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(BrandFont.body(13, weight: .medium))
+                .foregroundStyle(Color.brandWarmBlack)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(Color.brandLinen)
+                .clipShape(Capsule())
+                .overlay(Capsule().stroke(Color.brandPebble, lineWidth: 0.5))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func smallPill(title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(BrandFont.body(13, weight: .medium))
+                .foregroundStyle(isSelected ? Color.brandOffWhite : Color.brandWarmBlack)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(isSelected ? Color.brandWarmBlack : Color.brandLinen)
+                .clipShape(Capsule())
+                .overlay(Capsule().stroke(Color.brandPebble, lineWidth: 0.5))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func statusBox(title: String, message: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(BrandFont.body(14, weight: .semibold))
+                .foregroundStyle(Color.brandWarmBlack)
+            Text(message)
+                .font(BrandFont.body(13))
+                .foregroundStyle(Color.brandWarmGrey)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(Spacing.md)
+        .background(Color.brandLinen)
+        .clipShape(RoundedRectangle(cornerRadius: Radius.lg))
+        .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.brandPebble, lineWidth: 0.5))
+    }
+
+    private func sectionTitle(_ title: String) -> some View {
+        Text(title)
+            .font(.system(size: 10, weight: .semibold))
+            .kerning(1.2)
+            .foregroundStyle(Color.brandWarmGrey)
+    }
+
+    private func formatAmount(_ value: Double) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.maximumFractionDigits = value.rounded(.towardZero) == value ? 0 : 2
+        return formatter.string(from: NSNumber(value: value)) ?? "\(value)"
     }
 }
 
@@ -845,12 +1321,14 @@ struct ReceiptSheet: View {
                             if let p = placed {
                                 Text("Order #\(p.orderNumber)").font(BrandFont.body(12)).foregroundStyle(Color.brandWarmGrey).kerning(1)
                             }
+                            let statusColor = vm.paymentCompleted ? Color(hex: "#4A7C59") : Color(hex: "#C8913A")
                             HStack(spacing: 6) {
-                                Circle().fill(Color(hex: "#C8913A")).frame(width: 6, height: 6)
-                                Text("Status: Pending").font(BrandFont.body(12, weight: .medium)).foregroundStyle(Color(hex: "#C8913A"))
+                                Circle().fill(statusColor).frame(width: 6, height: 6)
+                                Text(vm.paymentCompleted ? "Status: Completed" : "Status: Pending")
+                                    .font(BrandFont.body(12, weight: .medium)).foregroundStyle(statusColor)
                             }
                             .padding(.horizontal, 12).padding(.vertical, 5)
-                            .background(Color(hex: "#C8913A").opacity(0.1)).clipShape(Capsule())
+                            .background(statusColor.opacity(0.1)).clipShape(Capsule())
                         }
                         .padding(.top, Spacing.lg)
 
@@ -1080,5 +1558,3 @@ struct ProductRequestSheet: View {
         }
     }
 }
-
-

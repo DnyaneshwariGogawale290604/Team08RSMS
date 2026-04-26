@@ -82,8 +82,6 @@ public struct StoreListView: View {
                             .background(Circle().fill(CatalogTheme.deepAccent))
                             .shadow(color: Color.black.opacity(0.12), radius: 4, x: 0, y: 2)
                     }
-
-                    CorporateAdminProfileButton(sessionViewModel: sessionViewModel)
                 }
             }
             .onAppear {

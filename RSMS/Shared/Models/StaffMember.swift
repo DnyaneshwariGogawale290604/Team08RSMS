@@ -75,13 +75,15 @@ public struct StaffListItem: Identifiable, Hashable, Sendable {
     public let id: UUID
     public let role: StaffRoleTab
     public let user: User
+    public let assignmentId: UUID?
     public let assignmentName: String
     public let assignmentDetail: String
 
-    public init(id: UUID, role: StaffRoleTab, user: User, assignmentName: String, assignmentDetail: String) {
+    public init(id: UUID, role: StaffRoleTab, user: User, assignmentId: UUID?, assignmentName: String, assignmentDetail: String) {
         self.id = id
         self.role = role
         self.user = user
+        self.assignmentId = assignmentId
         self.assignmentName = assignmentName
         self.assignmentDetail = assignmentDetail
     }

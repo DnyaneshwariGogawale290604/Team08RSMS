@@ -35,37 +35,60 @@ struct SalesAssociateTabView: View {
                     Label("Account", systemImage: "person.crop.circle")
                 }
         }
-        .tint(.brandWarmBlack)
+        .tint(.luxuryPrimary)
+        .toolbarBackground(.visible, for: .tabBar)
+        .toolbarBackground(Color.white, for: .tabBar)
         .environmentObject(orderStore)
+        .onAppear {
+            configureTabBarAppearance()
+        }
+    }
+
+    private func configureTabBarAppearance() {
+        let appearance = UITabBarAppearance()
+        appearance.configureWithOpaqueBackground()
+        appearance.backgroundColor = UIColor.white
+
+        let normalColor = UIColor(Color.luxuryMutedText)
+        let selectedColor = UIColor(Color.luxuryPrimary)
+
+        appearance.stackedLayoutAppearance.normal.iconColor = normalColor
+        appearance.stackedLayoutAppearance.normal.titleTextAttributes = [.foregroundColor: normalColor]
+        appearance.stackedLayoutAppearance.selected.iconColor = selectedColor
+        appearance.stackedLayoutAppearance.selected.titleTextAttributes = [.foregroundColor: selectedColor]
+
+        UITabBar.appearance().standardAppearance = appearance
+        UITabBar.appearance().scrollEdgeAppearance = appearance
+        UITabBar.appearance().unselectedItemTintColor = normalColor
     }
 
     private var accountTab: some View {
         NavigationStack {
             ZStack {
-                Color.brandOffWhite.ignoresSafeArea()
+                Color.luxuryBackground.ignoresSafeArea()
 
                 VStack(spacing: 18) {
                     Spacer()
 
                     Image(systemName: "person.crop.circle.badge.checkmark")
                         .font(.system(size: 72))
-                        .foregroundStyle(Color.brandWarmGrey)
+                        .foregroundStyle(Color.luxurySecondaryText)
 
                     Text("Sales Associate")
-                        .font(BrandFont.display(24))
-                        .foregroundStyle(Color.brandWarmBlack)
+                        .font(.system(size: 24, weight: .bold, design: .serif))
+                        .foregroundStyle(Color.luxuryPrimaryText)
 
                     Button {
                         Task { await sessionViewModel.signOut() }
                     } label: {
                         Text("Logout")
                             .font(BrandFont.body(15, weight: .semibold))
-                            .foregroundStyle(Color.brandOffWhite)
+                            .foregroundStyle(Color.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 13)
-                            .background(Color.brandWarmBlack)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .luxuryPrimaryButtonChrome(cornerRadius: 16)
                     }
+                    .buttonStyle(LuxuryPressStyle())
                     .padding(.horizontal, 24)
 
                     Spacer()

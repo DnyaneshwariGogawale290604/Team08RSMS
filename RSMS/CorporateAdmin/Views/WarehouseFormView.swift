@@ -13,14 +13,24 @@ public struct WarehouseFormView: View {
     @State private var showingErrorAlert = false
     @State private var isSaving = false
     
-    public init(viewModel: WarehouseViewModel) {
+    private let editingWarehouse: Warehouse?
+
+    public init(viewModel: WarehouseViewModel, editingWarehouse: Warehouse? = nil) {
         self.viewModel = viewModel
+        self.editingWarehouse = editingWarehouse
+        
+        if let warehouse = editingWarehouse {
+            _name = State(initialValue: warehouse.name)
+            _location = State(initialValue: warehouse.location)
+            _address = State(initialValue: warehouse.address ?? "")
+            _isActive = State(initialValue: warehouse.status == "active")
+        }
     }
     
     public var body: some View {
         NavigationView {
             ZStack {
-                Color.brandOffWhite.ignoresSafeArea()
+                CatalogTheme.background.ignoresSafeArea()
                 
                 ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 28) {
@@ -28,8 +38,8 @@ public struct WarehouseFormView: View {
                         
                         VStack(alignment: .leading, spacing: 14) {
                             Text("Warehouse Information")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundColor(.appSecondaryText)
+                                .font(.system(size: 16, weight: .bold))
+                                .foregroundColor(CatalogTheme.deepAccent)
                             
                             whiteCard {
                                 inlineTextField("Warehouse Name", text: $name)
@@ -45,11 +55,11 @@ public struct WarehouseFormView: View {
                                             let isActive = self.isActive
                                             Text(isActive ? "Active" : "Inactive")
                                                 .font(.system(size: 13, weight: .medium))
-                                                .foregroundColor(isActive ? .green : .red)
+                                                .foregroundColor(isActive ? CatalogTheme.primary : CatalogTheme.deepAccent)
                                             
                                             Toggle("", isOn: $isActive)
                                                 .labelsHidden()
-                                                .toggleStyle(SwitchToggleStyle(tint: .green))
+                                                .toggleStyle(SwitchToggleStyle(tint: CatalogTheme.primary))
                                                 .scaleEffect(0.8)
                                         }
                                     }
@@ -59,8 +69,8 @@ public struct WarehouseFormView: View {
                         
                         VStack(alignment: .leading, spacing: 14) {
                             Text("Address")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundColor(.appSecondaryText)
+                                .font(.system(size: 16, weight: .bold))
+                                .foregroundColor(CatalogTheme.deepAccent)
                             
                             whiteCard {
                                 TextField("Street, landmark, city, postal code", text: $address, axis: .vertical)
@@ -86,29 +96,29 @@ public struct WarehouseFormView: View {
     private var headerView: some View {
         HStack {
             Button("Cancel") { dismiss() }
-                .font(.system(size: 16, weight: .medium))
-                .foregroundColor(.black)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(CatalogTheme.deepAccent)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
-                .background(Color.white)
+                .background(CatalogTheme.surface)
                 .clipShape(Capsule())
             
             Spacer()
             
-            Text("Add Warehouse")
-                .font(.system(size: 17, weight: .bold))
-                .foregroundColor(.black)
+            Text(editingWarehouse == nil ? "Add Warehouse" : "Edit Warehouse")
+                .font(.system(size: 17, weight: .bold, design: .serif))
+                .foregroundColor(CatalogTheme.primaryText)
             
             Spacer()
             
             Button("Save") {
                 Task { await saveWarehouse() }
             }
-            .font(.system(size: 16, weight: .medium))
-            .foregroundColor(canSave ? .black : .gray.opacity(0.4))
-            .padding(.horizontal, 16)
+            .font(.system(size: 14, weight: .semibold))
+            .foregroundColor(.white)
+            .padding(.horizontal, 20)
             .padding(.vertical, 8)
-            .background(Color.white)
+            .background(canSave ? CatalogTheme.deepAccent : CatalogTheme.inactiveBadge)
             .clipShape(Capsule())
             .disabled(!canSave)
         }
@@ -126,9 +136,8 @@ public struct WarehouseFormView: View {
         .cornerRadius(20)
         .overlay(
             RoundedRectangle(cornerRadius: 20)
-                .stroke(Color.black.opacity(0.05), lineWidth: 1)
+                .stroke(CatalogTheme.divider, lineWidth: 0.8)
         )
-        .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 5)
     }
     
     private func inlineTextField(_ placeholder: String, text: Binding<String>) -> some View {
@@ -149,8 +158,8 @@ public struct WarehouseFormView: View {
         isSaving = true
         defer { isSaving = false }
         
-        let newWarehouse = Warehouse(
-            id: UUID(),
+        let finalWarehouse = Warehouse(
+            id: editingWarehouse?.id ?? UUID(),
             name: name,
             location: location,
             address: address.isEmpty ? nil : address,
@@ -158,7 +167,11 @@ public struct WarehouseFormView: View {
         )
         
         do {
-            try await WarehouseService.shared.createWarehouse(newWarehouse)
+            if let _ = editingWarehouse {
+                try await WarehouseService.shared.updateWarehouse(finalWarehouse)
+            } else {
+                try await WarehouseService.shared.createWarehouse(finalWarehouse)
+            }
             await viewModel.fetchWarehouses()
             dismiss()
         } catch {

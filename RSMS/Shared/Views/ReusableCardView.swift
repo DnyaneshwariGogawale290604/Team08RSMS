@@ -2,11 +2,11 @@ import SwiftUI
 
 public extension Color {
     static let appBackground = Color(hex: "#FAF9F6")
-    static let appCard = Color(hex: "#F1EDE6")
+    static let appCard = Color.white
     static let appBorder = Color(hex: "#E5E0D8")
     static let appSecondaryText = Color(hex: "#6F6F6F")
     static let appPrimaryText = Color(hex: "#1A1A1A")
-    static let appAccent = Color(hex: "#C6A969")
+    static let appAccent = Color(hex: "#4A2E32")
 
     static let brandOffWhite = appBackground
     static let brandLinen = appCard
@@ -14,6 +14,15 @@ public extension Color {
     static let brandWarmGrey = appSecondaryText
     static let brandWarmBlack = appPrimaryText
     static let brandAccent = appAccent
+
+    static let luxuryPrimary = Color(hex: "#6E5155")
+    static let luxuryDeepAccent = Color(hex: "#4A2E32")
+    static let luxuryBackground = Color(hex: "#F5EFEF")
+    static let luxurySurface = Color(hex: "#E6DADA")
+    static let luxuryPrimaryText = Color(hex: "#1A1A1A")
+    static let luxurySecondaryText = Color(hex: "#6B5B5B")
+    static let luxuryMutedText = Color(hex: "#9A8A8A")
+    static let luxuryDivider = Color.black.opacity(0.08)
 
     init(hex: String) {
         let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
@@ -64,16 +73,34 @@ public enum AppTheme {
 public extension View {
     func appCardChrome() -> some View {
         self
-            .background(Color.appCard)
-            .clipShape(RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous))
-            .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 3)
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: CatalogTheme.cardCornerRadius, style: .continuous))
+            .shadow(color: Color.black.opacity(0.03), radius: 8, x: 0, y: 3)
     }
 
     func appPrimaryButtonChrome(enabled: Bool = true) -> some View {
         self
-            .background(enabled ? Color.appAccent : Color.appAccent.opacity(0.45))
+            .background(enabled ? CatalogTheme.brandDeep : CatalogTheme.inactiveBadge)
+            .foregroundColor(enabled ? .white : CatalogTheme.inactiveBadgeText)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    func luxuryPrimaryButtonChrome(enabled: Bool = true, cornerRadius: CGFloat = 16) -> some View {
+        self
+            .background(enabled ? Color.luxuryDeepAccent : Color.luxuryDeepAccent.opacity(0.45))
             .foregroundColor(.white)
-            .clipShape(RoundedRectangle(cornerRadius: AppTheme.buttonCornerRadius, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
+    }
+}
+
+public struct LuxuryPressStyle: ButtonStyle {
+    public init() {}
+
+    public func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 1.02 : 1.0)
+            .animation(.easeInOut(duration: 0.25), value: configuration.isPressed)
     }
 }
 
@@ -89,9 +116,9 @@ public struct AppPlusIconButton: View {
             .font(.system(size: size * 0.38, weight: .semibold))
             .foregroundColor(.white)
             .frame(width: size, height: size)
-            .background(Color.appAccent)
+            .background(CatalogTheme.brandDeep)
             .clipShape(Circle())
-            .shadow(color: Color.black.opacity(0.12), radius: 10, x: 0, y: 5)
+            .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
     }
 }
 
@@ -101,7 +128,7 @@ public struct AppCardChevron: View {
     public var body: some View {
         Image(systemName: "chevron.right")
             .font(.footnote.weight(.semibold))
-            .foregroundColor(.appSecondaryText)
+            .foregroundColor(CatalogTheme.secondaryText)
     }
 }
 

@@ -15,6 +15,7 @@ public struct MainDashboardView: View {
         TabView {
             HomeTabView()
                 .environmentObject(dashboardVM)
+                .environmentObject(sessionViewModel)
                 .tabItem {
                     Label("Dashboard", systemImage: "square.grid.2x2")
                 }
@@ -42,11 +43,6 @@ public struct MainDashboardView: View {
                 .tabItem {
                     Label("Staff", systemImage: "person.3")
                 }
-
-            accountTab
-                .tabItem {
-                    Label("Account", systemImage: "person.crop.circle")
-                }
         }
         .tint(CatalogTheme.primary)
         .toolbarBackground(.visible, for: .tabBar)
@@ -72,38 +68,5 @@ public struct MainDashboardView: View {
         UITabBar.appearance().standardAppearance = appearance
         UITabBar.appearance().scrollEdgeAppearance = appearance
         UITabBar.appearance().unselectedItemTintColor = normalColor
-    }
-
-    private var accountTab: some View {
-        NavigationView {
-            VStack(spacing: 20) {
-                Spacer()
-
-                Image(systemName: "building.2.crop.circle")
-                    .font(.system(size: 72))
-                    .foregroundColor(Theme.textSecondary)
-
-                Text("Boutique Manager")
-                    .font(.title3.weight(.semibold))
-                    .foregroundColor(Theme.textPrimary)
-
-                Button {
-                    Task { await sessionViewModel.signOut() }
-                } label: {
-                    Text("Logout")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .appPrimaryButtonChrome()
-                }
-                .padding(.horizontal, 24)
-
-                Spacer()
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color.appBackground.ignoresSafeArea())
-            .navigationTitle("Account")
-            .navigationBarTitleDisplayMode(.large)
-        }
     }
 }

@@ -12,42 +12,50 @@ public struct BoutiqueLoginView: View {
 
                 VStack(spacing: 10) {
                     Text("RSMS")
-                        .font(.system(size: 40, weight: .light, design: .serif))
-                        .foregroundColor(Theme.textPrimary)
+                        .font(.system(size: 40, weight: .bold, design: .serif))
+                        .foregroundColor(.luxuryPrimaryText)
 
                     Text("Boutique Manager Login")
-                        .font(.subheadline)
-                        .foregroundColor(Theme.textSecondary)
-                        .tracking(2)
+                        .font(.system(size: 14, weight: .regular, design: .default))
+                        .foregroundColor(.luxurySecondaryText)
+                        .tracking(1.2)
                 }
                 .padding(.bottom, 40)
 
                 VStack(spacing: 20) {
-                    TextField("Email", text: $authVM.email)
+                    TextField(
+                        "",
+                        text: $authVM.email,
+                        prompt: Text("Email").foregroundColor(.luxuryMutedText)
+                    )
                         .padding()
-                        .background(Color.appCard)
+                        .background(Color.white)
                         .clipShape(RoundedRectangle(cornerRadius: AppTheme.buttonCornerRadius, style: .continuous))
                         .overlay(
                             RoundedRectangle(cornerRadius: AppTheme.buttonCornerRadius, style: .continuous)
-                                .stroke(Color.appBorder, lineWidth: 1)
+                                .stroke(CatalogTheme.divider, lineWidth: 1)
                         )
                         .keyboardType(.emailAddress)
                         .autocapitalization(.none)
 
-                    SecureField("Password", text: $authVM.password)
+                    SecureField(
+                        "",
+                        text: $authVM.password,
+                        prompt: Text("Password").foregroundColor(.luxuryMutedText)
+                    )
                         .padding()
-                        .background(Color.appCard)
+                        .background(Color.white)
                         .clipShape(RoundedRectangle(cornerRadius: AppTheme.buttonCornerRadius, style: .continuous))
                         .overlay(
                             RoundedRectangle(cornerRadius: AppTheme.buttonCornerRadius, style: .continuous)
-                                .stroke(Color.appBorder, lineWidth: 1)
+                                .stroke(CatalogTheme.divider, lineWidth: 1)
                         )
                 }
                 .padding(.horizontal, 40)
 
                 if let error = authVM.errorMessage {
                     Text(error)
-                        .foregroundColor(Theme.error)
+                        .foregroundColor(.luxuryDeepAccent)
                         .font(.caption)
                 }
 
@@ -56,14 +64,21 @@ public struct BoutiqueLoginView: View {
                 }) {
                     if authVM.isLoading {
                         ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: Theme.offWhite))
-                            .primaryButtonStyle()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .luxuryPrimaryButtonChrome(cornerRadius: 16)
                     } else {
                         Text("SIGN IN")
                             .tracking(1.5)
-                            .primaryButtonStyle()
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .luxuryPrimaryButtonChrome(cornerRadius: 16)
                     }
                 }
+                .buttonStyle(LuxuryPressStyle())
                 .padding(.horizontal, 40)
                 .padding(.top, 20)
                 .disabled(authVM.isLoading)
@@ -71,14 +86,14 @@ public struct BoutiqueLoginView: View {
                 NavigationLink(destination: RegisterView()) {
                     Text("Don't have an account? Register")
                         .font(.caption)
-                        .foregroundColor(Theme.textSecondary)
+                        .foregroundColor(.luxurySecondaryText)
                 }
                 .padding(.top, 20)
 
                 Spacer()
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color.appBackground.ignoresSafeArea())
+            .background(CatalogTheme.background.ignoresSafeArea())
             .navigationBarHidden(true)
         }
     }

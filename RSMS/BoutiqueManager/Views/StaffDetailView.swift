@@ -7,8 +7,10 @@ public struct StaffDetailView: View {
     @Environment(\.presentationMode) var presentationMode
 
     @State private var ratings: [AssociateRating] = []
+    @State private var appointments: [Appointment] = []
     @State private var isLoading = false
     @State private var errorMsg: String?
+    @State private var selectedTab = 0
 
     public var body: some View {
         NavigationView {
@@ -20,22 +22,14 @@ public struct StaffDetailView: View {
                         // Avatar + name header
                         StaffProfileHeader(staff: staff, averageRating: averageRating, ratingCount: ratings.count)
 
-                        // Ratings section
-                        VStack(alignment: .leading, spacing: 14) {
-                            HStack {
-                                Text("CUSTOMER RATINGS")
-                                    .font(.caption)
-                                    .fontWeight(.semibold)
-                                    .foregroundColor(Theme.textSecondary)
-                                    .tracking(1.2)
-                                Spacer()
-                                if !ratings.isEmpty {
-                                    Text("\(ratings.count) review\(ratings.count == 1 ? "" : "s")")
-                                        .font(.caption)
-                                        .foregroundColor(Theme.textSecondary)
-                                }
-                            }
+                        // Segmented control
+                        Picker("Tab", selection: $selectedTab) {
+                            Text("Appointments").tag(0)
+                            Text("Reviews").tag(1)
+                        }
+                        .pickerStyle(SegmentedPickerStyle())
 
+                        VStack(alignment: .leading, spacing: 14) {
                             if isLoading {
                                 HStack { Spacer(); ProgressView(); Spacer() }
                                     .padding()
@@ -44,21 +38,43 @@ public struct StaffDetailView: View {
                                     .font(.caption)
                                     .foregroundColor(Theme.error)
                                     .padding()
-                            } else if ratings.isEmpty {
-                                HStack(spacing: 12) {
-                                    Image(systemName: "star.slash")
-                                        .foregroundColor(Theme.border)
-                                    Text("No customer ratings yet")
-                                        .font(.subheadline)
-                                        .foregroundColor(Theme.textSecondary)
+                            } else if selectedTab == 0 {
+                                // Appointments Tab
+                                if appointments.isEmpty {
+                                    HStack(spacing: 12) {
+                                        Image(systemName: "calendar.badge.exclamationmark")
+                                            .foregroundColor(Theme.border)
+                                        Text("No appointments found")
+                                            .font(.subheadline)
+                                            .foregroundColor(Theme.textSecondary)
+                                    }
+                                    .padding()
+                                    .frame(maxWidth: .infinity)
+                                    .background(Theme.beige)
+                                    .cornerRadius(14)
+                                } else {
+                                    ForEach(appointments) { appointment in
+                                        AppointmentCard(appointment: appointment)
+                                    }
                                 }
-                                .padding()
-                                .frame(maxWidth: .infinity)
-                                .background(Theme.beige)
-                                .cornerRadius(14)
                             } else {
-                                ForEach(ratings) { rating in
-                                    RatingCard(rating: rating)
+                                // Reviews Tab
+                                if ratings.isEmpty {
+                                    HStack(spacing: 12) {
+                                        Image(systemName: "star.slash")
+                                            .foregroundColor(Theme.border)
+                                        Text("No customer ratings yet")
+                                            .font(.subheadline)
+                                            .foregroundColor(Theme.textSecondary)
+                                    }
+                                    .padding()
+                                    .frame(maxWidth: .infinity)
+                                    .background(Theme.beige)
+                                    .cornerRadius(14)
+                                } else {
+                                    ForEach(ratings) { rating in
+                                        RatingCard(rating: rating)
+                                    }
                                 }
                             }
                         }
@@ -71,7 +87,7 @@ public struct StaffDetailView: View {
             .navigationBarItems(trailing: Button("Done") {
                 presentationMode.wrappedValue.dismiss()
             })
-            .onAppear { loadRatings() }
+            .onAppear { loadData() }
         }
     }
 
@@ -80,19 +96,24 @@ public struct StaffDetailView: View {
         return ratings.reduce(0) { $0 + $1.ratingValue } / Double(ratings.count)
     }
 
-    private func loadRatings() {
+    private func loadData() {
         isLoading = true
         errorMsg = nil
         Task {
             do {
-                let fetched = try await DataService.shared.fetchStaffRatings(salesAssociateId: staff.id)
+                async let fetchedRatings = DataService.shared.fetchStaffRatings(salesAssociateId: staff.id)
+                async let fetchedAppointments = DataService.shared.fetchAppointments(salesAssociateId: staff.id)
+                
+                let (ratingsResult, appointmentsResult) = try await (fetchedRatings, fetchedAppointments)
+                
                 await MainActor.run {
-                    self.ratings = fetched
+                    self.ratings = ratingsResult
+                    self.appointments = appointmentsResult
                     self.isLoading = false
                 }
             } catch {
                 await MainActor.run {
-                    self.errorMsg = "Could not load ratings. (\(error.localizedDescription))"
+                    self.errorMsg = "Could not load data. (\(error.localizedDescription))"
                     self.isLoading = false
                 }
             }
@@ -141,12 +162,12 @@ private struct StaffProfileHeader: View {
                         .foregroundColor(Color(red: 0.9, green: 0.7, blue: 0.0))
                         .font(.body)
                 }
-                Text(ratingCount > 0 ? String(format: "%.1f", averageRating) : "–")
-                    .font(.headline)
-                    .fontWeight(.bold)
-                    .foregroundColor(Theme.textPrimary)
-                    .padding(.leading, 4)
                 if ratingCount > 0 {
+                    Text(String(format: "%.1f", averageRating))
+                        .font(.headline)
+                        .fontWeight(.bold)
+                        .foregroundColor(Theme.textPrimary)
+                        .padding(.leading, 4)
                     Text("/ 5")
                         .font(.subheadline)
                         .foregroundColor(Theme.textSecondary)
@@ -157,7 +178,7 @@ private struct StaffProfileHeader: View {
         .frame(maxWidth: .infinity)
         .background(Color.white)
         .cornerRadius(20)
-        .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 2)
+        .shadow(color: Color.black.opacity(0.02), radius: 6, x: 0, y: 2)
     }
 
     private func starIcon(for star: Int, avg: Double) -> String {
@@ -204,8 +225,8 @@ private struct RatingCard: View {
         }
         .padding(14)
         .background(Color.white)
-        .cornerRadius(14)
-        .shadow(color: Color.black.opacity(0.04), radius: 4, x: 0, y: 1)
+        .cornerRadius(20)
+        .shadow(color: Color.black.opacity(0.02), radius: 6, x: 0, y: 2)
     }
 
     private func formatDate(_ iso: String) -> String {
@@ -220,6 +241,5 @@ private struct RatingCard: View {
         return String(iso.prefix(10))
     }
 }
-
 
 

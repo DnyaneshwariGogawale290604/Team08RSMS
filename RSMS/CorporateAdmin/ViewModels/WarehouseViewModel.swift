@@ -54,4 +54,15 @@ public final class WarehouseViewModel: ObservableObject {
             errorMessage = error.localizedDescription
         }
     }
+
+    public func archiveWarehouse(warehouseId: UUID) async {
+        isLoading = true
+        defer { isLoading = false }
+        do {
+            try await service.archiveWarehouse(id: warehouseId)
+            await fetchWarehouses()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
 }

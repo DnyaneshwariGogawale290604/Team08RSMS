@@ -27,28 +27,29 @@ private struct CorporateAdminAccountView: View {
 
     var body: some View {
         ZStack {
-            Color.brandOffWhite.ignoresSafeArea()
+            Color.luxuryBackground.ignoresSafeArea()
 
             VStack(spacing: 20) {
                 Spacer()
 
                 Image(systemName: "person.crop.circle")
                     .font(.system(size: 72))
-                    .foregroundColor(.appSecondaryText)
+                    .foregroundColor(Color.luxurySecondaryText)
 
                 Text("Corporate Admin")
-                    .font(.title3.weight(.semibold))
-                    .foregroundColor(.appPrimaryText)
+                    .font(.system(size: 24, weight: .bold, design: .serif))
+                    .foregroundColor(Color.luxuryPrimaryText)
 
                 Button {
                     Task { await sessionViewModel.signOut() }
                 } label: {
                     Text("Logout")
-                        .font(.headline)
+                        .font(.system(size: 16, weight: .semibold, design: .default))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
-                        .appPrimaryButtonChrome()
+                        .luxuryPrimaryButtonChrome(cornerRadius: 16)
                 }
+                .buttonStyle(LuxuryPressStyle())
                 .padding(.horizontal, 24)
 
                 Spacer()
