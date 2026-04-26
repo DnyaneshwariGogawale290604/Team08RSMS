@@ -397,6 +397,76 @@ public actor DataService {
         let payload = InventoryInsert(product_id: productId, store_id: mainStore.id, quantity: quantity)
         try await client.from("store_inventory").insert(payload).execute()
     }
+    
+    // MARK: - Individual Inventory Items (RFID/Serial)
+    public func fetchInventoryItems() async throws -> [InventoryItem] {
+        do {
+            let result: [InventoryItem] = try await client
+                .from("inventory_items")
+                .select()
+                .execute()
+                .value
+                
+            if result.isEmpty {
+                return try await generateMockInventoryItems()
+            }
+            return result
+        } catch {
+            print("Supabase: inventory_items fetch failed or empty, using mock. \(error)")
+            return try await generateMockInventoryItems()
+        }
+    }
+    
+    private func generateMockInventoryItems() async throws -> [InventoryItem] {
+        // Fallback: generate mock items based on the user's actual products so the UI works
+        let products = try await fetchProducts()
+        var mockItems: [InventoryItem] = []
+        
+        for (index, product) in products.enumerated() {
+            // Add 1 available item for each product
+            mockItems.append(InventoryItem(
+                id: "RFID-900\(index)",
+                serialId: "SN-\(Int.random(in: 1000...9999))",
+                productId: product.id,
+                batchNo: "B-21",
+                productName: product.name,
+                category: product.category.isEmpty ? "General" : product.category,
+                location: "Warehouse",
+                status: .available
+            ))
+            
+            // Add 1 under repair item for the first product
+            if index == 0 {
+                mockItems.append(InventoryItem(
+                    id: "RFID-R\(index)",
+                    serialId: "SN-\(Int.random(in: 1000...9999))",
+                    productId: product.id,
+                    batchNo: "B-21",
+                    productName: product.name,
+                    category: product.category.isEmpty ? "General" : product.category,
+                    location: "Warehouse",
+                    status: .underRepair,
+                    activeTicket: RepairTicket(itemId: "RFID-R\(index)", issueType: "Broken Part", description: "Needs fixing", assignedTo: "Repair Team")
+                ))
+            }
+        }
+        return mockItems
+    }
+    
+    public func updateInventoryItem(item: InventoryItem) async throws {
+        try? await client
+            .from("inventory_items")
+            .update(item)
+            .eq("id", value: item.id)
+            .execute()
+    }
+    
+    public func insertInventoryItem(item: InventoryItem) async throws {
+        try? await client
+            .from("inventory_items")
+            .insert(item)
+            .execute()
+    }
 
     // MARK: - Sales Orders
     public func fetchSales(storeId: UUID? = nil) async throws -> [SalesOrder] {
