@@ -81,9 +81,6 @@ public final class DashboardViewModel: ObservableObject {
     public func acceptRequest(id: UUID) async {
         do {
             try await service.updateRequestStatus(id: id, status: "approved")
-            if let request = pendingRequests.first(where: { $0.id == id }) {
-                try await service.createShipmentForRequest(requestId: id, storeId: request.storeId)
-            }
             await fetchPendingRequests()
         } catch {
             errorMessage = error.localizedDescription

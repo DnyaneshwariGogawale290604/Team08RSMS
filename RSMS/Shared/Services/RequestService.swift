@@ -10,15 +10,6 @@ public final class RequestService: @unchecked Sendable {
 
     // MARK: - Product Requests
 
-    public func fetchPendingRequests() async throws -> [ProductRequest] {
-        return try await client
-            .from("product_requests")
-            .select("*, product:products(*), store:stores(*)")
-            .eq("status", value: "pending")
-            .execute()
-            .value
-    }
-
     public func fetchAllRequests() async throws -> [ProductRequest] {
         return try await client
             .from("product_requests")
@@ -121,24 +112,6 @@ public final class RequestService: @unchecked Sendable {
             .execute()
     }
 
-    // MARK: - Warehouse Stock Check
-
-    /// Checks if the warehouse has enough stock of a product to fulfil the request.
-    public func warehouseStockForProduct(productId: UUID) async throws -> Int {
-        let warehouseId = try await resolveCurrentInventoryManagerWarehouseId()
-        struct InventoryRow: Decodable {
-            let quantity: Int
-        }
-        // Warehouses use store_inventory scoped to the warehouse's "store" (or check a warehouse_inventory table if present)
-        // Fallback: aggregate across all inventory rows for this product
-        let rows: [InventoryRow] = try await client
-            .from("store_inventory")
-            .select("quantity")
-            .eq("product_id", value: productId)
-            .execute()
-            .value
-        return rows.map { $0.quantity }.reduce(0, +)
-    }
 
     // MARK: - Shipments (ASN)
 

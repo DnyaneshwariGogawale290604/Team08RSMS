@@ -15,20 +15,22 @@ public struct InventoryManagerTabView: View {
                 }
 
             NavigationView {
+                RequestsTabView()
+            }
+            .tabItem {
+                Label("Requests", systemImage: "tray.full")
+            }
+
+            NavigationView {
                 TransfersTabView(selectedTab: .constant(1), prefilledSKUMagic: .constant(nil as String?))
             }
-                .tabItem {
-                    Label("Transfers", systemImage: "arrow.left.arrow.right")
-                }
+            .tabItem {
+                Label("Workflows", systemImage: "arrow.left.arrow.right")
+            }
 
             ItemsTabView(categoryFilterMagic: .constant(nil as String?))
                 .tabItem {
                     Label("Items", systemImage: "shippingbox")
-                }
-
-            FulfillmentView()
-                .tabItem {
-                    Label("Fulfillment", systemImage: "checklist")
                 }
 
             accountTab
