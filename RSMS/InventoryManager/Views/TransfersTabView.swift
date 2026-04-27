@@ -246,15 +246,24 @@ public struct TransfersTabView: View {
                             .font(.caption)
                             .foregroundColor(.appSecondaryText)
                     }
-                    Spacer()
-                    // Approved badge
-                    Text("Ready to Pick")
-                        .font(.caption.bold())
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 4)
-                        .background(Color.blue.opacity(0.12))
-                        .foregroundColor(.blue)
-                        .clipShape(Capsule())
+                    // Status badge
+                    if canShip == false {
+                        Text("Cannot Fulfill")
+                            .font(.caption.bold())
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .background(Color.red.opacity(0.12))
+                            .foregroundColor(.red)
+                            .clipShape(Capsule())
+                    } else {
+                        Text(canShip == true ? "Ready to Pick" : "Checking Stock...")
+                            .font(.caption.bold())
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .background(Color.blue.opacity(0.12))
+                            .foregroundColor(.blue)
+                            .clipShape(Capsule())
+                    }
                 }
 
                 // Product + Quantity
@@ -358,6 +367,13 @@ public struct TransfersTabView: View {
                     }
                     .disabled(canShip == false)
                 }
+            }
+        }
+        .task {
+            // Auto check stock when this card appears so we immediately know if we can fulfill
+            if let pid = request.productId, stockCheckCache[pid] == nil {
+                let ok = await viewModel.checkWarehouseStock(for: request)
+                stockCheckCache[pid] = ok
             }
         }
     }
@@ -473,7 +489,7 @@ public struct TransfersTabView: View {
 
     private func poStatusColor(_ status: String) -> Color {
         switch status.lowercased() {
-        case "received": return .green
+        case "delivered": return .green
         case "pending", "in_transit": return .orange
         case "cancelled": return .red
         default: return .gray
@@ -821,7 +837,7 @@ struct PurchaseOrderDetailSheet: View {
 
     private func poStatusColor(_ status: String) -> Color {
         switch status.lowercased() {
-        case "received": return .green
+        case "delivered": return .green
         case "pending", "in_transit": return .orange
         case "cancelled": return .red
         default: return .gray

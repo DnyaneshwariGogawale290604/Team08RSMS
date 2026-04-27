@@ -263,43 +263,26 @@ public struct RequestsTabView: View {
                             .cornerRadius(10)
                     }
 
-                    // Accept button or Create PO button
-                    if canShip == false {
-                        Button {
-                            prefilledSKUMagic = request.product?.id.uuidString
-                            selectedTab = 2 // Move to Workflows tab
-                        } label: {
-                            Text("Create Purchase Order")
-                                .font(.subheadline.bold())
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 12)
-                                .background(Color.orange)
-                                .cornerRadius(10)
+                    // Accept always — stock check happens in Pick Lists
+                    Button {
+                        Task {
+                            await viewModel.acceptRequest(request: request)
                         }
-                    } else {
-                        Button {
-                            Task {
-                                let hasSufficientStock = await viewModel.checkWarehouseStock(for: request)
-                                stockCheckResults[request.id] = hasSufficientStock
-                                // Wait a moment for UI to reflect stock check if desired, but proceed to accept
-                                await viewModel.acceptRequest(request: request)
-                            }
-                        } label: {
-                            Text("Accept Order")
-                                .font(.subheadline.bold())
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 12)
-                                .background(Color.green)
-                                .cornerRadius(10)
-                        }
+                    } label: {
+                        Text("Accept Order")
+                            .font(.subheadline.bold())
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(Color.green)
+                            .cornerRadius(10)
                     }
                 }
-                
-                Text("Accepting moves this to Workflows → Pick Lists")
+
+                Text("Accepted orders move to Workflows → Pick Lists for stock check & dispatch")
                     .font(.caption2)
                     .foregroundColor(Color(UIColor.tertiaryLabel))
+                    .multilineTextAlignment(.center)
             }
         }
     }
@@ -323,8 +306,8 @@ public struct RequestsTabView: View {
                                     .font(.system(.subheadline, design: .monospaced).bold())
                                     .foregroundColor(.appPrimaryText)
                                 Spacer()
-                                let sc: Color = order.status == "received" ? .green : (order.status == "in_transit" ? .orange : .gray)
-                                Text(order.status == "in_transit" ? "In Transit" : (order.status?.capitalized ?? "Unknown"))
+                                let sc: Color = order.status == "delivered" ? Color(hex: "#6E5155") : (order.status == "in_transit" ? .orange : .gray)
+                                Text(order.status == "in_transit" ? "In Transit" : (order.status == "delivered" ? "Delivered" : (order.status?.capitalized ?? "Unknown")))
                                     .font(.caption.bold())
                                     .padding(.horizontal, 10)
                                     .padding(.vertical, 4)
