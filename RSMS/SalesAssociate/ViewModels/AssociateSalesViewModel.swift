@@ -38,6 +38,12 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
     @Published var paymentMethod: String = "upi"
     /// Set to true after payment is confirmed (cash record saved or Razorpay verified)
     @Published var paymentCompleted: Bool = false
+    @Published var gatewayConfigured: Bool = false
+    @Published var activeGateway: String = ""
+    @Published var enabledPaymentMethods: [String] = ["cash"]
+    @Published var isLoadingGatewayConfig: Bool = false
+    @Published var maxPaymentLegs: Int = 2
+    @Published var maxLegSplits: Int = 2
 
     // MARK: UI State
     @Published var isLoading = false
@@ -54,6 +60,13 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
     @Published var showPayment = false
     @Published var showReceipt = false
     @Published var showProductRequest = false
+    @Published var showBilling = false
+
+    // MARK: Billing
+    @Published var billingLegs: [BillingLeg] = []
+    @Published var orderPaymentSummary: OrderPaymentSummary? = nil
+    @Published var isLoadingPaymentSummary: Bool = false
+    @Published var currentAppointmentId: UUID? = nil
 
     // MARK: Cart Helpers
     var cartTotal: Double { cartItems.reduce(0) { $0 + $1.lineTotal } }
@@ -311,10 +324,14 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
             )
             self.currentOrder = order
 
-            // Delete the appointment session if this order was started from one
+            // Note: Deletion is handled by the create-billing edge function
+            // when the payment is finalized. Removing it here to prevent
+            // "Appointment not found" errors during billing setup.
+            /*
             if let apptId = appointmentId, let avm = appointmentsVM {
                 await avm.deleteAppointment(id: apptId)
             }
+            */
 
             // Receipt row — fire-and-forget
             Task {
@@ -339,7 +356,7 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
         lastPlacedOrder = placed
         orderStore.addOrder(placed)
         isLoading = false
-        showReceipt = true
+        // showReceipt = true // Replaced by BillingView flow
 
         NotificationCenter.default.post(
             name: NSNotification.Name("RefreshSalesAssociateDashboard"), object: nil)
@@ -353,7 +370,7 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
         return String(describing: error)
     }
 
-    private func fetchBrandId() async throws -> String {
+    func fetchBrandId() async throws -> String {
         let authId = try await resolveUserId().uuidString
 
         // Sales Associates don't have brand_id in users — resolve via store
@@ -385,6 +402,70 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
                 userInfo: [NSLocalizedDescriptionKey: "Brand not found for this store"])
         }
         return brandId.uuidString
+    }
+
+    func fetchPaymentConfig() async {
+        isLoadingGatewayConfig = true
+        defer { isLoadingGatewayConfig = false }
+
+        do {
+            let brandId = try await fetchBrandId()
+            let session = try await SupabaseManager.shared.client.auth.session
+
+            let url = URL(string: "https://ionszphvxhffqfwlohiv.supabase.co/functions/v1/get-payment-config")!
+            var req = URLRequest(url: url)
+            req.httpMethod = "POST"
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.setValue("Bearer \(session.accessToken)",
+                         forHTTPHeaderField: "Authorization")
+            req.httpBody = try JSONSerialization.data(
+                withJSONObject: ["brand_id": brandId]
+            )
+
+            let (data, _) = try await URLSession.shared.data(for: req)
+            if let rawString = String(data: data, encoding: .utf8) {
+                print("[get-payment-config] RAW RESPONSE: \(rawString)")
+            }
+            guard let json = try JSONSerialization.jsonObject(with: data)
+                    as? [String: Any] else { return }
+
+            let configured = json["configured"] as? Bool ?? false
+            let gateway = json["gateway"] as? String ?? ""
+            let methods = json["enabled_methods"] as? [String] ?? []
+            let maxLegs = json["max_payment_legs"] as? Int ?? 2
+            let maxSplits = json["max_leg_splits"] as? Int ?? 2
+
+            // Cash always included regardless of gateway config
+            var allMethods = methods
+            if !allMethods.contains("cash") {
+                allMethods.append("cash")
+            }
+
+            await MainActor.run {
+                self.gatewayConfigured = configured
+                self.activeGateway = gateway
+                self.enabledPaymentMethods = configured ? allMethods : ["cash"]
+                self.maxPaymentLegs = maxLegs
+                self.maxLegSplits = maxSplits
+                // Set default selected method to first non-cash enabled method
+                // or cash if nothing else is enabled
+                if configured, let first = methods.first {
+                    self.paymentMethod = first
+                } else {
+                    self.paymentMethod = "cash"
+                }
+            }
+        } catch {
+            print("[fetchPaymentConfig] ERROR: \(error)")
+            // On error default to cash only — don't block the associate
+            await MainActor.run {
+                self.gatewayConfigured = false
+                self.activeGateway = ""
+                self.enabledPaymentMethods = ["cash"]
+                self.paymentMethod = "cash"
+            }
+            print("[fetchPaymentConfig] error: \(error)")
+        }
     }
 
     func processPayment(method: String) async {
@@ -724,6 +805,525 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
             code: 401,
             userInfo: [NSLocalizedDescriptionKey: "Session expired. Please sign in again."]
         )
+    }
+
+    // MARK: - Billing Helpers
+
+    // Initialize billing legs when billing screen opens
+    // maxLegs and maxSplits come from gateway config
+    func initializeBillingLegs(
+        maxLegs: Int = 2,
+        maxSplits: Int = 2
+    ) {
+        // Only initialize if not already set, to prevent reset on re-render
+        guard billingLegs.isEmpty else { return }
+        
+        // Start with one leg covering the full amount
+        let defaultItem = BillingLegItem(
+            itemNumber: 1,
+            amount: cartTotal,
+            method: enabledPaymentMethods.first(where: { $0 != "cash" }) ?? "cash",
+            tendered: nil,
+            note: nil
+        )
+        let defaultLeg = BillingLeg(
+            legNumber: 1,
+            dueType: "immediate",
+            totalAmount: cartTotal,
+            items: [defaultItem]
+        )
+        billingLegs = [defaultLeg]
+    }
+
+    // Add a new leg (up to maxLegs)
+    func addBillingLeg(maxLegs: Int) {
+        guard billingLegs.count < maxLegs else { return }
+        let legNumber = billingLegs.count + 1
+        // Remaining amount not covered by existing legs
+        let covered = billingLegs.reduce(0.0) { $0 + $1.totalAmount }
+        let remaining = max(0, cartTotal - covered)
+        let newLeg = BillingLeg(
+            legNumber: legNumber,
+            dueType: "on_delivery",
+            totalAmount: remaining,
+            items: [BillingLegItem(
+                itemNumber: 1,
+                amount: remaining,
+                method: "cash",
+                tendered: nil,
+                note: nil
+            )]
+        )
+        billingLegs.append(newLeg)
+    }
+
+    // Remove a leg
+    func removeBillingLeg(at index: Int) {
+        guard billingLegs.count > 1 else { return }
+        billingLegs.remove(at: index)
+        // Renumber legs
+        for i in billingLegs.indices {
+            billingLegs[i].legNumber = i + 1
+        }
+    }
+
+    // Add split item to a leg
+    func addSplitItem(to legIndex: Int, maxSplits: Int) {
+        guard legIndex < billingLegs.count,
+              billingLegs[legIndex].items.count < maxSplits else { return }
+        let itemNumber = billingLegs[legIndex].items.count + 1
+        let covered = billingLegs[legIndex].items.reduce(0.0) { $0 + $1.amount }
+        let remaining = max(0, billingLegs[legIndex].totalAmount - covered)
+        let newItem = BillingLegItem(
+            itemNumber: itemNumber,
+            amount: remaining,
+            method: "cash",
+            tendered: nil,
+            note: nil
+        )
+        billingLegs[legIndex].items.append(newItem)
+    }
+
+    // Remove split item from a leg
+    func removeSplitItem(from legIndex: Int, itemIndex: Int) {
+        guard legIndex < billingLegs.count,
+              billingLegs[legIndex].items.count > 1 else { return }
+        billingLegs[legIndex].items.remove(at: itemIndex)
+        // Renumber items
+        for i in billingLegs[legIndex].items.indices {
+            billingLegs[legIndex].items[i].itemNumber = i + 1
+        }
+    }
+
+    // Update a specific leg's amount and balance others
+    func updateLegAmount(at index: Int, to newValue: Double) {
+        guard index < billingLegs.count else { return }
+        print("[updateLegAmount] index: \(index), newValue: \(newValue), cartTotal: \(cartTotal)")
+        
+        var updatedLegs = billingLegs
+        updatedLegs[index].totalAmount = newValue
+        
+        if updatedLegs.count > 1 {
+            // Principle: Leg 1 (index 0) is the master adjuster for everyone else
+            if index != 0 {
+                // Editing Leg 2+ -> Adjust Leg 1
+                let targetIdx = 0
+                var othersSum = newValue
+                for i in 0..<updatedLegs.count {
+                    if i != index && i != targetIdx {
+                        othersSum += updatedLegs[i].totalAmount
+                    }
+                }
+                updatedLegs[targetIdx].totalAmount = max(0, cartTotal - othersSum)
+                syncSplitsInLeg(at: targetIdx, in: &updatedLegs)
+            } else {
+                // Editing Leg 1 (Principal) -> Adjust the LAST leg
+                let targetIdx = updatedLegs.count - 1
+                var othersSum = newValue
+                for i in 0..<updatedLegs.count {
+                    if i != index && i != targetIdx {
+                        othersSum += updatedLegs[i].totalAmount
+                    }
+                }
+                updatedLegs[targetIdx].totalAmount = max(0, cartTotal - othersSum)
+                syncSplitsInLeg(at: targetIdx, in: &updatedLegs)
+            }
+        }
+        
+        // Sync splits for the current edited leg
+        syncSplitsInLeg(at: index, in: &updatedLegs)
+        self.billingLegs = updatedLegs
+    }
+
+    // Update a specific split's amount and balance others within that leg
+    func updateSplitAmount(legIndex: Int, itemIndex: Int, to newValue: Double) {
+        guard legIndex < billingLegs.count,
+              itemIndex < billingLegs[legIndex].items.count else { return }
+        
+        print("[updateSplitAmount] leg: \(legIndex), item: \(itemIndex), newValue: \(newValue)")
+        var updatedLegs = billingLegs
+        updatedLegs[legIndex].items[itemIndex].amount = newValue
+        
+        if legIndex == 0 {
+            // Special case for Leg 1 (Principal): Splits balance AGAINST EACH OTHER
+            let leg = updatedLegs[0]
+            if leg.items.count > 1 {
+                if itemIndex == leg.items.count - 1 {
+                    let targetIdx = itemIndex - 1
+                    var othersSum = newValue
+                    for i in 0..<leg.items.count {
+                        if i != itemIndex && i != targetIdx { othersSum += leg.items[i].amount }
+                    }
+                    updatedLegs[0].items[targetIdx].amount = max(0, leg.totalAmount - othersSum)
+                } else {
+                    let targetIdx = leg.items.count - 1
+                    var othersSum = newValue
+                    for i in 0..<leg.items.count {
+                        if i != itemIndex && i != targetIdx { othersSum += leg.items[i].amount }
+                    }
+                    updatedLegs[0].items[targetIdx].amount = max(0, leg.totalAmount - othersSum)
+                }
+            }
+            self.billingLegs = updatedLegs
+        } else {
+            // For any other leg: Split edits update the LEG TOTAL, which then deducts from LEG 1
+            let newLegTotal = updatedLegs[legIndex].items.reduce(0.0) { $0 + $1.amount }
+            self.billingLegs = updatedLegs // commit local split change first
+            updateLegAmount(at: legIndex, to: newLegTotal)
+        }
+    }
+
+    private func syncSplitsInLeg(at index: Int, in legs: inout [BillingLeg]) {
+        guard index < legs.count else { return }
+        let leg = legs[index]
+        if leg.items.count == 1 {
+            legs[index].items[0].amount = leg.totalAmount
+        } else {
+            var otherSum = 0.0
+            for i in 0..<(leg.items.count - 1) {
+                otherSum += leg.items[i].amount
+            }
+            legs[index].items[leg.items.count - 1].amount = max(0, leg.totalAmount - otherSum)
+        }
+    }
+
+    // Auto-balance billing legs and splits
+    func autoBalanceBilling() {
+        var updatedLegs = billingLegs
+        for legIdx in updatedLegs.indices {
+            syncSplitsInLeg(at: legIdx, in: &updatedLegs)
+        }
+        
+        if updatedLegs.count > 1 {
+            var allButLastLegSum = 0.0
+            for i in 0..<(updatedLegs.count - 1) {
+                allButLastLegSum += updatedLegs[i].totalAmount
+            }
+            let newLastLegTotal = max(0, cartTotal - allButLastLegSum)
+            updatedLegs[updatedLegs.count - 1].totalAmount = newLastLegTotal
+            syncSplitsInLeg(at: updatedLegs.count - 1, in: &updatedLegs)
+        } else if updatedLegs.count == 1 {
+            updatedLegs[0].totalAmount = cartTotal
+            syncSplitsInLeg(at: 0, in: &updatedLegs)
+        }
+        self.billingLegs = updatedLegs
+    }
+
+    // Fetch payment summary for an order or appointment
+    func fetchOrderPaymentSummary(salesOrderId: String? = nil, appointmentId: String? = nil) async {
+        isLoadingPaymentSummary = true
+        defer { isLoadingPaymentSummary = false }
+
+        do {
+            let brandId = try await fetchBrandId()
+            let session = try await SupabaseManager.shared.client.auth.session
+
+            let url = URL(string: "https://ionszphvxhffqfwlohiv.supabase.co/functions/v1/get-order-payment-summary")!
+            var req = URLRequest(url: url)
+            req.httpMethod = "POST"
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.setValue("Bearer \(session.accessToken)",
+                         forHTTPHeaderField: "Authorization")
+            
+            var body: [String: Any] = ["brand_id": brandId]
+            if let orderId = salesOrderId { body["sales_order_id"] = orderId }
+            if let apptId = appointmentId { body["appointment_id"] = apptId }
+            
+            req.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+            let (data, _) = try await URLSession.shared.data(for: req)
+            guard let json = try JSONSerialization.jsonObject(with: data)
+                    as? [String: Any],
+                  let orderJson = json["order"] as? [String: Any],
+                  let gwJson = json["gateway_config"] as? [String: Any]
+            else { return }
+
+            let legsJson = json["legs"] as? [[String: Any]] ?? []
+            var legs: [PaymentLegRecord] = []
+
+            for legJson in legsJson {
+                let itemsJson = legJson["items"] as? [[String: Any]] ?? []
+                var items: [PaymentLegItemRecord] = []
+                for itemJson in itemsJson {
+                    let item = PaymentLegItemRecord(
+                        id: UUID(uuidString: itemJson["id"] as? String ?? "") ?? UUID(),
+                        itemNumber: itemJson["item_number"] as? Int ?? 0,
+                        amount: itemJson["amount"] as? Double ?? 0,
+                        method: itemJson["method"] as? String ?? "cash",
+                        status: itemJson["status"] as? String ?? "pending",
+                        collectedAt: itemJson["collected_at"] as? String,
+                        note: itemJson["note"] as? String
+                    )
+                    items.append(item)
+                }
+                let leg = PaymentLegRecord(
+                    id: UUID(uuidString: legJson["id"] as? String ?? "") ?? UUID(),
+                    legNumber: legJson["leg_number"] as? Int ?? 0,
+                    dueType: legJson["due_type"] as? String ?? "immediate",
+                    totalAmount: legJson["total_amount"] as? Double ?? 0,
+                    amountPaid: legJson["amount_paid"] as? Double ?? 0,
+                    status: legJson["status"] as? String ?? "pending",
+                    collectedAt: legJson["collected_at"] as? String,
+                    items: items
+                )
+                legs.append(leg)
+            }
+
+            let summary = OrderPaymentSummary(
+                orderId: orderJson["id"] as? String ?? "",
+                totalAmount: orderJson["total_amount"] as? Double ?? 0,
+                amountPaid: orderJson["amount_paid"] as? Double ?? 0,
+                remaining: orderJson["remaining"] as? Double ?? 0,
+                paymentStatus: orderJson["payment_status"] as? String ?? "unpaid",
+                isFullyPaid: orderJson["is_fully_paid"] as? Bool ?? false,
+                legs: legs,
+                maxPaymentLegs: gwJson["max_payment_legs"] as? Int ?? 2,
+                maxLegSplits: gwJson["max_leg_splits"] as? Int ?? 2,
+                enabledMethods: gwJson["enabled_methods"] as? [String] ?? ["cash"]
+            )
+
+            await MainActor.run {
+                self.orderPaymentSummary = summary
+                // If we are currently in the billing configuration flow, 
+                // sync the summary back to our editable legs
+                self.syncBillingLegsWithSummary()
+            }
+        } catch {
+            print("[fetchOrderPaymentSummary] error: \(error)")
+        }
+    }
+
+    // Convert the read-only summary from Supabase into editable legs
+    func syncBillingLegsWithSummary() {
+        guard let summary = orderPaymentSummary, !summary.legs.isEmpty else { return }
+        
+        billingLegs = summary.legs.map { legRec in
+            let items = legRec.items.map { itemRec in
+                BillingLegItem(
+                    itemNumber: itemRec.itemNumber,
+                    amount: itemRec.amount,
+                    method: itemRec.method,
+                    tendered: nil,
+                    note: itemRec.note,
+                    existingStatus: itemRec.status,
+                    existingItemId: itemRec.id.uuidString
+                )
+            }
+            return BillingLeg(
+                legNumber: legRec.legNumber,
+                dueType: legRec.dueType,
+                totalAmount: legRec.totalAmount,
+                items: items,
+                existingStatus: legRec.status,
+                existingLegId: legRec.id.uuidString
+            )
+        }
+    }
+
+    func loadExistingBillingLegs(salesOrderId: String) async {
+        await fetchOrderPaymentSummary(salesOrderId: salesOrderId)
+        
+        guard let summary = orderPaymentSummary, !summary.legs.isEmpty else {
+            initializeBillingLegs()
+            return
+        }
+        
+        // syncBillingLegsWithSummary already handles the mapping
+    }
+
+    func saveBillingDraft(appointmentId: UUID?) async {
+        guard let order = currentOrder else { return }
+
+        // Only save if there are legs configured
+        guard !billingLegs.isEmpty else { return }
+
+        // Only save if there are unsaved (new) legs
+        let hasNewLegs = billingLegs.contains { $0.isNew }
+        guard hasNewLegs else { return }
+
+        do {
+            let brandId = try await fetchBrandId()
+            let session = try await SupabaseManager.shared.client.auth.session
+            let authId = session.user.id.uuidString
+
+            // Build legs payload — only include new legs
+            var legsPayload: [[String: Any]] = []
+            for leg in billingLegs {
+                var itemsPayload: [[String: Any]] = []
+                for item in leg.items {
+                    var itemDict: [String: Any] = [
+                        "item_number": item.itemNumber,
+                        "amount": item.amount,
+                        "method": item.method,
+                    ]
+                    if let note = item.note {
+                        itemDict["note"] = note
+                    }
+                    itemsPayload.append(itemDict)
+                }
+                legsPayload.append([
+                    "leg_number": leg.legNumber,
+                    "due_type": leg.dueType,
+                    "total_amount": leg.totalAmount,
+                    "items": itemsPayload
+                ])
+            }
+
+            var body: [String: Any] = [
+                "brand_id": brandId,
+                "sales_order_id": order.id.uuidString,
+                "recorded_by": authId,
+                "action": "draft",
+                "legs": legsPayload
+            ]
+            if let apptId = appointmentId {
+                body["appointment_id"] = apptId.uuidString
+            }
+
+            let url = URL(string: "https://ionszphvxhffqfwlohiv.supabase.co/functions/v1/create-billing")!
+            var req = URLRequest(url: url)
+            req.httpMethod = "POST"
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.setValue("Bearer \(session.accessToken)",
+                         forHTTPHeaderField: "Authorization")
+            req.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+            let (_, _) = try await URLSession.shared.data(for: req)
+            // Silent draft save
+
+        } catch {
+            print("[saveBillingDraft] error: \(error)")
+        }
+    }
+
+    // Submit billing to create-billing Edge Function
+    func submitBilling(
+        appointmentId: UUID?,
+        action: String, // "save" or "mark_as_paid"
+        orderStore: SharedOrderStore
+    ) async {
+        isLoading = true
+        errorMessage = nil
+
+        // If no order exists yet (first time clicking save/confirm), create it now
+        if currentOrder == nil {
+            await placeOrder(orderStore: orderStore)
+        }
+
+        guard let order = currentOrder else {
+            isLoading = false
+            errorMessage = "Could not create order. Please try again."
+            return
+        }
+
+        do {
+            let brandId = try await fetchBrandId()
+            let session = try await SupabaseManager.shared.client.auth.session
+            let authId = session.user.id.uuidString
+
+            // Build legs payload
+            var legsPayload: [[String: Any]] = []
+            for leg in billingLegs {
+                var itemsPayload: [[String: Any]] = []
+                for item in leg.items {
+                    var itemDict: [String: Any] = [
+                        "item_number": item.itemNumber,
+                        "amount": item.amount,
+                        "method": item.method,
+                    ]
+                    if let tendered = item.tendered {
+                        itemDict["tendered"] = tendered
+                    }
+                    if let note = item.note {
+                        itemDict["note"] = note
+                    }
+                    itemsPayload.append(itemDict)
+                }
+                var legDict: [String: Any] = [
+                    "leg_number": leg.legNumber,
+                    "due_type": leg.dueType,
+                    "total_amount": leg.totalAmount,
+                    "items": itemsPayload
+                ]
+                legsPayload.append(legDict)
+            }
+
+            var body: [String: Any] = [
+                "brand_id": brandId,
+                "sales_order_id": order.id.uuidString,
+                "recorded_by": authId,
+                "action": action,
+                "legs": legsPayload
+            ]
+            // Only link appointment during final payment, not during "Save Billing Plan"
+            if action != "save", let apptId = appointmentId {
+                body["appointment_id"] = apptId.uuidString
+            }
+
+            if let bodyData = try? JSONSerialization.data(withJSONObject: body, options: .prettyPrinted),
+               let bodyString = String(data: bodyData, encoding: .utf8) {
+                print("[submitBilling] REQUEST BODY: \(bodyString)")
+            }
+
+            let url = URL(string: "https://ionszphvxhffqfwlohiv.supabase.co/functions/v1/create-billing")!
+            var req = URLRequest(url: url)
+            req.httpMethod = "POST"
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.setValue("Bearer \(session.accessToken)",
+                         forHTTPHeaderField: "Authorization")
+            req.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+            let (data, _) = try await URLSession.shared.data(for: req)
+            
+            if let responseString = String(data: data, encoding: .utf8) {
+                print("[submitBilling] RAW RESPONSE: \(responseString)")
+            }
+
+            guard let json = try JSONSerialization.jsonObject(with: data)
+                    as? [String: Any] else {
+                throw NSError(domain: "BillingError", code: 1,
+                    userInfo: [NSLocalizedDescriptionKey: "Invalid response from server"])
+            }
+
+            if let error = json["error"] as? String {
+                throw NSError(domain: "BillingError", code: 2,
+                    userInfo: [NSLocalizedDescriptionKey: error])
+            }
+
+            // Check for pending gateway payments that need SDK
+            let pendingGateway = json["pending_gateway_payments"] as? [[String: Any]] ?? []
+
+            if let first = pendingGateway.first,
+               let gwOrderId = first["gateway_order_id"] as? String,
+               let keyId = first["key_id"] as? String,
+               let poId = first["payment_order_id"] as? String {
+                // Store details and open Razorpay SDK
+                self.gatewayOrderId = gwOrderId
+                self.checkoutKey = keyId
+                self.paymentOrderId = poId
+                isLoading = false
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("OpenRazorpayCheckout"),
+                    object: nil
+                )
+            } else {
+                // All cash — mark complete
+                let orderStatus = json["order_payment_status"] as? String ?? "unpaid"
+                paymentCompleted = orderStatus == "paid"
+                isLoading = false
+                showBilling = false
+                if action == "mark_as_paid" {
+                    showReceipt = true
+                }
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("RefreshSalesAssociateDashboard"),
+                    object: nil
+                )
+            }
+        } catch {
+            isLoading = false
+            errorMessage = error.localizedDescription
+        }
     }
 }
 

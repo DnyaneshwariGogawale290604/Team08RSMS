@@ -1,4 +1,6 @@
 import SwiftUI
+import PostgREST
+import Supabase
 
 // MARK: - Appointment Detail Sheet
 struct AppointmentDetailSheet: View {
@@ -11,6 +13,7 @@ struct AppointmentDetailSheet: View {
     @State private var checkoutVM: AssociateSalesViewModel? = nil
     @State private var showCheckout = false
     @State private var showCancelConfirm = false
+    @State private var linkedOrderId: String? = nil
 
     var body: some View {
         NavigationStack {
@@ -80,6 +83,9 @@ struct AppointmentDetailSheet: View {
                     )
                     .environmentObject(orderStore)
                 }
+            }
+            .task {
+                await fetchLinkedOrder()
             }
         }
     }
@@ -244,12 +250,50 @@ struct AppointmentDetailSheet: View {
             let productIds = (appointment.appointmentProducts ?? []).compactMap { $0.product?.productId }
             let products = try await vm.fetchProducts(ids: productIds)
 
+            // 1. Check if appointment has a linked order with existing billing legs
+            if let orderId = linkedOrderId {
+                let newVM = AssociateSalesViewModel()
+                newVM.selectedCustomer = customer
+
+                // Pre-fill cart
+                for apptItem in appointment.appointmentProducts ?? [] {
+                    guard let pId = apptItem.product?.productId,
+                          let product = products.first(where: { $0.id == pId })
+                    else { continue }
+                    newVM.addToCart(product: product, quantity: apptItem.quantity)
+                }
+
+                // Set current order context
+                newVM.currentOrder = SalesOrder(
+                    id: UUID(uuidString: orderId) ?? UUID(),
+                    customerId: appointment.customerId,
+                    salesAssociateId: appointment.salesAssociateId,
+                    storeId: appointment.storeId,
+                    totalAmount: newVM.cartTotal,
+                    status: nil,
+                    createdAt: Date(),
+                    ratingValue: nil,
+                    ratingFeedback: nil
+                )
+
+                // Load existing legs from DB
+                await newVM.loadExistingBillingLegs(salesOrderId: orderId)
+                await newVM.fetchPaymentConfig()
+
+                checkoutVM = newVM
+                isStartingOrder = false
+                // Open billing directly
+                checkoutVM?.showBilling = true
+                showCheckout = true
+                return
+            }
+
+            // 2. Normal flow for new orders
             let newVM = AssociateSalesViewModel()
             newVM.selectedCustomer = customer
 
             // Pre-fill cart
-            let apptItems = appointment.appointmentProducts ?? []
-            for apptItem in apptItems {
+            for apptItem in appointment.appointmentProducts ?? [] {
                 guard let pId = apptItem.product?.productId,
                       let product = products.first(where: { $0.id == pId }) else { continue }
                 newVM.addToCart(product: product, quantity: apptItem.quantity)
@@ -258,12 +302,27 @@ struct AppointmentDetailSheet: View {
             checkoutVM = newVM
             isStartingOrder = false
             showCheckout = true
-
-            // REMOVED: Prematurely marking as completed.
-            // Marking as completed will now happen when user explicitly 'Saves' or 'Checkouts'.
         } catch {
             isStartingOrder = false
             vm.errorMessage = "Could not load order data: \(error.localizedDescription)"
+        }
+    }
+
+    private func fetchLinkedOrder() async {
+        do {
+            struct OrderIdRow: Decodable { let order_id: UUID }
+            let result: [OrderIdRow] = try await SupabaseManager.shared.client
+                .from("sales_orders")
+                .select("order_id")
+                .eq("appointment_id", value: appointment.id.uuidString)
+                .limit(1)
+                .execute()
+                .value
+            if let first = result.first {
+                self.linkedOrderId = first.order_id.uuidString
+            }
+        } catch {
+            print("[fetchLinkedOrder] error: \(error)")
         }
     }
 }

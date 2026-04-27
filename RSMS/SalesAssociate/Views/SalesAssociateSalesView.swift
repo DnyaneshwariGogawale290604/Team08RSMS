@@ -133,10 +133,36 @@ struct SalesAssociateSalesView: View {
                         .truncationMode(.tail)
                         .animation(.easeInOut, value: vm.selectedCustomer?.id)
                 }
+                
+                if appointmentId != nil {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button {
+                            Task { await saveAppointmentChanges() }
+                        } label: {
+                            if isSaving {
+                                ProgressView().tint(Color.brandWarmBlack)
+                            } else {
+                                Text("SAVE")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .kerning(1)
+                                    .foregroundStyle(Color.brandWarmBlack)
+                            }
+                        }
+                        .disabled(isSaving)
+                    }
+                }
             }
             .sheet(isPresented: $vm.showCustomerSheet) { CustomerSheet(vm: vm) }
             .sheet(isPresented: $vm.showProductPicker) { ProductPickerSheet(vm: vm) }
-            .sheet(isPresented: $vm.showPayment) { PaymentSheet(vm: vm) }
+            .sheet(isPresented: $vm.showBilling) {
+                BillingView(
+                    vm: vm,
+                    appointmentId: appointmentId,
+                    maxLegs: vm.maxPaymentLegs,
+                    maxSplits: vm.maxLegSplits
+                )
+                .environmentObject(orderStore)
+            }
             .sheet(isPresented: $vm.showReceipt) {
                 ReceiptSheet(vm: vm, onComplete: onComplete)
                     .environmentObject(orderStore)
@@ -360,53 +386,26 @@ struct SalesAssociateSalesView: View {
 
     // MARK: - Appointment mode: Save + Checkout side-by-side
     private var appointmentFABRow: some View {
-        HStack(spacing: 10) {
-            // Save — updates appointment_products, stays on screen
-            Button {
-                Task { await saveAppointmentChanges() }
-            } label: {
-                HStack(spacing: 6) {
-                    if isSaving {
-                        ProgressView().tint(Color.brandWarmBlack).scaleEffect(0.8)
-                    } else {
-                        Image(systemName: "square.and.arrow.down").font(.system(size: 14))
-                    }
-                    Text(isSaving ? "Saving..." : "Save")
-                        .font(BrandFont.body(14, weight: .semibold))
-                }
-                .foregroundStyle(Color.brandWarmBlack)
-                .padding(.horizontal, 20)
-                .frame(height: 54)
-                .background(Color.brandLinen)
-                .clipShape(Capsule())
-                .overlay(Capsule().stroke(Color.brandWarmBlack.opacity(0.2), lineWidth: 1))
-                .shadow(color: Color.brandWarmBlack.opacity(0.08), radius: 8, y: 3)
-            }
-            .disabled(isSaving || vm.isLoading)
-
-            // Checkout — places order and closes screen
+        HStack {
+            // Billing — opens the billing configuration screen
             Button {
                 Task { await beginCheckout() }
             } label: {
-                HStack(spacing: 6) {
-                    if vm.isLoading {
-                        ProgressView().tint(Color.brandOffWhite).scaleEffect(0.8)
-                    } else {
-                        Image(systemName: "creditcard").font(.system(size: 14))
-                    }
-                    Text(vm.isLoading ? "Placing..." : "Checkout")
-                        .font(BrandFont.body(14, weight: .semibold))
+                HStack(spacing: 8) {
+                    Image(systemName: "creditcard.fill").font(.system(size: 16))
+                    Text("Billing")
+                        .font(BrandFont.body(16, weight: .bold))
                 }
                 .foregroundStyle(Color.brandOffWhite)
-                .padding(.horizontal, 20)
-                .frame(height: 54)
+                .frame(maxWidth: .infinity)
+                .frame(height: 56)
                 .background(Color.brandWarmBlack)
                 .clipShape(Capsule())
-                .shadow(color: Color.brandWarmBlack.opacity(0.25), radius: 12, y: 4)
+                .shadow(color: Color.brandWarmBlack.opacity(0.15), radius: 10, y: 5)
             }
-            .disabled(vm.isLoading || isSaving)
+            .padding(.horizontal, Spacing.md)
         }
-        .padding(.bottom, Spacing.lg)
+        .padding(.bottom, 20)
     }
 
     // MARK: - Save appointment product changes back to Supabase
@@ -466,17 +465,26 @@ struct SalesAssociateSalesView: View {
     }
 
     private func beginCheckout() async {
+        // If order already exists (loaded from appointment)
+        // go straight to billing
         if vm.currentOrder != nil {
-            vm.showReceipt = false
-            vm.showPayment = true
+            await vm.fetchPaymentConfig()
+            vm.showBilling = true
             return
         }
 
-        await vm.placeOrder(orderStore: orderStore, appointmentId: appointmentId, appointmentsVM: appointmentsVM)
+        // Otherwise place order first
+        await vm.placeOrder(
+            orderStore: orderStore,
+            appointmentId: appointmentId,
+            appointmentsVM: appointmentsVM
+        )
 
-        guard vm.currentOrder != nil, vm.errorMessage == nil else { return }
-        vm.showReceipt = false
-        vm.showPayment = true
+        guard vm.currentOrder != nil,
+              vm.errorMessage == nil else { return }
+
+        await vm.fetchPaymentConfig()
+        vm.showBilling = true
     }
 
     private func formatINR(_ v: Double) -> String {
@@ -801,11 +809,16 @@ struct PaymentSheet: View {
     @State private var netbankingChannel = "whatsapp"
     @State private var netbankingDeliveryPrepared = false
 
-    private let methods: [(String, String, String)] = [
-        ("upi", "qrcode", "UPI"),
-        ("cash", "banknote", "Cash"),
-        ("netbanking", "building.columns", "Net Banking")
-    ]
+    private var availableMethods: [(String, String, String)] {
+        let allMethods: [(String, String, String)] = [
+            ("upi", "qrcode", "UPI"),
+            ("cash", "banknote", "Cash"),
+            ("netbanking", "building.columns", "Net Banking")
+        ]
+        return allMethods.filter { method in
+            vm.enabledPaymentMethods.contains(method.0)
+        }
+    }
 
     var body: some View {
         NavigationStack {
@@ -814,6 +827,49 @@ struct PaymentSheet: View {
 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: Spacing.lg) {
+                        // Gateway config loading state
+                        if vm.isLoadingGatewayConfig {
+                            HStack(spacing: 12) {
+                                ProgressView()
+                                    .scaleEffect(0.85)
+                                Text("Loading payment options...")
+                                    .font(BrandFont.body(13))
+                                    .foregroundStyle(Color.brandWarmGrey)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(Spacing.md)
+                            .background(Color.brandLinen)
+                            .clipShape(RoundedRectangle(cornerRadius: Radius.md))
+                            .overlay(RoundedRectangle(cornerRadius: Radius.md)
+                                .stroke(Color.brandPebble, lineWidth: 0.5))
+                            .padding(.horizontal, Spacing.md)
+                        }
+
+                        // Not configured warning — only show if UPI or netbanking
+                        // was expected but gateway is not set up
+                        if !vm.gatewayConfigured && !vm.isLoadingGatewayConfig {
+                            HStack(spacing: 10) {
+                                Image(systemName: "exclamationmark.triangle")
+                                    .foregroundStyle(Color(hex: "#C8913A"))
+                                    .font(.system(size: 14))
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("No payment gateway configured")
+                                        .font(BrandFont.body(13, weight: .semibold))
+                                        .foregroundStyle(Color.brandWarmBlack)
+                                    Text("Contact your admin to set up UPI or Net Banking.")
+                                        .font(BrandFont.body(12))
+                                        .foregroundStyle(Color.brandWarmGrey)
+                                }
+                                Spacer()
+                            }
+                            .padding(Spacing.md)
+                            .background(Color(hex: "#C8913A").opacity(0.08))
+                            .clipShape(RoundedRectangle(cornerRadius: Radius.md))
+                            .overlay(RoundedRectangle(cornerRadius: Radius.md)
+                                .stroke(Color(hex: "#C8913A").opacity(0.3), lineWidth: 0.5))
+                            .padding(.horizontal, Spacing.md)
+                        }
+
                         orderSummary
                         paymentMethods
                         paymentContent
@@ -836,6 +892,9 @@ struct PaymentSheet: View {
                     Button("Cancel") { dismiss() }
                         .foregroundStyle(Color.brandWarmGrey)
                 }
+            }
+            .task {
+                await vm.fetchPaymentConfig()
             }
         }
     }
@@ -901,8 +960,20 @@ struct PaymentSheet: View {
                 .foregroundStyle(Color.brandWarmGrey)
                 .padding(.horizontal, Spacing.md)
 
+            if vm.gatewayConfigured {
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(Color(hex: "#4A7C59"))
+                        .frame(width: 6, height: 6)
+                    Text(vm.activeGateway.capitalized + " connected")
+                        .font(BrandFont.body(11))
+                        .foregroundStyle(Color(hex: "#4A7C59"))
+                }
+                .padding(.horizontal, Spacing.md)
+            }
+
             HStack(spacing: Spacing.sm) {
-                ForEach(methods, id: \.0) { method in
+                ForEach(availableMethods, id: \.0) { method in
                     methodButton(id: method.0, icon: method.1, title: method.2)
                 }
             }

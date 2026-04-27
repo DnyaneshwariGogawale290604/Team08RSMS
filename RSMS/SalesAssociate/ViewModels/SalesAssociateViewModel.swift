@@ -31,7 +31,7 @@ final class SalesAssociateViewModel: ObservableObject {
             // Resolve auth — catch cancellation separately so it doesn't surface as an error
             let userId: UUID
             do {
-                userId = try await client.auth.session.user.id
+                userId = try await resolveUserId()
             } catch is CancellationError {
                 return  // silently abort — SwiftUI cancelled the task
             } catch {
@@ -247,5 +247,10 @@ final class SalesAssociateViewModel: ObservableObject {
 
         let ids = brandStores.map { $0.store_id.uuidString }
         return ids.isEmpty ? [associateStoreId.uuidString] : ids
+    }
+
+    private func resolveUserId() async throws -> UUID {
+        if let session = try? await client.auth.session { return session.user.id }
+        return try await client.auth.user().id
     }
 }

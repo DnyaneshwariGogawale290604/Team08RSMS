@@ -16,6 +16,7 @@ struct SalesAssociateOrdersView: View {
     @State private var showNewSale = false
     @State private var searchText = ""
     @State private var selectedStatusFilter: OrderStatusFilter = .all
+    @State private var billingOrderId: UUID? = nil
 
     fileprivate static func normalizeStatus(_ rawStatus: String?) -> String {
         let raw = (rawStatus ?? "pending").trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
@@ -91,6 +92,28 @@ struct SalesAssociateOrdersView: View {
 
                 if viewModel.isLoading && !hasAnyOrders {
                     LoadingView(message: "Loading orders...")
+                } else if let error = viewModel.errorMessage, !hasAnyOrders {
+                    VStack(spacing: 20) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .font(.system(size: 40))
+                            .foregroundStyle(Color.brandWarmGrey)
+                        Text(error)
+                            .font(BrandFont.body(14))
+                            .foregroundStyle(Color.brandWarmBlack)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 32)
+                        Button {
+                            Task { await viewModel.refresh() }
+                        } label: {
+                            Text("Retry")
+                                .font(BrandFont.body(14, weight: .semibold))
+                                .foregroundStyle(Color.brandLinen)
+                                .padding(.horizontal, 24)
+                                .padding(.vertical, 10)
+                                .background(Color.brandWarmBlack)
+                                .clipShape(Capsule())
+                        }
+                    }
                 } else if !hasAnyOrders {
                     EmptyStateView(icon: "shippingbox", title: "No orders", message: "Your completed and pending orders will appear here.")
                 } else {
@@ -142,11 +165,19 @@ struct SalesAssociateOrdersView: View {
             .navigationTitle("Orders")
             // Sheet for session-local orders (full receipt)
             .sheet(item: $selectedOrder) { order in
-                StandaloneReceiptSheet(placed: order)
+                StandaloneReceiptSheet(placed: order, onViewBilling: { billingOrderId = order.id })
             }
             // Sheet for remote orders (summary view)
             .sheet(item: $selectedRemoteOrder) { order in
-                SAOrderDetailSheet(order: order, viewModel: viewModel)
+                SAOrderDetailSheet(order: order, viewModel: viewModel, onViewBilling: { billingOrderId = order.id })
+            }
+            .sheet(isPresented: Binding(
+                get: { billingOrderId != nil },
+                set: { if !$0 { billingOrderId = nil } }
+            )) {
+                if let orderId = billingOrderId {
+                    BillAndPaymentsView(vm: AssociateSalesViewModel(), salesOrderId: orderId)
+                }
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -272,7 +303,8 @@ struct SalesAssociateOrdersView: View {
 // MARK: - StandaloneReceiptSheet
 struct StandaloneReceiptSheet: View {
     let placed: PlacedOrder
-    @Environment(\ .dismiss) var dismiss
+    @Environment(\.dismiss) var dismiss
+    var onViewBilling: () -> Void
 
     var body: some View {
         NavigationStack {
@@ -316,6 +348,25 @@ struct StandaloneReceiptSheet: View {
                         .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.brandPebble, lineWidth: 0.5))
                         .padding(.horizontal, 16)
                         .padding(.top, 24)
+
+                        Button {
+                            onViewBilling()
+                            dismiss()
+                        } label: {
+                            HStack {
+                                Image(systemName: "creditcard")
+                                Text("View Bill & Payments")
+                            }
+                            .font(BrandFont.body(14, weight: .semibold))
+                            .foregroundStyle(Color.brandWarmBlack)
+                            .padding()
+                            .frame(maxWidth: .infinity)
+                            .background(Color.brandLinen)
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.brandPebble, lineWidth: 0.5))
+                        }
+                        .padding(.horizontal, 16)
+                        .opacity(1) 
                     }
                 }
             }
@@ -349,6 +400,7 @@ struct SAOrderDetailSheet: View {
     let order: SAOrder
     @ObservedObject var viewModel: SalesAssociateViewModel
     @Environment(\.dismiss) var dismiss
+    var onViewBilling: () -> Void
     @State private var isCompleting = false
     @State private var showConfirm = false
 
@@ -423,6 +475,24 @@ struct SAOrderDetailSheet: View {
                             .disabled(isCompleting)
                             .padding(.horizontal, 16)
                         }
+
+                        Button {
+                            onViewBilling()
+                            dismiss()
+                        } label: {
+                            HStack {
+                                Image(systemName: "creditcard")
+                                Text("View Bill & Payments")
+                            }
+                            .font(BrandFont.body(14, weight: .semibold))
+                            .foregroundStyle(Color.brandWarmBlack)
+                            .padding()
+                            .frame(maxWidth: .infinity)
+                            .background(Color.brandLinen)
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.brandPebble, lineWidth: 0.5))
+                        }
+                        .padding(.horizontal, 16)
 
                         Spacer()
                     }

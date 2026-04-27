@@ -40,6 +40,27 @@ private struct CorporateAdminAccountView: View {
                     .font(.system(size: 24, weight: .bold, design: .serif))
                     .foregroundColor(Color.luxuryPrimaryText)
 
+                NavigationLink {
+                    GatewaySetupView()
+                } label: {
+                    HStack {
+                        Image(systemName: "creditcard.fill")
+                            .foregroundColor(CatalogTheme.primary)
+                        Text("Payment Gateway Setup")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(Color.luxuryPrimaryText)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .foregroundColor(Color.luxurySecondaryText)
+                            .font(.system(size: 13))
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 14)
+                    .background(Color.white)
+                    .cornerRadius(12)
+                    .padding(.horizontal, 24)
+                }
+
                 Button {
                     Task { await sessionViewModel.signOut() }
                 } label: {

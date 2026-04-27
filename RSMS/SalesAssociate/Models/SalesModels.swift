@@ -214,6 +214,7 @@ public struct PlacedOrder: Identifiable {
 
 import SwiftUI
 
+
 public class SharedOrderStore: ObservableObject {
     @Published public var orders: [PlacedOrder] = []
     
@@ -221,5 +222,170 @@ public class SharedOrderStore: ObservableObject {
     
     public func addOrder(_ order: PlacedOrder) {
         orders.append(order)
+    }
+}
+
+// MARK: - Billing and Payment Models
+
+// Payment leg item for billing
+public struct BillingLegItem: Identifiable {
+    public let id = UUID()
+    public var itemNumber: Int
+    public var amount: Double
+    public var method: String // "upi", "cash", "netbanking"
+    public var tendered: Double? // only for cash
+    public var note: String?
+
+    // State awareness
+    public var existingStatus: String? = nil // "paid", "pending", "failed", "cancelled"
+    public var existingItemId: String? = nil // DB UUID of this item
+
+    // Computed helpers
+    public var isPaid: Bool { existingStatus == "paid" }
+    public var isPending: Bool {
+        existingStatus == nil || existingStatus == "pending"
+    }
+    public var isNew: Bool { existingItemId == nil }
+
+    public init(
+        itemNumber: Int,
+        amount: Double,
+        method: String,
+        tendered: Double? = nil,
+        note: String? = nil,
+        existingStatus: String? = nil,
+        existingItemId: String? = nil
+    ) {
+        self.itemNumber = itemNumber
+        self.amount = amount
+        self.method = method
+        self.tendered = tendered
+        self.note = note
+        self.existingStatus = existingStatus
+        self.existingItemId = existingItemId
+    }
+}
+
+// Payment leg for billing
+public struct BillingLeg: Identifiable {
+    public let id = UUID()
+    public var legNumber: Int
+    public var dueType: String // "immediate", "on_delivery"
+    public var totalAmount: Double
+    public var items: [BillingLegItem]
+
+    // State awareness
+    public var existingStatus: String? = nil // "paid", "partially_paid", "pending", "cancelled"
+    public var existingLegId: String? = nil // DB UUID of this leg
+
+    // Computed helpers
+    public var isPaid: Bool { existingStatus == "paid" }
+    public var isPartiallyPaid: Bool { existingStatus == "partially_paid" }
+    public var isNew: Bool { existingLegId == nil }
+    public var isFullyLocked: Bool { existingStatus == "paid" }
+    public var hasAnyPaidItem: Bool { items.contains { $0.isPaid } }
+
+    public var itemsTotal: Double {
+        items.reduce(0) { $0 + $1.amount }
+    }
+    public var isBalanced: Bool {
+        abs(itemsTotal - totalAmount) < 0.01
+    }
+
+    // Amount that is locked (already paid)
+    public var lockedAmount: Double {
+        items.filter { $0.isPaid }.reduce(0) { $0 + $1.amount }
+    }
+
+    // Amount still pending
+    public var pendingAmount: Double {
+        items.filter { $0.isPending }.reduce(0) { $0 + $1.amount }
+    }
+
+    public init(
+        legNumber: Int,
+        dueType: String,
+        totalAmount: Double,
+        items: [BillingLegItem],
+        existingStatus: String? = nil,
+        existingLegId: String? = nil
+    ) {
+        self.legNumber = legNumber
+        self.dueType = dueType
+        self.totalAmount = totalAmount
+        self.items = items
+        self.existingStatus = existingStatus
+        self.existingLegId = existingLegId
+    }
+}
+
+// Payment leg item from DB (for BillAndPaymentsView)
+public struct PaymentLegItemRecord: Identifiable, Decodable {
+    public let id: UUID
+    public let itemNumber: Int
+    public let amount: Double
+    public let method: String
+    public let status: String
+    public let collectedAt: String?
+    public let note: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case id
+        case itemNumber = "item_number"
+        case amount
+        case method
+        case status
+        case collectedAt = "collected_at"
+        case note
+    }
+}
+
+// Payment leg from DB (for BillAndPaymentsView)
+public struct PaymentLegRecord: Identifiable, Decodable {
+    public let id: UUID
+    public let legNumber: Int
+    public let dueType: String
+    public let totalAmount: Double
+    public let amountPaid: Double
+    public let status: String
+    public let collectedAt: String?
+    public var items: [PaymentLegItemRecord]
+
+    public enum CodingKeys: String, CodingKey {
+        case id
+        case legNumber = "leg_number"
+        case dueType = "due_type"
+        case totalAmount = "total_amount"
+        case amountPaid = "amount_paid"
+        case status
+        case collectedAt = "collected_at"
+        case items
+    }
+}
+
+// Full order payment summary from get-order-payment-summary
+public struct OrderPaymentSummary {
+    public let orderId: String
+    public let totalAmount: Double
+    public let amountPaid: Double
+    public let remaining: Double
+    public let paymentStatus: String
+    public let isFullyPaid: Bool
+    public let legs: [PaymentLegRecord]
+    public let maxPaymentLegs: Int
+    public let maxLegSplits: Int
+    public let enabledMethods: [String]
+
+    public init(orderId: String, totalAmount: Double, amountPaid: Double, remaining: Double, paymentStatus: String, isFullyPaid: Bool, legs: [PaymentLegRecord], maxPaymentLegs: Int, maxLegSplits: Int, enabledMethods: [String]) {
+        self.orderId = orderId
+        self.totalAmount = totalAmount
+        self.amountPaid = amountPaid
+        self.remaining = remaining
+        self.paymentStatus = paymentStatus
+        self.isFullyPaid = isFullyPaid
+        self.legs = legs
+        self.maxPaymentLegs = maxPaymentLegs
+        self.maxLegSplits = maxLegSplits
+        self.enabledMethods = enabledMethods
     }
 }

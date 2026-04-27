@@ -15,18 +15,29 @@ struct SAOrder: Identifiable, Decodable, Sendable {
         case customerName = "customers"
     }
 
-    // Supabase returns nested objects as { "name": "..." }
+    // Supabase returns nested objects as { "name": "..." } or [{ "name": "..." }]
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        id          = try c.decode(UUID.self, forKey: .id)
-        totalAmount = try c.decode(Double.self, forKey: .totalAmount)
+        id = try c.decode(UUID.self, forKey: .id)
+        
+        // Handle total_amount as Double or String
+        if let val = try? c.decode(Double.self, forKey: .totalAmount) {
+            totalAmount = val
+        } else if let str = try? c.decode(String.self, forKey: .totalAmount), let val = Double(str) {
+            totalAmount = val
+        } else {
+            totalAmount = 0
+        }
+        
         status      = try c.decodeIfPresent(String.self, forKey: .status)
         createdAt   = try c.decodeIfPresent(String.self, forKey: .createdAt)
 
-        // Decode nested customers object: { "name": "Ananya Pandit" }
+        // Decode nested customers object: { "name": "Ananya Pandit" } or array [{ "name": "..." }]
         struct CustomerName: Decodable { let name: String? }
         if let nested = try? c.decodeIfPresent(CustomerName.self, forKey: .customerName) {
             customerName = nested.name
+        } else if let nestedArray = try? c.decodeIfPresent([CustomerName].self, forKey: .customerName), let first = nestedArray.first {
+            customerName = first.name
         } else {
             customerName = nil
         }
