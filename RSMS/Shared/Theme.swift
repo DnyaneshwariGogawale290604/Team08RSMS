@@ -2,7 +2,7 @@ import SwiftUI
 
 public struct Theme {
     public static let offWhite = CatalogTheme.background
-    public static let beige = Color.white
+    public static let beige = CatalogTheme.card
     public static let border = CatalogTheme.divider
     public static let textPrimary = CatalogTheme.primaryText
     public static let textSecondary = CatalogTheme.secondaryText

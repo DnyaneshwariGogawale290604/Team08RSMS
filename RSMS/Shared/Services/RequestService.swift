@@ -153,6 +153,18 @@ public final class RequestService: @unchecked Sendable {
             .value
     }
 
+    /// Fetches all product requests for the current boutique store.
+    public func fetchRequestsForCurrentBoutiqueStore() async throws -> [ProductRequest] {
+        let storeId = try await resolveCurrentBoutiqueManagerStoreId()
+        return try await client
+            .from("product_requests")
+            .select("*, product:products(*), store:stores(*)")
+            .eq("store_id", value: storeId)
+            .order("created_at", ascending: false)
+            .execute()
+            .value
+    }
+
     /// Creates a shipment with full ASN details. Generates an ASN number automatically.
     public func createShipmentWithASN(
         requestId: UUID,

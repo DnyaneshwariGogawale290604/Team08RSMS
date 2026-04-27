@@ -45,7 +45,7 @@ public struct StaffFormView: View {
                         Text("Role")
                         Spacer()
                         Text("Sales Associate")
-                            .foregroundColor(Theme.textSecondary)
+                            .foregroundColor(BoutiqueTheme.textSecondary)
                     }
                 }
 
@@ -62,7 +62,7 @@ public struct StaffFormView: View {
                             }
                             Button(action: { showPassword.toggle() }) {
                                 Image(systemName: showPassword ? "eye.slash" : "eye")
-                                    .foregroundColor(Theme.textSecondary)
+                                    .foregroundColor(BoutiqueTheme.textSecondary)
                             }
                         }
 
@@ -79,12 +79,12 @@ public struct StaffFormView: View {
                         if !password.isEmpty && password.count < 6 {
                             Text("Password must be at least 6 characters.")
                                 .font(.caption)
-                                .foregroundColor(Theme.error)
+                                .foregroundColor(BoutiqueTheme.error)
                         }
                         if !confirmPassword.isEmpty && password != confirmPassword {
                             Text("Passwords do not match.")
                                 .font(.caption)
-                                .foregroundColor(Theme.error)
+                                .foregroundColor(BoutiqueTheme.error)
                         }
                     }
 
@@ -96,7 +96,7 @@ public struct StaffFormView: View {
                             TextField("e.g. 50000", text: $salesTargetText)
                                 .keyboardType(.decimalPad)
                                 .multilineTextAlignment(.trailing)
-                                .foregroundColor(Theme.textSecondary)
+                                .foregroundColor(BoutiqueTheme.textSecondary)
                         }
                     }
                 }
@@ -105,7 +105,7 @@ public struct StaffFormView: View {
                 if let err = errorMsg {
                     Section {
                         Text(err)
-                            .foregroundColor(Theme.error)
+                            .foregroundColor(BoutiqueTheme.error)
                             .font(.caption)
                     }
                 }
@@ -119,14 +119,16 @@ public struct StaffFormView: View {
                         } else {
                             Text(userToEdit == nil ? "Hire Staff" : "Update Details")
                                 .frame(maxWidth: .infinity)
-                                .foregroundColor(Theme.beige)
+                                .foregroundColor(BoutiqueTheme.beige)
                         }
                     }
                     .disabled(isLoading || !canSave)
-                    .listRowBackground(canSave ? Theme.textPrimary : Theme.border)
+                    .listRowBackground(canSave ? BoutiqueTheme.textPrimary : BoutiqueTheme.border)
                 }
             }
             .navigationTitle(userToEdit == nil ? "Add Staff" : "Edit Staff")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarColorScheme(.light, for: .navigationBar)
             .navigationBarItems(leading: Button(action: {
                 presentationMode.wrappedValue.dismiss()
             }) {

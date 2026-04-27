@@ -43,7 +43,7 @@ struct GRNFormSheet: View {
                 .padding(.top, 16)
                 .padding(.bottom, 40)
             }
-            .background(Color.appBackground.ignoresSafeArea())
+            .background(BoutiqueTheme.background.ignoresSafeArea())
             .navigationTitle("Receive Goods")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -119,7 +119,7 @@ struct GRNFormSheet: View {
             }
         }
         .padding(16)
-        .background(Color.appCard)
+        .background(BoutiqueTheme.card)
         .cornerRadius(14)
         .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.appBorder, lineWidth: 0.8))
     }
@@ -173,7 +173,7 @@ struct GRNFormSheet: View {
                 .padding(.bottom, 14)
             }
         }
-        .background(Color.appCard)
+        .background(BoutiqueTheme.card)
         .cornerRadius(14)
         .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.appBorder, lineWidth: 0.8))
     }
@@ -221,11 +221,11 @@ struct GRNFormSheet: View {
                 .font(.system(size: 14))
                 .foregroundColor(.appPrimaryText)
                 .padding(8)
-                .background(Color.appBackground)
+                .background(BoutiqueTheme.background)
                 .cornerRadius(10)
         }
         .padding(16)
-        .background(Color.appCard)
+        .background(BoutiqueTheme.card)
         .cornerRadius(14)
         .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.appBorder, lineWidth: 0.8))
     }
@@ -291,7 +291,7 @@ struct GRNFormSheet: View {
                 .padding(.top, 8)
             }
             .padding(32)
-            .background(Color.appCard)
+            .background(BoutiqueTheme.card)
             .cornerRadius(24)
             .shadow(radius: 30)
             .padding(.horizontal, 24)

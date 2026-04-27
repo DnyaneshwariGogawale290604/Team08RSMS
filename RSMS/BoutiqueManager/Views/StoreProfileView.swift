@@ -76,7 +76,7 @@ public struct StoreProfileView: View {
                 
                 if let error = vm.errorMessage {
                     Section {
-                        Text(error).foregroundColor(Theme.error).font(.caption)
+                        Text(error).foregroundColor(BoutiqueTheme.error).font(.caption)
                     }
                 }
                 
@@ -103,7 +103,7 @@ public struct StoreProfileView: View {
         }
         .scrollContentBackground(.hidden)
         .navigationTitle("Boutique Details")
-        .background(Color.appBackground.ignoresSafeArea())
+        .background(BoutiqueTheme.background.ignoresSafeArea())
         .tint(.appAccent)
         .onAppear {
             vm.fetchStore()
