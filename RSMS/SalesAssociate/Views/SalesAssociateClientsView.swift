@@ -12,12 +12,12 @@ struct SalesAssociateClientsView: View {
 
     var filteredCustomers: [Customer] {
         let textFiltered = viewModel.customers.filter {
-            searchText.isEmpty || 
-            $0.name.localizedCaseInsensitiveContains(searchText) || 
-            ($0.phone?.localizedCaseInsensitiveContains(searchText) == true) || 
+            searchText.isEmpty ||
+            $0.name.localizedCaseInsensitiveContains(searchText) ||
+            ($0.phone?.localizedCaseInsensitiveContains(searchText) == true) ||
             ($0.email?.localizedCaseInsensitiveContains(searchText) == true)
         }
-        
+
         if filter == "All" {
             return textFiltered
         } else if filter == "VIP" {
@@ -30,21 +30,21 @@ struct SalesAssociateClientsView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.brandOffWhite.ignoresSafeArea()
+                Color.luxuryBackground.ignoresSafeArea()
 
                 VStack(spacing: 0) {
                     // Search & Filters
                     VStack(spacing: 16) {
                         HStack(spacing: 10) {
-                            Image(systemName: "magnifyingglass").foregroundStyle(Color.brandWarmGrey).font(.system(size: 14))
+                            Image(systemName: "magnifyingglass").foregroundStyle(Color.luxuryPrimary).font(.system(size: 14))
                             TextField("Search by name, phone or email...", text: $searchText)
                                 .font(.system(size: 14))
+                                .foregroundStyle(Color.luxuryPrimaryText)
                                 .autocorrectionDisabled()
                         }
                         .padding(16)
-                        .background(Color.brandLinen)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.brandPebble, lineWidth: 0.5))
+                        .background(Color.luxurySurface)
+                        .clipShape(RoundedRectangle(cornerRadius: 16))
                         .padding(.horizontal, 16)
                         .padding(.top, 16)
 
@@ -78,7 +78,7 @@ struct SalesAssociateClientsView: View {
                             VStack(alignment: .leading, spacing: 10) {
                                 Text("\(filteredCustomers.count) clients")
                                     .font(.system(size: 11))
-                                    .foregroundStyle(Color.brandWarmGrey)
+                                    .foregroundStyle(Color.luxurySecondaryText)
                                     .padding(.top, 16)
                                     .padding(.bottom, 4)
 
@@ -88,21 +88,21 @@ struct SalesAssociateClientsView: View {
                                     } label: {
                                         HStack(spacing: 12) {
                                             Circle()
-                                                .fill(Color(hex: "#C8913A").opacity(0.15))
+                                                .fill(Color.luxurySurface)
                                                 .frame(width: 44, height: 44)
                                                 .overlay(
                                                     Text(String(customer.name.prefix(1)).uppercased())
                                                         .font(.system(size: 16, weight: .semibold, design: .serif))
-                                                        .foregroundStyle(Color.brandWarmBlack)
+                                                        .foregroundStyle(Color.luxuryPrimary)
                                                 )
 
                                             VStack(alignment: .leading, spacing: 3) {
                                                 Text(customer.name)
                                                     .font(BrandFont.body(15, weight: .semibold))
-                                                    .foregroundStyle(Color.brandWarmBlack)
+                                                    .foregroundStyle(Color.luxuryPrimaryText)
                                                 Text(customer.phone ?? customer.email ?? "No contact")
                                                     .font(BrandFont.body(12))
-                                                    .foregroundStyle(Color.brandWarmGrey)
+                                                    .foregroundStyle(Color.luxurySecondaryText)
                                             }
 
                                             Spacer()
@@ -113,22 +113,22 @@ struct SalesAssociateClientsView: View {
                                                     .kerning(1)
                                                     .padding(.horizontal, 8)
                                                     .padding(.vertical, 4)
-                                                    .background(category.lowercased() == "vip" ? Color(hex: "#C8913A").opacity(0.15) : Color.brandPebble.opacity(0.3))
-                                                    .foregroundStyle(category.lowercased() == "vip" ? Color(hex: "#C8913A") : Color.brandWarmBlack)
+                                                    .background(category.lowercased() == "vip" ? Color(hex: "#C8913A").opacity(0.15) : Color.luxurySurface)
+                                                    .foregroundStyle(category.lowercased() == "vip" ? Color(hex: "#C8913A") : Color.luxurySecondaryText)
                                                     .clipShape(Capsule())
                                             }
-                                            
+
                                             Image(systemName: "chevron.right")
                                                 .font(.system(size: 12))
-                                                .foregroundStyle(Color.brandPebble)
+                                                .foregroundStyle(Color.luxuryMutedText)
                                         }
                                         .padding(.vertical, 14)
                                         .padding(.horizontal, 16)
-                                        .background(Color.brandLinen)
+                                        .background(Color.white)
                                         .clipShape(RoundedRectangle(cornerRadius: 16))
-                                        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.brandPebble, lineWidth: 0.5))
+                                        .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 2)
                                     }
-                                    .buttonStyle(.plain)
+                                    .buttonStyle(LuxuryPressStyle())
                                 }
                             }
                             .padding(.horizontal, 16)
@@ -149,7 +149,7 @@ struct SalesAssociateClientsView: View {
                     } label: {
                         Image(systemName: "plus.circle.fill")
                             .font(.system(size: 22))
-                            .foregroundStyle(Color.brandWarmBlack)
+                            .foregroundStyle(Color.luxuryPrimary)
                     }
                 }
             }
@@ -176,10 +176,9 @@ struct SalesAssociateClientsView: View {
                 .font(.system(size: 13, weight: .medium))
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
-                .background(filter == title ? Color.brandWarmBlack : Color.brandLinen)
-                .foregroundStyle(filter == title ? Color.brandOffWhite : Color.brandWarmBlack)
+                .background(filter == title ? Color.luxuryPrimary : Color.luxurySurface)
+                .foregroundStyle(filter == title ? Color.white : Color.luxuryDeepAccent)
                 .clipShape(Capsule())
-                .overlay(Capsule().stroke(Color.brandPebble, lineWidth: 0.5))
         }
     }
 }
@@ -189,12 +188,12 @@ struct ClientProfileView: View {
     let customer: Customer
     @State private var orders: [SAOrder] = []
     @State private var isLoading = false
-    
+
     // AI Recommendations state
     @State private var recommendedProducts: [Product] = []
     @State private var isFetchingRecommendations = false
     @State private var recommendationDiagnosticMessage: String?
-    
+
     @Environment(\.dismiss) var dismiss
     @EnvironmentObject var orderStore: SharedOrderStore
 
@@ -223,24 +222,24 @@ struct ClientProfileView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.brandOffWhite.ignoresSafeArea()
+                Color.luxuryBackground.ignoresSafeArea()
 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 24) {
                         // Header Profile Card
                         VStack(spacing: 12) {
                             Circle()
-                                .fill(Color.brandPebble.opacity(0.4))
+                                .fill(Color.luxurySurface)
                                 .frame(width: 80, height: 80)
                                 .overlay(
                                     Text(String(customer.name.prefix(1)).uppercased())
                                         .font(.system(size: 32, weight: .semibold, design: .serif))
-                                        .foregroundStyle(Color.brandWarmBlack)
+                                        .foregroundStyle(Color.luxuryPrimary)
                                 )
 
                             Text(customer.name)
                                 .font(.system(size: 24, weight: .semibold, design: .serif))
-                                .foregroundStyle(Color.brandWarmBlack)
+                                .foregroundStyle(Color.luxuryPrimaryText)
 
                             if let category = customer.customerCategory {
                                 Text(category.uppercased())
@@ -248,8 +247,8 @@ struct ClientProfileView: View {
                                     .kerning(1)
                                     .padding(.horizontal, 10)
                                     .padding(.vertical, 4)
-                                    .background(Color(hex: "#C8913A").opacity(0.15))
-                                    .foregroundStyle(Color(hex: "#C8913A"))
+                                    .background(category.lowercased() == "vip" ? Color(hex: "#C8913A").opacity(0.15) : Color.luxurySurface)
+                                    .foregroundStyle(category.lowercased() == "vip" ? Color(hex: "#C8913A") : Color.luxurySecondaryText)
                                     .clipShape(Capsule())
                             }
                         }
@@ -264,16 +263,16 @@ struct ClientProfileView: View {
                             if let nationality = customer.nationality { infoRow(icon: "globe", label: "Nationality", value: nationality); divider() }
                             if let address = customer.address { infoRow(icon: "location", label: "Address", value: address); divider() }
                             if let notes = customer.notes { infoRow(icon: "doc.text", label: "Notes", value: notes); divider() }
-                            
+
                             if let created = customer.createdAt {
                                 infoRow(icon: "clock", label: "Client Since", value: created.formatted(date: .abbreviated, time: .omitted))
                             } else {
                                 infoRow(icon: "clock", label: "Client Since", value: "--")
                             }
                         }
-                        .background(Color.brandLinen)
+                        .background(Color.white)
                         .clipShape(RoundedRectangle(cornerRadius: 16))
-                        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.brandPebble, lineWidth: 0.5))
+                        .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 2)
                         .padding(.horizontal, 16)
 
                         // Stats Highlights
@@ -283,7 +282,7 @@ struct ClientProfileView: View {
                             statCard(icon: "calendar", label: "Last Purchase", value: lastPurchaseDate)
                         }
                         .padding(.horizontal, 16)
-                        
+
                         // AI Stylist Recommendations
                         aiRecommendationsSection
 
@@ -292,7 +291,7 @@ struct ClientProfileView: View {
                             Text("PURCHASE HISTORY")
                                 .font(.system(size: 11, weight: .semibold))
                                 .kerning(1.2)
-                                .foregroundStyle(Color.brandWarmGrey)
+                                .foregroundStyle(Color.luxurySecondaryText)
                                 .padding(.horizontal, 16)
 
                             if isLoading && mergedOrders.isEmpty {
@@ -302,7 +301,7 @@ struct ClientProfileView: View {
                             } else if mergedOrders.isEmpty {
                                 Text("No previous orders found.")
                                     .font(.system(size: 13))
-                                    .foregroundStyle(Color.brandWarmGrey)
+                                    .foregroundStyle(Color.luxurySecondaryText)
                                     .frame(maxWidth: .infinity)
                                     .padding(.top, 10)
                             } else {
@@ -325,15 +324,15 @@ struct ClientProfileView: View {
                     Text("CLIENT PROFILE")
                         .font(.system(size: 13, weight: .semibold))
                         .kerning(2)
-                        .foregroundStyle(Color.brandWarmBlack)
+                        .foregroundStyle(Color.luxuryPrimaryText)
                 }
                 ToolbarItem(placement: .topBarLeading) {
                     Button { dismiss() } label: {
                         Image(systemName: "chevron.left")
                             .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(Color.brandWarmBlack)
+                            .foregroundStyle(Color.luxuryPrimary)
                             .frame(width: 32, height: 32)
-                            .background(Color.brandOffWhite)
+                            .background(Color.luxurySurface)
                             .clipShape(Circle())
                     }
                 }
@@ -354,7 +353,7 @@ struct ClientProfileView: View {
                 Text("AI STYLIST PICKS")
                     .font(.system(size: 11, weight: .semibold))
                     .kerning(1.2)
-                    .foregroundStyle(Color.brandWarmGrey)
+                    .foregroundStyle(Color.luxurySecondaryText)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 16)
@@ -365,7 +364,7 @@ struct ClientProfileView: View {
             } else if recommendedProducts.isEmpty {
                 Text(recommendationDiagnosticMessage ?? "No recommendations available right now.")
                     .font(.system(size: 13))
-                    .foregroundStyle(Color.brandWarmGrey)
+                    .foregroundStyle(Color.luxurySecondaryText)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 16)
             } else {
@@ -385,15 +384,15 @@ struct ClientProfileView: View {
         HStack(spacing: 12) {
             Image(systemName: icon)
                 .font(.system(size: 14))
-                .foregroundStyle(Color.brandWarmGrey)
+                .foregroundStyle(Color.luxuryPrimary)
                 .frame(width: 20)
             Text(label)
                 .font(.system(size: 13))
-                .foregroundStyle(Color.brandWarmGrey)
+                .foregroundStyle(Color.luxurySecondaryText)
             Spacer()
             Text(value)
                 .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(Color.brandWarmBlack)
+                .foregroundStyle(Color.luxuryPrimaryText)
                 .multilineTextAlignment(.trailing)
         }
         .padding(.horizontal, 16)
@@ -402,7 +401,7 @@ struct ClientProfileView: View {
 
     private func divider() -> some View {
         Divider()
-            .background(Color.brandPebble)
+            .background(Color.luxuryDivider)
             .padding(.leading, 48)
     }
 
@@ -410,19 +409,19 @@ struct ClientProfileView: View {
         VStack(alignment: .leading, spacing: 6) {
             Image(systemName: icon)
                 .font(.system(size: 14))
-                .foregroundStyle(Color.brandWarmGrey)
+                .foregroundStyle(Color.luxuryPrimary)
             Text(value)
                 .font(.system(size: 18, weight: .bold, design: .serif))
-                .foregroundStyle(Color.brandWarmBlack)
+                .foregroundStyle(Color.luxuryDeepAccent)
             Text(label)
                 .font(.system(size: 11))
-                .foregroundStyle(Color.brandWarmGrey)
+                .foregroundStyle(Color.luxurySecondaryText)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
-        .background(Color.brandLinen)
+        .background(Color.white)
         .clipShape(RoundedRectangle(cornerRadius: 16))
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.brandPebble, lineWidth: 0.5))
+        .shadow(color: Color.black.opacity(0.05), radius: 6, x: 0, y: 2)
     }
 
     private func orderRow(order: SAOrder) -> some View {
@@ -430,25 +429,29 @@ struct ClientProfileView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Order #\(order.id.uuidString.prefix(8).uppercased())")
                     .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(Color.brandWarmBlack)
+                    .foregroundStyle(Color.luxuryPrimaryText)
                 Text(order.createdAt?.components(separatedBy: "T").first ?? "--")
                     .font(.system(size: 11))
-                    .foregroundStyle(Color.brandWarmGrey)
+                    .foregroundStyle(Color.luxurySecondaryText)
             }
             Spacer()
-            VStack(alignment: .trailing, spacing: 4) {
+            VStack(alignment: .trailing, spacing: 6) {
                 Text("₹\(Int(order.totalAmount))")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Color.brandWarmBlack)
+                    .foregroundStyle(Color.luxuryDeepAccent)
                 Text((order.status ?? "pending").capitalized)
-                    .font(.system(size: 11))
-                    .foregroundStyle(Color(hex: "#C8913A"))
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(Color.luxurySecondaryText)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(Color(hex: "#D8C6C6"))
+                    .clipShape(Capsule())
             }
         }
         .padding(14)
-        .background(Color.brandLinen)
-        .clipShape(RoundedRectangle(cornerRadius: 14))
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.brandPebble, lineWidth: 0.5))
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 2)
     }
 
     private func formatINR(_ v: Double) -> String {
@@ -477,12 +480,12 @@ struct ClientProfileView: View {
             print("Failed to fetch client orders: \(error)")
         }
     }
-    
+
     // MARK: - Fetch AI Logic
     private func fetchAIRecommendations() async {
         isFetchingRecommendations = true
         defer { isFetchingRecommendations = false }
-        
+
         do {
             // 1. Fetch your store's active catalog
             let catalog: [Product] = try await SupabaseManager.shared.client
@@ -491,7 +494,7 @@ struct ClientProfileView: View {
                 .eq("is_active", value: true)
                 .execute()
                 .value
-                
+
             // 2. Fetch past products bought by this customer for AI context
             struct OrderItemRow: Decodable {
                 struct ProductData: Decodable {
@@ -500,10 +503,10 @@ struct ClientProfileView: View {
                 }
                 let products: ProductData?
             }
-            
+
             let pastOrderIds = self.orders.map { $0.id.uuidString }
             var pastContext = ""
-            
+
             if !pastOrderIds.isEmpty {
                 if let pastItems: [OrderItemRow] = try? await SupabaseManager.shared.client
                     .from("order_items")
@@ -518,15 +521,15 @@ struct ClientProfileView: View {
                     }
                 }
             }
-                
+
             // 3. Create a "dummy" cart based on the client's preferences and past purchases
             let clientContextProduct = Product(
-                id: UUID(), 
-                name: "\(pastContext)Client Prefers: \(customer.notes ?? "Luxury Goods")", 
+                id: UUID(),
+                name: "\(pastContext)Client Prefers: \(customer.notes ?? "Luxury Goods")",
                 category: customer.customerCategory ?? "General",
                 price: 0.0
             )
-            
+
             // 4. Call your Generative Service
             let result = await GenerativeRecommendationService.shared.getRecommendationsResult(
                 cartItems: [clientContextProduct],
@@ -544,39 +547,39 @@ struct ClientProfileView: View {
 // MARK: - AI Stylist Card
 struct AIRecoCard: View {
     let product: Product
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             // Placeholder for product image
             Rectangle()
-                .fill(Color.brandPebble.opacity(0.3))
+                .fill(Color.luxurySurface)
                 .frame(width: 140, height: 140)
                 .overlay(
                     Image(systemName: "photo")
-                        .foregroundStyle(Color.brandWarmGrey.opacity(0.5))
+                        .foregroundStyle(Color.luxuryMutedText.opacity(0.5))
                 )
                 .clipShape(RoundedRectangle(cornerRadius: 12))
-            
+
             VStack(alignment: .leading, spacing: 2) {
                 Text(product.name)
                     .font(BrandFont.body(13, weight: .semibold))
-                    .foregroundStyle(Color.brandWarmBlack)
+                    .foregroundStyle(Color.luxuryPrimaryText)
                     .lineLimit(1)
-                
+
                 Text(product.category)
                     .font(BrandFont.body(11))
-                    .foregroundStyle(Color.brandWarmGrey)
-                
+                    .foregroundStyle(Color.luxurySecondaryText)
+
                 Text("₹\(Int(product.price))")
                     .font(.system(size: 13, weight: .semibold, design: .serif))
-                    .foregroundStyle(Color(hex: "#C8913A"))
+                    .foregroundStyle(Color.luxuryDeepAccent)
                     .padding(.top, 2)
             }
         }
         .frame(width: 140)
         .padding(10)
-        .background(Color.brandLinen)
+        .background(Color.white)
         .clipShape(RoundedRectangle(cornerRadius: 16))
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.brandPebble, lineWidth: 0.5))
+        .shadow(color: Color.black.opacity(0.05), radius: 6, x: 0, y: 2)
     }
 }

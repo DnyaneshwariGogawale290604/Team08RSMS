@@ -28,7 +28,7 @@ struct ErrorBanner: View {
 
             Text(message)
                 .font(BrandFont.body(13))
-                .foregroundStyle(Color.brandWarmBlack)
+                .foregroundStyle(Color.luxuryPrimaryText)
 
             Spacer()
 
@@ -36,7 +36,7 @@ struct ErrorBanner: View {
                 Button(action: onDismiss) {
                     Image(systemName: "xmark")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(Color.brandWarmGrey)
+                        .foregroundStyle(Color.luxurySecondaryText)
                 }
             }
         }
@@ -53,7 +53,7 @@ struct ErrorBanner: View {
 
 struct BadgeView: View {
     let text: String
-    var color: Color = .brandWarmGrey
+    var color: Color = .luxurySecondaryText
 
     var body: some View {
         Text(text.uppercased())
@@ -77,14 +77,14 @@ struct SectionHeader: View {
             Text(title.uppercased())
                 .font(.system(size: 11, weight: .semibold))
                 .kerning(1.2)
-                .foregroundStyle(Color.brandWarmGrey)
+                .foregroundStyle(Color.luxurySecondaryText)
 
             Spacer()
 
             if let actionTitle, let action {
                 Button(actionTitle, action: action)
                     .font(BrandFont.body(13))
-                    .foregroundStyle(Color.brandWarmBlack)
+                    .foregroundStyle(Color.luxuryPrimary)
             }
         }
         .padding(.horizontal, Spacing.md)
@@ -95,7 +95,7 @@ struct SectionHeader: View {
 struct BrandDivider: View {
     var body: some View {
         Rectangle()
-            .fill(Color.brandPebble)
+            .fill(Color.luxuryDivider)
             .frame(height: 0.5)
     }
 }
@@ -111,7 +111,7 @@ struct PrimaryButton: View {
             Group {
                 if isLoading {
                     ProgressView()
-                        .tint(Color.brandOffWhite)
+                        .tint(Color.white)
                 } else {
                     Text(title)
                         .font(BrandFont.body(15, weight: .semibold))
@@ -120,10 +120,11 @@ struct PrimaryButton: View {
             }
             .frame(maxWidth: .infinity)
             .frame(height: 52)
-            .background(isDisabled ? Color.brandPebble : Color.brandWarmBlack)
-            .foregroundStyle(isDisabled ? Color.brandWarmGrey : Color.brandOffWhite)
+            .background(isDisabled ? Color.luxuryMutedText : Color.luxuryDeepAccent)
+            .foregroundStyle(isDisabled ? Color.luxurySecondaryText : Color.white)
             .clipShape(RoundedRectangle(cornerRadius: Radius.md))
         }
         .disabled(isDisabled || isLoading)
+        .buttonStyle(LuxuryPressStyle())
     }
 }

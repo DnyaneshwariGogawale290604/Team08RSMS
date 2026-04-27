@@ -88,7 +88,7 @@ struct SalesAssociateOrdersView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.brandOffWhite.ignoresSafeArea()
+                Color.luxuryBackground.ignoresSafeArea()
 
                 if viewModel.isLoading && !hasAnyOrders {
                     LoadingView(message: "Loading orders...")
@@ -96,10 +96,10 @@ struct SalesAssociateOrdersView: View {
                     VStack(spacing: 20) {
                         Image(systemName: "exclamationmark.triangle")
                             .font(.system(size: 40))
-                            .foregroundStyle(Color.brandWarmGrey)
+                            .foregroundStyle(Color.luxurySecondaryText)
                         Text(error)
                             .font(BrandFont.body(14))
-                            .foregroundStyle(Color.brandWarmBlack)
+                            .foregroundStyle(Color.luxuryPrimaryText)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 32)
                         Button {
@@ -107,10 +107,10 @@ struct SalesAssociateOrdersView: View {
                         } label: {
                             Text("Retry")
                                 .font(BrandFont.body(14, weight: .semibold))
-                                .foregroundStyle(Color.brandLinen)
+                                .foregroundStyle(Color.white)
                                 .padding(.horizontal, 24)
                                 .padding(.vertical, 10)
-                                .background(Color.brandWarmBlack)
+                                .background(Color.luxuryDeepAccent)
                                 .clipShape(Capsule())
                         }
                     }
@@ -132,7 +132,7 @@ struct SalesAssociateOrdersView: View {
                                                      amount: placed.totalAmount,
                                                      status: placed.status)
                                         }
-                                        .buttonStyle(.plain)
+                                        .buttonStyle(LuxuryPressStyle())
                                     }
 
                                     ForEach(filteredRemoteOrders) { order in
@@ -144,7 +144,7 @@ struct SalesAssociateOrdersView: View {
                                                      amount: order.totalAmount,
                                                      status: order.status ?? "pending")
                                         }
-                                        .buttonStyle(.plain)
+                                        .buttonStyle(LuxuryPressStyle())
                                     }
                                 }
                                 .padding(16)
@@ -187,7 +187,7 @@ struct SalesAssociateOrdersView: View {
                     } label: {
                         Image(systemName: "plus")
                             .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(Color.brandWarmBlack)
+                            .foregroundStyle(Color.luxuryPrimary)
                     }
                 }
             }
@@ -213,16 +213,16 @@ struct SalesAssociateOrdersView: View {
         VStack(spacing: 12) {
             HStack(spacing: 10) {
                 Image(systemName: "magnifyingglass")
-                    .foregroundStyle(Color.brandWarmGrey)
+                    .foregroundStyle(Color.luxuryPrimary)
                     .font(.system(size: 14))
                 TextField("Search by client name or order ID...", text: $searchText)
                     .font(.system(size: 14))
+                    .foregroundStyle(Color.luxuryPrimaryText)
                     .autocorrectionDisabled()
             }
             .padding(14)
-            .background(Color.brandLinen)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.brandPebble, lineWidth: 0.5))
+            .background(Color.luxurySurface)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
@@ -244,52 +244,55 @@ struct SalesAssociateOrdersView: View {
                 .font(.system(size: 13, weight: .medium))
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
-                .background(selectedStatusFilter == filter ? Color.brandWarmBlack : Color.brandLinen)
-                .foregroundStyle(selectedStatusFilter == filter ? Color.brandOffWhite : Color.brandWarmBlack)
+                .background(selectedStatusFilter == filter ? Color.luxuryPrimary : Color.luxurySurface)
+                .foregroundStyle(selectedStatusFilter == filter ? Color.white : Color.luxuryDeepAccent)
                 .clipShape(Capsule())
-                .overlay(Capsule().stroke(Color.brandPebble, lineWidth: 0.5))
         }
         .buttonStyle(.plain)
     }
 
     private func orderRow(number: String, clientName: String, amount: Double, status: String) -> some View {
         let normalizedStatus = Self.normalizeStatus(status)
-        let statusPresentation: (text: String, color: Color) = {
+        let statusPresentation: (text: String, bgColor: Color, textColor: Color) = {
             switch normalizedStatus {
             case "completed":
-                return ("Completed", Color.brandWarmBlack)
+                return ("Completed", Color.luxuryPrimary, Color.white)
             case "cancelled":
-                return ("Cancelled", Color.brandWarmGrey)
+                return ("Cancelled", Color(hex: "#D8C6C6"), Color.luxurySecondaryText)
             case "pending":
-                return ("Pending", Color(hex: "#C8913A"))
+                return ("Pending", Color(hex: "#D8C6C6"), Color.luxurySecondaryText)
             default:
-                return (normalizedStatus.capitalized, Color.brandWarmGrey)
+                return (normalizedStatus.capitalized, Color(hex: "#D8C6C6"), Color.luxurySecondaryText)
             }
         }()
 
         return HStack {
             VStack(alignment: .leading, spacing: 4) {
                 Text(clientName)
-                    .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(Color.brandWarmBlack)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Color.luxuryPrimaryText)
                 Text("Order #\(number)")
-                    .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(Color.brandWarmBlack)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Color.luxurySecondaryText)
             }
             Spacer()
-            VStack(alignment: .trailing, spacing: 4) {
+            VStack(alignment: .trailing, spacing: 6) {
                 Text(currency(amount))
-                    .font(BrandFont.body(14, weight: .semibold))
-                    .foregroundStyle(Color.brandWarmBlack)
+                    .font(BrandFont.body(15, weight: .semibold))
+                    .foregroundStyle(Color.luxuryDeepAccent)
                 Text(statusPresentation.text)
-                    .font(BrandFont.body(11))
-                    .foregroundStyle(statusPresentation.color)
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(statusPresentation.textColor)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(statusPresentation.bgColor)
+                    .clipShape(Capsule())
             }
         }
-        .padding(14)
-        .background(Color.brandLinen)
-        .clipShape(RoundedRectangle(cornerRadius: 14))
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.brandPebble, lineWidth: 0.5))
+        .padding(16)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .shadow(color: Color.black.opacity(0.05), radius: 6, x: 0, y: 2)
     }
 
     private func currency(_ value: Double) -> String {
@@ -309,7 +312,7 @@ struct StandaloneReceiptSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.brandOffWhite.ignoresSafeArea()
+                Color.luxuryBackground.ignoresSafeArea()
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 24) {
                         // ── Receipt card
@@ -325,27 +328,27 @@ struct StandaloneReceiptSheet: View {
                             ForEach(Array(placed.items.enumerated()), id: \.element.id) { index, item in
                                 HStack {
                                     VStack(alignment: .leading, spacing: 2) {
-                                        Text(item.product.name).font(.system(size: 13)).foregroundStyle(Color.brandWarmBlack)
+                                        Text(item.product.name).font(.system(size: 13)).foregroundStyle(Color.luxuryPrimaryText)
                                         HStack(spacing: 6) {
-                                            Text("×\(item.quantity)").font(.system(size: 11)).foregroundStyle(Color.brandWarmGrey)
-                                            Text("@ ₹\(Int(item.product.price))").font(.system(size: 11)).foregroundStyle(Color.brandWarmGrey)
+                                            Text("×\(item.quantity)").font(.system(size: 11)).foregroundStyle(Color.luxurySecondaryText)
+                                            Text("@ ₹\(Int(item.product.price))").font(.system(size: 11)).foregroundStyle(Color.luxurySecondaryText)
                                         }
                                     }
                                     Spacer()
-                                    Text("₹\(Int(item.lineTotal))").font(.system(size: 13, weight: .medium)).foregroundStyle(Color.brandWarmBlack)
+                                    Text("₹\(Int(item.lineTotal))").font(.system(size: 13, weight: .medium)).foregroundStyle(Color.luxuryDeepAccent)
                                 }
                                 .padding(.horizontal, 16).padding(.vertical, 10)
                                 if index < placed.items.count - 1 { BrandDivider().padding(.leading, 16) }
                             }
                             BrandDivider()
                             HStack {
-                                Text("Total").font(.system(size: 15, weight: .semibold)).foregroundStyle(Color.brandWarmBlack)
+                                Text("Total").font(.system(size: 15, weight: .semibold)).foregroundStyle(Color.luxuryPrimaryText)
                                 Spacer()
-                                Text("₹\(Int(placed.totalAmount))").font(.system(size: 20, weight: .semibold, design: .serif)).foregroundStyle(Color.brandWarmBlack)
+                                Text("₹\(Int(placed.totalAmount))").font(.system(size: 20, weight: .semibold, design: .serif)).foregroundStyle(Color.luxuryDeepAccent)
                             }.padding(16)
                         }
-                        .background(Color.brandLinen).clipShape(RoundedRectangle(cornerRadius: 16))
-                        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.brandPebble, lineWidth: 0.5))
+                        .background(Color.white).clipShape(RoundedRectangle(cornerRadius: 16))
+                        .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 2)
                         .padding(.horizontal, 16)
                         .padding(.top, 24)
 
@@ -358,25 +361,25 @@ struct StandaloneReceiptSheet: View {
                                 Text("View Bill & Payments")
                             }
                             .font(BrandFont.body(14, weight: .semibold))
-                            .foregroundStyle(Color.brandWarmBlack)
+                            .foregroundStyle(Color.luxuryDeepAccent)
                             .padding()
                             .frame(maxWidth: .infinity)
-                            .background(Color.brandLinen)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.brandPebble, lineWidth: 0.5))
+                            .background(Color.luxurySurface)
+                            .clipShape(RoundedRectangle(cornerRadius: 16))
                         }
+                        .buttonStyle(LuxuryPressStyle())
                         .padding(.horizontal, 16)
-                        .opacity(1) 
+                        .opacity(1)
                     }
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {
-                    Text("ORDER CONFIRMED").font(.system(size: 13, weight: .semibold)).kerning(2).foregroundStyle(Color.brandWarmBlack)
+                    Text("ORDER CONFIRMED").font(.system(size: 13, weight: .semibold)).kerning(2).foregroundStyle(Color.luxuryPrimaryText)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Close") { dismiss() }.foregroundStyle(Color.brandWarmBlack).font(.system(size: 14, weight: .semibold))
+                    Button("Close") { dismiss() }.foregroundStyle(Color.luxuryPrimary).font(.system(size: 14, weight: .semibold))
                 }
             }
         }
@@ -385,9 +388,9 @@ struct StandaloneReceiptSheet: View {
     @ViewBuilder
     private func receiptRow(label: String, value: String) -> some View {
         HStack {
-            Text(label).font(.system(size: 13)).foregroundStyle(Color.brandWarmGrey)
+            Text(label).font(.system(size: 13)).foregroundStyle(Color.luxurySecondaryText)
             Spacer()
-            Text(value).font(.system(size: 13, weight: .medium)).foregroundStyle(Color.brandWarmBlack).multilineTextAlignment(.trailing)
+            Text(value).font(.system(size: 13, weight: .medium)).foregroundStyle(Color.luxuryPrimaryText).multilineTextAlignment(.trailing)
         }
         .padding(.horizontal, 16).padding(.vertical, 10)
     }
@@ -415,22 +418,19 @@ struct SAOrderDetailSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.brandOffWhite.ignoresSafeArea()
+                Color.luxuryBackground.ignoresSafeArea()
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 24) {
                         // Status badge
-                        HStack(spacing: 6) {
-                            Circle()
-                                .fill(Color(hex: "#C8913A"))
-                                .frame(width: 6, height: 6)
-                            Text(normalizedStatus.capitalized)
-                                .font(BrandFont.body(12, weight: .medium))
-                                .foregroundStyle(Color(hex: "#C8913A"))
-                        }
-                        .padding(.horizontal, 14).padding(.vertical, 6)
-                        .background(Color(hex: "#C8913A").opacity(0.1))
-                        .clipShape(Capsule())
-                        .padding(.top, 24)
+                        let statusBg: Color = normalizedStatus == "completed" ? Color.luxuryPrimary : Color(hex: "#D8C6C6")
+                        let statusFg: Color = normalizedStatus == "completed" ? Color.white : Color.luxurySecondaryText
+                        Text(normalizedStatus.capitalized)
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(statusFg)
+                            .padding(.horizontal, 14).padding(.vertical, 6)
+                            .background(statusBg)
+                            .clipShape(Capsule())
+                            .padding(.top, 24)
 
                         // Detail card
                         VStack(spacing: 0) {
@@ -443,9 +443,9 @@ struct SAOrderDetailSheet: View {
                                       value: "₹\(Int(order.totalAmount))",
                                       valueWeight: .semibold)
                         }
-                        .background(Color.brandLinen)
+                        .background(Color.white)
                         .clipShape(RoundedRectangle(cornerRadius: 16))
-                        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.brandPebble, lineWidth: 0.5))
+                        .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 2)
                         .padding(.horizontal, 16)
 
                         if canComplete {
@@ -455,7 +455,7 @@ struct SAOrderDetailSheet: View {
                                 HStack(spacing: 8) {
                                     if isCompleting {
                                         ProgressView()
-                                            .tint(Color.brandOffWhite)
+                                            .tint(Color.white)
                                             .scaleEffect(0.9)
                                     } else {
                                         Image(systemName: "checkmark.circle")
@@ -465,13 +465,13 @@ struct SAOrderDetailSheet: View {
                                     Text(isCompleting ? "Completing..." : "Mark as Completed")
                                         .font(BrandFont.body(14, weight: .semibold))
                                 }
-                                .foregroundStyle(Color.brandOffWhite)
+                                .foregroundStyle(Color.white)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 13)
-                                .background(Color.brandWarmBlack)
-                                .clipShape(RoundedRectangle(cornerRadius: 14))
+                                .background(Color.luxuryDeepAccent)
+                                .clipShape(RoundedRectangle(cornerRadius: 16))
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(LuxuryPressStyle())
                             .disabled(isCompleting)
                             .padding(.horizontal, 16)
                         }
@@ -485,13 +485,13 @@ struct SAOrderDetailSheet: View {
                                 Text("View Bill & Payments")
                             }
                             .font(BrandFont.body(14, weight: .semibold))
-                            .foregroundStyle(Color.brandWarmBlack)
+                            .foregroundStyle(Color.luxuryDeepAccent)
                             .padding()
                             .frame(maxWidth: .infinity)
-                            .background(Color.brandLinen)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.brandPebble, lineWidth: 0.5))
+                            .background(Color.luxurySurface)
+                            .clipShape(RoundedRectangle(cornerRadius: 16))
                         }
+                        .buttonStyle(LuxuryPressStyle())
                         .padding(.horizontal, 16)
 
                         Spacer()
@@ -504,11 +504,11 @@ struct SAOrderDetailSheet: View {
                     Text("ORDER DETAILS")
                         .font(.system(size: 13, weight: .semibold))
                         .kerning(2)
-                        .foregroundStyle(Color.brandWarmBlack)
+                        .foregroundStyle(Color.luxuryPrimaryText)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Close") { dismiss() }
-                        .foregroundStyle(Color.brandWarmBlack)
+                        .foregroundStyle(Color.luxuryPrimary)
                         .font(.system(size: 14, weight: .semibold))
                 }
             }
@@ -535,11 +535,11 @@ struct SAOrderDetailSheet: View {
         HStack {
             Text(label)
                 .font(.system(size: 13))
-                .foregroundStyle(Color.brandWarmGrey)
+                .foregroundStyle(Color.luxurySecondaryText)
             Spacer()
             Text(value)
                 .font(.system(size: 13, weight: valueWeight))
-                .foregroundStyle(Color.brandWarmBlack)
+                .foregroundStyle(Color.luxuryPrimaryText)
                 .multilineTextAlignment(.trailing)
         }
         .padding(.horizontal, 16).padding(.vertical, 14)

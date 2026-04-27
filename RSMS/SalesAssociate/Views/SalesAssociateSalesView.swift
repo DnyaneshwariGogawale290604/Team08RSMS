@@ -35,7 +35,7 @@ struct SalesAssociateSalesView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.brandOffWhite.ignoresSafeArea()
+                Color.luxuryBackground.ignoresSafeArea()
 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: Spacing.xl) {
@@ -66,23 +66,23 @@ struct SalesAssociateSalesView: View {
                         Spacer()
                         HStack(spacing: 10) {
                             Image(systemName: "checkmark.circle.fill")
-                                .foregroundStyle(Color(hex: "#4A7C59"))
+                                .foregroundStyle(Color.luxuryPrimary)
                                 .font(.system(size: 16))
                             Text("\(name) added to cart")
                                 .font(BrandFont.body(13, weight: .medium))
-                                .foregroundStyle(Color.brandWarmBlack)
+                                .foregroundStyle(Color.luxuryPrimaryText)
                             Spacer()
                         }
                         .padding(.horizontal, Spacing.md)
                         .padding(.vertical, 14)
                         .background(
                             RoundedRectangle(cornerRadius: Radius.lg)
-                                .fill(Color.brandLinen)
-                                .shadow(color: Color.brandWarmBlack.opacity(0.12), radius: 12, y: 4)
+                                .fill(Color.luxurySurface)
+                                .shadow(color: Color.black.opacity(0.08), radius: 12, y: 4)
                         )
                         .overlay(
                             RoundedRectangle(cornerRadius: Radius.lg)
-                                .stroke(Color(hex: "#4A7C59").opacity(0.3), lineWidth: 1)
+                                .stroke(Color.luxuryPrimary.opacity(0.3), lineWidth: 1)
                         )
                         .padding(.horizontal, Spacing.md)
                         .padding(.bottom, vm.cartItems.isEmpty ? Spacing.lg : 80)
@@ -105,7 +105,7 @@ struct SalesAssociateSalesView: View {
                                 Image(systemName: "xmark")
                                     .font(.system(size: 13, weight: .semibold))
                             }
-                            .foregroundStyle(Color.brandWarmBlack)
+                            .foregroundStyle(Color.luxuryPrimaryText)
                         }
                     }
                 } else if vm.selectedCustomer != nil {
@@ -120,7 +120,7 @@ struct SalesAssociateSalesView: View {
                                 Image(systemName: "chevron.left")
                                     .font(.system(size: 13, weight: .semibold))
                             }
-                            .foregroundStyle(Color.brandWarmBlack)
+                            .foregroundStyle(Color.luxuryPrimaryText)
                         }
                     }
                 }
@@ -128,7 +128,7 @@ struct SalesAssociateSalesView: View {
                     Text(vm.selectedCustomer != nil ? vm.selectedCustomer!.name.uppercased() : "NEW SALE")
                         .font(.system(size: 13, weight: .semibold))
                         .kerning(2)
-                        .foregroundStyle(Color.brandWarmBlack)
+                        .foregroundStyle(Color.luxuryPrimaryText)
                         .lineLimit(1)
                         .truncationMode(.tail)
                         .animation(.easeInOut, value: vm.selectedCustomer?.id)
@@ -140,12 +140,12 @@ struct SalesAssociateSalesView: View {
                             Task { await saveAppointmentChanges() }
                         } label: {
                             if isSaving {
-                                ProgressView().tint(Color.brandWarmBlack)
+                                ProgressView().tint(Color.luxuryBackground)
                             } else {
                                 Text("SAVE")
                                     .font(.system(size: 13, weight: .semibold))
                                     .kerning(1)
-                                    .foregroundStyle(Color.brandWarmBlack)
+                                    .foregroundStyle(Color.luxuryPrimaryText)
                             }
                         }
                         .disabled(isSaving)
@@ -195,7 +195,7 @@ struct SalesAssociateSalesView: View {
                     Button { vm.showCustomerSheet = true } label: {
                         Image(systemName: "plus.circle.fill")
                             .font(.system(size: 28))
-                            .foregroundStyle(Color.brandWarmBlack)
+                            .foregroundStyle(Color.luxuryPrimaryText)
                     }
                     .padding(.trailing, Spacing.md)
                 }
@@ -204,45 +204,45 @@ struct SalesAssociateSalesView: View {
             if let customer = vm.selectedCustomer {
                 HStack(spacing: Spacing.md) {
                     Circle()
-                        .fill(Color.brandPebble.opacity(0.4))
+                        .fill(Color.luxuryDivider.opacity(0.4))
                         .frame(width: 44, height: 44)
                         .overlay(
                             Text(String(customer.name.prefix(1)).uppercased())
                                 .font(.system(size: 18, weight: .semibold, design: .serif))
-                                .foregroundStyle(Color.brandWarmBlack)
+                                .foregroundStyle(Color.luxuryPrimaryText)
                         )
                     VStack(alignment: .leading, spacing: 2) {
                         Text(customer.name)
                             .font(BrandFont.body(15, weight: .semibold))
-                            .foregroundStyle(Color.brandWarmBlack)
+                            .foregroundStyle(Color.luxuryPrimaryText)
                         if let phone = customer.phone {
-                            Text(phone).font(BrandFont.body(12)).foregroundStyle(Color.brandWarmGrey)
+                            Text(phone).font(BrandFont.body(12)).foregroundStyle(Color.luxurySecondaryText)
                         }
                     }
                     Spacer()
                     if let cat = customer.customerCategory {
-                        BadgeView(text: cat, color: cat == "VIP" ? Color(hex: "#C8913A") : Color.brandWarmGrey)
+                        BadgeView(text: cat, color: cat == "VIP" ? Color(hex: "#C8913A") : Color.luxurySecondaryText)
                     }
                     Button { vm.showCustomerSheet = true } label: {
-                        Text("Change").font(BrandFont.body(13)).foregroundStyle(Color.brandWarmGrey)
+                        Text("Change").font(BrandFont.body(13)).foregroundStyle(Color.luxurySecondaryText)
                     }
                 }
                 .padding(Spacing.md)
-                .background(Color.brandLinen)
+                .background(Color.luxurySurface)
                 .clipShape(RoundedRectangle(cornerRadius: Radius.lg))
-                .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.brandPebble, lineWidth: 0.5))
+                .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.luxuryDivider, lineWidth: 0.5))
                 .padding(.horizontal, Spacing.md)
             } else {
                 if vm.customers.isEmpty {
                     HStack {
-                        Image(systemName: "person.badge.plus").foregroundStyle(Color.brandWarmGrey)
+                        Image(systemName: "person.badge.plus").foregroundStyle(Color.luxurySecondaryText)
                         Text("No customers yet. Tap + to add one.")
-                            .font(BrandFont.body(13)).foregroundStyle(Color.brandWarmGrey)
+                            .font(BrandFont.body(13)).foregroundStyle(Color.luxurySecondaryText)
                     }
                     .padding(Spacing.md).frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.brandLinen)
+                    .background(Color.luxurySurface)
                     .clipShape(RoundedRectangle(cornerRadius: Radius.lg))
-                    .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.brandPebble, lineWidth: 0.5))
+                    .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.luxuryDivider, lineWidth: 0.5))
                     .padding(.horizontal, Spacing.md)
                 } else {
                     VStack(spacing: 0) {
@@ -250,21 +250,21 @@ struct SalesAssociateSalesView: View {
                             Button { vm.selectedCustomer = customer } label: {
                                 HStack(spacing: Spacing.md) {
                                     Circle()
-                                        .fill(Color.brandPebble.opacity(0.3)).frame(width: 38, height: 38)
+                                        .fill(Color.luxuryDivider.opacity(0.3)).frame(width: 38, height: 38)
                                         .overlay(
                                             Text(String(customer.name.prefix(1)).uppercased())
                                                 .font(.system(size: 15, weight: .medium, design: .serif))
-                                                .foregroundStyle(Color.brandWarmBlack)
+                                                .foregroundStyle(Color.luxuryPrimaryText)
                                         )
                                     VStack(alignment: .leading, spacing: 2) {
-                                        Text(customer.name).font(BrandFont.body(14, weight: .medium)).foregroundStyle(Color.brandWarmBlack)
-                                        if let phone = customer.phone { Text(phone).font(BrandFont.body(11)).foregroundStyle(Color.brandWarmGrey) }
+                                        Text(customer.name).font(BrandFont.body(14, weight: .medium)).foregroundStyle(Color.luxuryPrimaryText)
+                                        if let phone = customer.phone { Text(phone).font(BrandFont.body(11)).foregroundStyle(Color.luxurySecondaryText) }
                                     }
                                     Spacer()
                                     if let cat = customer.customerCategory {
-                                        BadgeView(text: cat, color: cat == "VIP" ? Color(hex: "#C8913A") : Color.brandWarmGrey)
+                                        BadgeView(text: cat, color: cat == "VIP" ? Color(hex: "#C8913A") : Color.luxurySecondaryText)
                                     }
-                                    Image(systemName: "chevron.right").font(.system(size: 11)).foregroundStyle(Color.brandPebble)
+                                    Image(systemName: "chevron.right").font(.system(size: 11)).foregroundStyle(Color.luxuryDivider)
                                 }
                                 .padding(.horizontal, Spacing.md).padding(.vertical, 14)
                             }
@@ -272,9 +272,9 @@ struct SalesAssociateSalesView: View {
                             if index < vm.customers.prefix(8).count - 1 { BrandDivider().padding(.leading, Spacing.md) }
                         }
                     }
-                    .background(Color.brandLinen)
+                    .background(Color.luxurySurface)
                     .clipShape(RoundedRectangle(cornerRadius: Radius.lg))
-                    .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.brandPebble, lineWidth: 0.5))
+                    .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.luxuryDivider, lineWidth: 0.5))
                     .padding(.horizontal, Spacing.md)
                 }
             }
@@ -292,14 +292,14 @@ struct SalesAssociateSalesView: View {
                     vm.showProductPicker = true
                 } label: {
                     HStack {
-                        Image(systemName: "plus.circle").foregroundStyle(Color.brandWarmGrey)
-                        Text("Add products to cart").font(BrandFont.body(14)).foregroundStyle(Color.brandWarmGrey)
+                        Image(systemName: "plus.circle").foregroundStyle(Color.luxurySecondaryText)
+                        Text("Add products to cart").font(BrandFont.body(14)).foregroundStyle(Color.luxurySecondaryText)
                         Spacer()
-                        Image(systemName: "chevron.right").font(.system(size: 11)).foregroundStyle(Color.brandPebble)
+                        Image(systemName: "chevron.right").font(.system(size: 11)).foregroundStyle(Color.luxuryDivider)
                     }
-                    .padding(Spacing.md).background(Color.brandLinen)
+                    .padding(Spacing.md).background(Color.luxurySurface)
                     .clipShape(RoundedRectangle(cornerRadius: Radius.lg))
-                    .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.brandPebble, lineWidth: 0.5))
+                    .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.luxuryDivider, lineWidth: 0.5))
                 }
                 .buttonStyle(.plain).padding(.horizontal, Spacing.md)
             } else {
@@ -317,19 +317,19 @@ struct SalesAssociateSalesView: View {
                             Image(systemName: "plus").font(.system(size: 12))
                             Text("Add more products").font(BrandFont.body(13))
                         }
-                        .foregroundStyle(Color.brandWarmGrey).padding(Spacing.md)
+                        .foregroundStyle(Color.luxurySecondaryText).padding(Spacing.md)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     BrandDivider()
                     HStack {
-                        Text("Total").font(BrandFont.body(15, weight: .semibold)).foregroundStyle(Color.brandWarmBlack)
+                        Text("Total").font(BrandFont.body(15, weight: .semibold)).foregroundStyle(Color.luxuryPrimaryText)
                         Spacer()
-                        Text("₹\(formatINR(vm.cartTotal))").font(.system(size: 20, weight: .semibold, design: .serif)).foregroundStyle(Color.brandWarmBlack)
+                        Text("₹\(formatINR(vm.cartTotal))").font(.system(size: 20, weight: .semibold, design: .serif)).foregroundStyle(Color.luxuryDeepAccent)
                     }.padding(Spacing.md)
                 }
-                .background(Color.brandLinen)
+                .background(Color.luxurySurface)
                 .clipShape(RoundedRectangle(cornerRadius: Radius.lg))
-                .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.brandPebble, lineWidth: 0.5))
+                .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.luxuryDivider, lineWidth: 0.5))
                 .padding(.horizontal, Spacing.md)
             }
             if let err = vm.errorMessage { ErrorBanner(message: err) { vm.errorMessage = nil } }
@@ -345,14 +345,14 @@ struct SalesAssociateSalesView: View {
                 vm.showProductRequest = true
             } label: {
                 HStack {
-                    Image(systemName: "arrow.up.circle").foregroundStyle(Color.brandWarmGrey)
-                    Text("Raise request to manager").font(BrandFont.body(14)).foregroundStyle(Color.brandWarmBlack)
+                    Image(systemName: "arrow.up.circle").foregroundStyle(Color.luxurySecondaryText)
+                    Text("Raise request to manager").font(BrandFont.body(14)).foregroundStyle(Color.luxuryPrimaryText)
                     Spacer()
-                    Image(systemName: "chevron.right").font(.system(size: 11)).foregroundStyle(Color.brandPebble)
+                    Image(systemName: "chevron.right").font(.system(size: 11)).foregroundStyle(Color.luxuryDivider)
                 }
-                .padding(Spacing.md).background(Color.brandLinen)
+                .padding(Spacing.md).background(Color.luxurySurface)
                 .clipShape(RoundedRectangle(cornerRadius: Radius.lg))
-                .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.brandPebble, lineWidth: 0.5))
+                .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.luxuryDivider, lineWidth: 0.5))
             }
             .buttonStyle(.plain).padding(.horizontal, Spacing.md)
         }
@@ -366,19 +366,19 @@ struct SalesAssociateSalesView: View {
         } label: {
             HStack(spacing: Spacing.md) {
                 if vm.isLoading {
-                    ProgressView().tint(Color.brandOffWhite).scaleEffect(0.85)
+                    ProgressView().tint(Color.white).scaleEffect(0.85)
                 } else {
                     Image(systemName: "creditcard").font(.system(size: 15))
                 }
                 Text(vm.isLoading ? "Placing order..." : "Checkout — ₹\(formatINR(vm.cartTotal))")
                     .font(BrandFont.body(15, weight: .semibold))
             }
-            .foregroundStyle(Color.brandOffWhite)
+            .foregroundStyle(Color.white)
             .padding(.horizontal, Spacing.lg)
             .frame(height: 54)
-            .background(Color.brandWarmBlack)
+            .background(Color.luxuryDeepAccent)
             .clipShape(Capsule())
-            .shadow(color: Color.brandWarmBlack.opacity(0.25), radius: 12, y: 4)
+            .shadow(color: Color.luxuryDeepAccent.opacity(0.30), radius: 12, y: 4)
         }
         .padding(.bottom, Spacing.lg)
         .disabled(vm.isLoading)
@@ -396,12 +396,12 @@ struct SalesAssociateSalesView: View {
                     Text("Billing")
                         .font(BrandFont.body(16, weight: .bold))
                 }
-                .foregroundStyle(Color.brandOffWhite)
+                .foregroundStyle(Color.white)
                 .frame(maxWidth: .infinity)
                 .frame(height: 56)
-                .background(Color.brandWarmBlack)
+                .background(Color.luxuryDeepAccent)
                 .clipShape(Capsule())
-                .shadow(color: Color.brandWarmBlack.opacity(0.15), radius: 10, y: 5)
+                .shadow(color: Color.luxuryDeepAccent.opacity(0.20), radius: 10, y: 5)
             }
             .padding(.horizontal, Spacing.md)
         }
@@ -500,26 +500,26 @@ struct CartItemRow: View {
     var body: some View {
         HStack(spacing: Spacing.md) {
             VStack(alignment: .leading, spacing: 3) {
-                Text(item.product.name).font(BrandFont.body(14, weight: .medium)).foregroundStyle(Color.brandWarmBlack)
-                if let size = item.selectedSize { Text("Size: \(size)").font(BrandFont.body(11)).foregroundStyle(Color.brandWarmGrey) }
-                Text("₹\(Int(item.product.price)) each").font(BrandFont.body(11)).foregroundStyle(Color.brandWarmGrey)
+                Text(item.product.name).font(BrandFont.body(14, weight: .medium)).foregroundStyle(Color.luxuryPrimaryText)
+                if let size = item.selectedSize { Text("Size: \(size)").font(BrandFont.body(11)).foregroundStyle(Color.luxurySecondaryText) }
+                Text("₹\(Int(item.product.price)) each").font(BrandFont.body(11)).foregroundStyle(Color.luxuryMutedText)
             }
             Spacer()
             HStack(spacing: 10) {
                 Button { vm.updateQuantity(item: item, quantity: item.quantity - 1) } label: {
                     Image(systemName: item.quantity <= 1 ? "trash" : "minus")
                         .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(item.quantity <= 1 ? Color(hex: "#9B4444") : Color.brandWarmGrey)
-                        .frame(width: 28, height: 28).background(Color.brandOffWhite).clipShape(Circle())
+                        .foregroundStyle(item.quantity <= 1 ? Color(hex: "#9B4444") : Color.luxurySecondaryText)
+                        .frame(width: 28, height: 28).background(Color.luxurySurface).clipShape(Circle())
                 }
-                Text("\(item.quantity)").font(BrandFont.body(14, weight: .semibold)).foregroundStyle(Color.brandWarmBlack).frame(minWidth: 20)
+                Text("\(item.quantity)").font(BrandFont.body(14, weight: .semibold)).foregroundStyle(Color.luxuryPrimaryText).frame(minWidth: 20)
                 Button { vm.updateQuantity(item: item, quantity: item.quantity + 1) } label: {
                     Image(systemName: "plus").font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(Color.brandWarmBlack)
-                        .frame(width: 28, height: 28).background(Color.brandOffWhite).clipShape(Circle())
+                        .foregroundStyle(Color.luxuryPrimaryText)
+                        .frame(width: 28, height: 28).background(Color.luxurySurface).clipShape(Circle())
                 }
             }
-            Text("₹\(Int(item.lineTotal))").font(BrandFont.body(14, weight: .semibold)).foregroundStyle(Color.brandWarmBlack).frame(minWidth: 55, alignment: .trailing)
+            Text("₹\(Int(item.lineTotal))").font(BrandFont.body(14, weight: .semibold)).foregroundStyle(Color.luxuryDeepAccent).frame(minWidth: 55, alignment: .trailing)
         }
         .padding(.horizontal, Spacing.md).padding(.vertical, 14)
     }
@@ -551,24 +551,24 @@ struct CustomerSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.brandOffWhite.ignoresSafeArea()
+                Color.luxuryBackground.ignoresSafeArea()
                 if mode == .list { listView } else { createView }
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     Text(mode == .list ? "SELECT CUSTOMER" : "NEW CUSTOMER")
-                        .font(.system(size: 13, weight: .semibold)).kerning(2).foregroundStyle(Color.brandWarmBlack)
+                        .font(.system(size: 13, weight: .semibold)).kerning(2).foregroundStyle(Color.luxuryPrimaryText)
                 }
                 ToolbarItem(placement: .topBarLeading) {
                     Button(mode == .list ? "Done" : "Back") {
                         if mode == .create { withAnimation { mode = .list } } else { dismiss() }
-                    }.font(BrandFont.body(14)).foregroundStyle(Color.brandWarmBlack)
+                    }.font(BrandFont.body(14)).foregroundStyle(Color.luxuryPrimaryText)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     if mode == .list {
                         Button { withAnimation { mode = .create } } label: {
-                            Image(systemName: "plus.circle.fill").font(.system(size: 22)).foregroundStyle(Color.brandWarmBlack)
+                            Image(systemName: "plus.circle.fill").font(.system(size: 22)).foregroundStyle(Color.luxuryPrimaryText)
                         }
                     }
                 }
@@ -579,12 +579,12 @@ struct CustomerSheet: View {
     private var listView: some View {
         VStack(spacing: 0) {
             HStack(spacing: 10) {
-                Image(systemName: "magnifyingglass").foregroundStyle(Color.brandWarmGrey).font(.system(size: 14))
+                Image(systemName: "magnifyingglass").foregroundStyle(Color.luxurySecondaryText).font(.system(size: 14))
                 TextField("Search by name or phone...", text: $searchText).font(BrandFont.body(14))
             }
-            .padding(Spacing.md).background(Color.brandLinen)
+            .padding(Spacing.md).background(Color.luxurySurface)
             .clipShape(RoundedRectangle(cornerRadius: Radius.md))
-            .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(Color.brandPebble, lineWidth: 0.5))
+            .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(Color.luxuryDivider, lineWidth: 0.5))
             .padding(Spacing.md)
 
             if filteredCustomers.isEmpty {
@@ -595,18 +595,18 @@ struct CustomerSheet: View {
                         ForEach(Array(filteredCustomers.enumerated()), id: \.element.id) { index, customer in
                             Button { vm.selectedCustomer = customer; dismiss() } label: {
                                 HStack(spacing: Spacing.md) {
-                                    Circle().fill(Color.brandPebble.opacity(0.3)).frame(width: 40, height: 40)
-                                        .overlay(Text(String(customer.name.prefix(1)).uppercased()).font(.system(size: 16, weight: .medium, design: .serif)).foregroundStyle(Color.brandWarmBlack))
+                                    Circle().fill(Color.luxurySurface).frame(width: 40, height: 40)
+                                        .overlay(Text(String(customer.name.prefix(1)).uppercased()).font(.system(size: 16, weight: .medium, design: .serif)).foregroundStyle(Color.luxuryPrimaryText))
                                     VStack(alignment: .leading, spacing: 3) {
-                                        Text(customer.name).font(BrandFont.body(15, weight: .medium)).foregroundStyle(Color.brandWarmBlack)
+                                        Text(customer.name).font(BrandFont.body(15, weight: .medium)).foregroundStyle(Color.luxuryPrimaryText)
                                         HStack(spacing: 6) {
-                                            if let ph = customer.phone { Text(ph).font(BrandFont.body(12)).foregroundStyle(Color.brandWarmGrey) }
-                                            if let em = customer.email { Text(em).font(BrandFont.body(12)).foregroundStyle(Color.brandWarmGrey) }
+                                            if let ph = customer.phone { Text(ph).font(BrandFont.body(12)).foregroundStyle(Color.luxurySecondaryText) }
+                                            if let em = customer.email { Text(em).font(BrandFont.body(12)).foregroundStyle(Color.luxurySecondaryText) }
                                         }
                                     }
                                     Spacer()
-                                    if let cat = customer.customerCategory { BadgeView(text: cat, color: cat == "VIP" ? Color(hex: "#C8913A") : Color.brandWarmGrey) }
-                                    if vm.selectedCustomer?.id == customer.id { Image(systemName: "checkmark.circle.fill").foregroundStyle(Color(hex: "#4A7C59")) }
+                                    if let cat = customer.customerCategory { BadgeView(text: cat, color: cat == "VIP" ? Color(hex: "#C8913A") : Color.luxurySecondaryText) }
+                                    if vm.selectedCustomer?.id == customer.id { Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.luxuryPrimary) }
                                 }
                                 .padding(.horizontal, Spacing.md).padding(.vertical, 14)
                             }
@@ -614,8 +614,8 @@ struct CustomerSheet: View {
                             if index < filteredCustomers.count - 1 { BrandDivider().padding(.leading, Spacing.md) }
                         }
                     }
-                    .background(Color.brandLinen).clipShape(RoundedRectangle(cornerRadius: Radius.lg))
-                    .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.brandPebble, lineWidth: 0.5))
+                    .background(Color.luxurySurface).clipShape(RoundedRectangle(cornerRadius: Radius.lg))
+                    .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.luxuryDivider, lineWidth: 0.5))
                     .padding(.horizontal, Spacing.md)
                 }
             }
@@ -660,35 +660,35 @@ struct CustomerSheet: View {
     @ViewBuilder
     private func formSection(title: String, @ViewBuilder content: () -> some View) -> some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
-            Text(title.uppercased()).font(.system(size: 10, weight: .semibold)).kerning(1.2).foregroundStyle(Color.brandWarmGrey).padding(.horizontal, Spacing.md)
-            VStack(spacing: 0) { content() }.background(Color.brandLinen).clipShape(RoundedRectangle(cornerRadius: Radius.lg))
-                .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.brandPebble, lineWidth: 0.5)).padding(.horizontal, Spacing.md)
+            Text(title.uppercased()).font(.system(size: 10, weight: .semibold)).kerning(1.2).foregroundStyle(Color.luxurySecondaryText).padding(.horizontal, Spacing.md)
+            VStack(spacing: 0) { content() }.background(Color.luxurySurface).clipShape(RoundedRectangle(cornerRadius: Radius.lg))
+                .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.luxuryDivider, lineWidth: 0.5)).padding(.horizontal, Spacing.md)
         }
     }
 
     private func brandField(_ placeholder: String, text: Binding<String>, icon: String, keyboard: UIKeyboardType = .default, autocap: TextInputAutocapitalization = .words, multiline: Bool = false) -> some View {
         HStack(alignment: multiline ? .top : .center, spacing: Spacing.sm) {
-            Image(systemName: icon).font(.system(size: 14)).foregroundStyle(Color.brandWarmGrey).frame(width: 20).padding(.top, multiline ? 2 : 0)
-            if multiline { TextField(placeholder, text: text, axis: .vertical).lineLimit(3...5).font(BrandFont.body(14)).foregroundStyle(Color.brandWarmBlack) }
-            else { TextField(placeholder, text: text).keyboardType(keyboard).textInputAutocapitalization(autocap).autocorrectionDisabled().font(BrandFont.body(14)).foregroundStyle(Color.brandWarmBlack) }
+            Image(systemName: icon).font(.system(size: 14)).foregroundStyle(Color.luxurySecondaryText).frame(width: 20).padding(.top, multiline ? 2 : 0)
+            if multiline { TextField(placeholder, text: text, axis: .vertical).lineLimit(3...5).font(BrandFont.body(14)).foregroundStyle(Color.luxuryPrimaryText) }
+            else { TextField(placeholder, text: text).keyboardType(keyboard).textInputAutocapitalization(autocap).autocorrectionDisabled().font(BrandFont.body(14)).foregroundStyle(Color.luxuryPrimaryText) }
         }.padding(Spacing.md)
     }
 
     private var genderPicker: some View {
         HStack(spacing: Spacing.sm) {
-            Image(systemName: "person.fill").font(.system(size: 14)).foregroundStyle(Color.brandWarmGrey).frame(width: 20)
-            Text("Gender").font(BrandFont.body(14)).foregroundStyle(gender.isEmpty ? Color.brandPebble : Color.brandWarmBlack)
+            Image(systemName: "person.fill").font(.system(size: 14)).foregroundStyle(Color.luxurySecondaryText).frame(width: 20)
+            Text("Gender").font(BrandFont.body(14)).foregroundStyle(gender.isEmpty ? Color.luxuryDivider : Color.luxuryPrimaryText)
             Spacer()
             Picker("", selection: $gender) {
                 Text("Not specified").tag(""); Text("Male").tag("Male"); Text("Female").tag("Female"); Text("Other").tag("Other")
-            }.pickerStyle(.menu).tint(Color.brandWarmBlack)
+            }.pickerStyle(.menu).tint(Color.luxuryPrimaryText)
         }.padding(Spacing.md)
     }
 
     private var categoryPicker: some View {
         HStack(spacing: Spacing.sm) {
-            Image(systemName: "star").font(.system(size: 14)).foregroundStyle(Color.brandWarmGrey).frame(width: 20)
-            Text("Category").font(BrandFont.body(14)).foregroundStyle(Color.brandWarmBlack)
+            Image(systemName: "star").font(.system(size: 14)).foregroundStyle(Color.luxurySecondaryText).frame(width: 20)
+            Text("Category").font(BrandFont.body(14)).foregroundStyle(Color.luxuryPrimaryText)
             Spacer()
             Picker("", selection: $category) { Text("Regular").tag("Regular"); Text("VIP").tag("VIP") }
                 .pickerStyle(.segmented).frame(width: 160)
@@ -706,16 +706,16 @@ struct ProductPickerSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.brandOffWhite.ignoresSafeArea()
+                Color.luxuryBackground.ignoresSafeArea()
                 VStack(spacing: 0) {
                     HStack(spacing: 10) {
-                        Image(systemName: "magnifyingglass").foregroundStyle(Color.brandWarmGrey).font(.system(size: 14))
+                        Image(systemName: "magnifyingglass").foregroundStyle(Color.luxurySecondaryText).font(.system(size: 14))
                         TextField("Search products...", text: $vm.productSearch).font(BrandFont.body(14))
                             .onChange(of: vm.productSearch) { new in Task { await vm.fetchProducts(search: new) } }
                     }
-                    .padding(Spacing.md).background(Color.brandLinen)
+                    .padding(Spacing.md).background(Color.luxurySurface)
                     .clipShape(RoundedRectangle(cornerRadius: Radius.md))
-                    .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(Color.brandPebble, lineWidth: 0.5))
+                    .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(Color.luxuryDivider, lineWidth: 0.5))
                     .padding(Spacing.md)
 
                     if vm.products.isEmpty {
@@ -726,7 +726,7 @@ struct ProductPickerSheet: View {
                            !vm.cartItems.isEmpty {
                             Text(diagnostic)
                                 .font(BrandFont.body(12))
-                                .foregroundStyle(Color.brandWarmGrey)
+                                .foregroundStyle(Color.luxurySecondaryText)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .padding(.horizontal, Spacing.md)
                                 .padding(.bottom, Spacing.sm)
@@ -740,8 +740,8 @@ struct ProductPickerSheet: View {
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .principal) { Text("ADD PRODUCTS").font(.system(size: 13, weight: .semibold)).kerning(2).foregroundStyle(Color.brandWarmBlack) }
-                ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() }.font(BrandFont.body(14, weight: .semibold)).foregroundStyle(Color.brandWarmBlack) }
+                ToolbarItem(placement: .principal) { Text("ADD PRODUCTS").font(.system(size: 13, weight: .semibold)).kerning(2).foregroundStyle(Color.luxuryPrimaryText) }
+                ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() }.font(BrandFont.body(14, weight: .semibold)).foregroundStyle(Color.luxuryPrimaryText) }
             }
         }
     }
@@ -753,8 +753,8 @@ struct ProductPickerSheet: View {
         return VStack(alignment: .leading, spacing: Spacing.sm) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(product.name).font(BrandFont.body(15, weight: .medium)).foregroundStyle(Color.brandWarmBlack)
-                    Text(product.category).font(BrandFont.body(12)).foregroundStyle(Color.brandWarmGrey)
+                    Text(product.name).font(BrandFont.body(15, weight: .medium)).foregroundStyle(Color.luxuryPrimaryText)
+                    Text(product.category).font(BrandFont.body(12)).foregroundStyle(Color.luxurySecondaryText)
                     
                     if isRecommended {
                         HStack(spacing: 4) {
@@ -771,7 +771,7 @@ struct ProductPickerSheet: View {
                     }
                 }
                 Spacer()
-                Text("₹\(Int(product.price))").font(.system(size: 17, weight: .semibold, design: .serif)).foregroundStyle(Color.brandWarmBlack)
+                Text("₹\(Int(product.price))").font(.system(size: 17, weight: .semibold, design: .serif)).foregroundStyle(Color.luxuryPrimaryText)
             }
             Button {
                 vm.addToCart(product: product, size: nil)
@@ -782,17 +782,17 @@ struct ProductPickerSheet: View {
                     Image(systemName: isAdded ? "checkmark" : "plus").font(.system(size: 11, weight: .semibold))
                     Text(isAdded ? "Added!" : "Add to Cart").font(BrandFont.body(13, weight: .medium))
                 }
-                .foregroundStyle(isAdded ? Color(hex: "#4A7C59") : Color.brandOffWhite)
+                .foregroundStyle(isAdded ? Color.luxuryPrimary.opacity(0.12) : Color.luxuryDeepAccent)
                 .padding(.horizontal, Spacing.md).padding(.vertical, 8)
-                .background(isAdded ? Color(hex: "#4A7C59").opacity(0.12) : Color.brandWarmBlack)
+                .background(isAdded ? Color.luxuryPrimary.opacity(0.12) : Color.luxuryDeepAccent)
                 .clipShape(Capsule())
-                .overlay(Capsule().stroke(isAdded ? Color(hex: "#4A7C59").opacity(0.4) : Color.clear, lineWidth: 1))
+                .overlay(Capsule().stroke(isAdded ? Color.luxuryPrimary.opacity(0.4) : Color.clear, lineWidth: 1))
             }
             .buttonStyle(.plain).animation(.easeInOut(duration: 0.2), value: isAdded)
         }
-        .padding(Spacing.md).background(Color.brandLinen)
+        .padding(Spacing.md).background(Color.white)
         .clipShape(RoundedRectangle(cornerRadius: Radius.lg))
-        .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.brandPebble, lineWidth: 0.5))
+        .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 2)
     }
 }
 
@@ -823,7 +823,7 @@ struct PaymentSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.brandOffWhite.ignoresSafeArea()
+                Color.luxuryBackground.ignoresSafeArea()
 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: Spacing.lg) {
@@ -834,14 +834,14 @@ struct PaymentSheet: View {
                                     .scaleEffect(0.85)
                                 Text("Loading payment options...")
                                     .font(BrandFont.body(13))
-                                    .foregroundStyle(Color.brandWarmGrey)
+                                    .foregroundStyle(Color.luxurySecondaryText)
                             }
                             .frame(maxWidth: .infinity)
                             .padding(Spacing.md)
-                            .background(Color.brandLinen)
+                            .background(Color.luxurySurface)
                             .clipShape(RoundedRectangle(cornerRadius: Radius.md))
                             .overlay(RoundedRectangle(cornerRadius: Radius.md)
-                                .stroke(Color.brandPebble, lineWidth: 0.5))
+                                .stroke(Color.luxuryDivider, lineWidth: 0.5))
                             .padding(.horizontal, Spacing.md)
                         }
 
@@ -855,10 +855,10 @@ struct PaymentSheet: View {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("No payment gateway configured")
                                         .font(BrandFont.body(13, weight: .semibold))
-                                        .foregroundStyle(Color.brandWarmBlack)
+                                        .foregroundStyle(Color.luxuryPrimaryText)
                                     Text("Contact your admin to set up UPI or Net Banking.")
                                         .font(BrandFont.body(12))
-                                        .foregroundStyle(Color.brandWarmGrey)
+                                        .foregroundStyle(Color.luxurySecondaryText)
                                 }
                                 Spacer()
                             }
@@ -886,11 +886,11 @@ struct PaymentSheet: View {
                     Text("PAYMENT")
                         .font(.system(size: 13, weight: .semibold))
                         .kerning(2)
-                        .foregroundStyle(Color.brandWarmBlack)
+                        .foregroundStyle(Color.luxuryPrimaryText)
                 }
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Cancel") { dismiss() }
-                        .foregroundStyle(Color.brandWarmGrey)
+                        .foregroundStyle(Color.luxurySecondaryText)
                 }
             }
             .task {
@@ -928,27 +928,27 @@ struct PaymentSheet: View {
             ForEach(Array(vm.cartItems.enumerated()), id: \.element.id) { index, item in
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(item.product.name).font(BrandFont.body(14)).foregroundStyle(Color.brandWarmBlack)
-                        if let sz = item.selectedSize { Text("Size \(sz)").font(BrandFont.body(11)).foregroundStyle(Color.brandWarmGrey) }
+                        Text(item.product.name).font(BrandFont.body(14)).foregroundStyle(Color.luxuryPrimaryText)
+                        if let sz = item.selectedSize { Text("Size \(sz)").font(BrandFont.body(11)).foregroundStyle(Color.luxurySecondaryText) }
                     }
                     Spacer()
-                    Text("×\(item.quantity)").font(BrandFont.body(12)).foregroundStyle(Color.brandWarmGrey)
-                    Text("₹\(Int(item.lineTotal))").font(BrandFont.body(14, weight: .medium)).foregroundStyle(Color.brandWarmBlack)
+                    Text("×\(item.quantity)").font(BrandFont.body(12)).foregroundStyle(Color.luxurySecondaryText)
+                    Text("₹\(Int(item.lineTotal))").font(BrandFont.body(14, weight: .medium)).foregroundStyle(Color.luxuryPrimaryText)
                 }
                 .padding(.horizontal, Spacing.md).padding(.vertical, 12)
                 if index < vm.cartItems.count - 1 { BrandDivider().padding(.leading, Spacing.md) }
             }
             BrandDivider()
             HStack {
-                Text("Total").font(BrandFont.body(15, weight: .semibold)).foregroundStyle(Color.brandWarmBlack)
+                Text("Total").font(BrandFont.body(15, weight: .semibold)).foregroundStyle(Color.luxuryPrimaryText)
                 Spacer()
-                Text("₹\(Int(amountDue))").font(.system(size: 22, weight: .semibold, design: .serif)).foregroundStyle(Color.brandWarmBlack)
+                Text("₹\(Int(amountDue))").font(.system(size: 22, weight: .semibold, design: .serif)).foregroundStyle(Color.luxuryDeepAccent)
             }
             .padding(Spacing.md)
         }
-        .background(Color.brandLinen)
+        .background(Color.white)
         .clipShape(RoundedRectangle(cornerRadius: Radius.lg))
-        .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.brandPebble, lineWidth: 0.5))
+        .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 2)
         .padding(.horizontal, Spacing.md)
     }
 
@@ -957,17 +957,17 @@ struct PaymentSheet: View {
             Text("PAYMENT METHOD")
                 .font(.system(size: 10, weight: .semibold))
                 .kerning(1.2)
-                .foregroundStyle(Color.brandWarmGrey)
+                .foregroundStyle(Color.luxurySecondaryText)
                 .padding(.horizontal, Spacing.md)
 
             if vm.gatewayConfigured {
                 HStack(spacing: 6) {
                     Circle()
-                        .fill(Color(hex: "#4A7C59"))
+                        .fill(Color.luxuryPrimary)
                         .frame(width: 6, height: 6)
                     Text(vm.activeGateway.capitalized + " connected")
                         .font(BrandFont.body(11))
-                        .foregroundStyle(Color(hex: "#4A7C59"))
+                        .foregroundStyle(Color.luxuryPrimary)
                 }
                 .padding(.horizontal, Spacing.md)
             }
@@ -1021,12 +1021,12 @@ struct PaymentSheet: View {
                             Text("Send Link")
                                 .font(BrandFont.body(14, weight: .medium))
                         }
-                        .foregroundStyle(Color.brandWarmBlack)
+                        .foregroundStyle(Color.luxuryPrimaryText)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
-                        .background(Color.brandLinen)
+                        .background(Color.luxurySurface)
                         .clipShape(RoundedRectangle(cornerRadius: Radius.md))
-                        .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(Color.brandPebble, lineWidth: 0.5))
+                        .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(Color.luxuryDivider, lineWidth: 0.5))
                     }
                     .buttonStyle(.plain)
 
@@ -1055,7 +1055,7 @@ struct PaymentSheet: View {
                 Text("QUICK ADD")
                     .font(.system(size: 10, weight: .semibold))
                     .kerning(1.2)
-                    .foregroundStyle(Color.brandWarmGrey)
+                    .foregroundStyle(Color.luxurySecondaryText)
 
                 HStack(spacing: Spacing.sm) {
                     cashChip(title: "+₹500") { vm.cashTendered += 500 }
@@ -1069,44 +1069,44 @@ struct PaymentSheet: View {
                 Text("TENDERED AMOUNT")
                     .font(.system(size: 10, weight: .semibold))
                     .kerning(1.2)
-                    .foregroundStyle(Color.brandWarmGrey)
+                    .foregroundStyle(Color.luxurySecondaryText)
 
                 TextField("Enter amount received", text: cashTenderedText)
                     .keyboardType(.decimalPad)
                     .font(BrandFont.body(15))
                     .padding(Spacing.md)
-                    .background(Color.brandLinen)
+                    .background(Color.luxurySurface)
                     .clipShape(RoundedRectangle(cornerRadius: Radius.md))
-                    .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(Color.brandPebble, lineWidth: 0.5))
+                    .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(Color.luxuryDivider, lineWidth: 0.5))
             }
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(cashChange >= 0 ? "Change" : "Short")
                     .font(.system(size: 10, weight: .semibold))
                     .kerning(1.2)
-                    .foregroundStyle(Color.brandWarmGrey)
+                    .foregroundStyle(Color.luxurySecondaryText)
                 Text("₹\(formatAmount(abs(cashChange)))")
                     .font(.system(size: 22, weight: .semibold, design: .serif))
-                    .foregroundStyle(cashChange >= 0 ? Color(hex: "#4A7C59") ?? Color.brandWarmBlack : Color(hex: "#9B4444") ?? Color.brandWarmBlack)
+                    .foregroundStyle(cashChange >= 0 ? Color.luxuryDeepAccent : Color(hex: "#9B4444"))
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(Spacing.md)
-            .background(Color.brandLinen)
+            .background(Color.luxurySurface)
             .clipShape(RoundedRectangle(cornerRadius: Radius.lg))
-            .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.brandPebble, lineWidth: 0.5))
+            .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.luxuryDivider, lineWidth: 0.5))
 
             VStack(alignment: .leading, spacing: Spacing.sm) {
                 Text("NOTE (OPTIONAL)")
                     .font(.system(size: 10, weight: .semibold))
                     .kerning(1.2)
-                    .foregroundStyle(Color.brandWarmGrey)
+                    .foregroundStyle(Color.luxurySecondaryText)
                 TextField("Cash note...", text: $vm.cashNote, axis: .vertical)
                     .lineLimit(2...4)
                     .font(BrandFont.body(14))
                     .padding(Spacing.md)
-                    .background(Color.brandLinen)
+                    .background(Color.luxurySurface)
                     .clipShape(RoundedRectangle(cornerRadius: Radius.md))
-                    .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(Color.brandPebble, lineWidth: 0.5))
+                    .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(Color.luxuryDivider, lineWidth: 0.5))
             }
 
             PrimaryButton(
@@ -1136,12 +1136,12 @@ struct PaymentSheet: View {
                     } label: {
                         Text("Prepare QR")
                             .font(BrandFont.body(14, weight: .medium))
-                            .foregroundStyle(Color.brandWarmBlack)
+                            .foregroundStyle(Color.luxuryPrimaryText)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
-                            .background(Color.brandLinen)
+                            .background(Color.luxurySurface)
                             .clipShape(RoundedRectangle(cornerRadius: Radius.md))
-                            .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(Color.brandPebble, lineWidth: 0.5))
+                            .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(Color.luxuryDivider, lineWidth: 0.5))
                     }
                     .buttonStyle(.plain)
                 }
@@ -1160,12 +1160,12 @@ struct PaymentSheet: View {
                             Text("Generate Link")
                                 .font(BrandFont.body(14, weight: .medium))
                         }
-                        .foregroundStyle(Color.brandWarmBlack)
+                        .foregroundStyle(Color.luxuryPrimaryText)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
-                        .background(Color.brandLinen)
+                        .background(Color.luxurySurface)
                         .clipShape(RoundedRectangle(cornerRadius: Radius.md))
-                        .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(Color.brandPebble, lineWidth: 0.5))
+                        .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(Color.luxuryDivider, lineWidth: 0.5))
                     }
                     .buttonStyle(.plain)
                 }
@@ -1195,10 +1195,10 @@ struct PaymentSheet: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, Spacing.md)
-            .background(vm.paymentMethod == id ? Color.brandWarmBlack : Color.brandLinen)
-            .foregroundStyle(vm.paymentMethod == id ? Color.brandOffWhite : Color.brandWarmBlack)
+            .background(vm.paymentMethod == id ? Color.luxuryPrimaryText : Color.luxurySurface)
+            .foregroundStyle(vm.paymentMethod == id ? Color.white : Color.luxuryDeepAccent)
             .clipShape(RoundedRectangle(cornerRadius: Radius.md))
-            .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(Color.brandPebble, lineWidth: 0.5))
+            .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(Color.luxuryDivider, lineWidth: 0.5))
         }
         .buttonStyle(.plain)
     }
@@ -1214,13 +1214,13 @@ struct PaymentSheet: View {
                 } label: {
                     Text(option.1)
                         .font(BrandFont.body(13, weight: .medium))
-                        .foregroundStyle(selection.wrappedValue == option.0 ? Color.brandOffWhite : Color.brandWarmBlack)
+                        .foregroundStyle(selection.wrappedValue == option.0 ? Color.white : Color.luxuryDeepAccent)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 10)
                         .frame(maxWidth: .infinity)
-                        .background(selection.wrappedValue == option.0 ? Color.brandWarmBlack : Color.brandLinen)
+                        .background(selection.wrappedValue == option.0 ? Color.luxuryPrimary : Color.luxurySurface)
                         .clipShape(RoundedRectangle(cornerRadius: Radius.md))
-                        .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(Color.brandPebble, lineWidth: 0.5))
+                        .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(Color.luxuryDivider, lineWidth: 0.5))
                 }
                 .buttonStyle(.plain)
             }
@@ -1243,12 +1243,12 @@ struct PaymentSheet: View {
             ForEach(apps, id: \.self) { app in
                 Text(app)
                     .font(BrandFont.body(12, weight: .medium))
-                    .foregroundStyle(Color.brandWarmBlack)
+                    .foregroundStyle(Color.luxuryPrimaryText)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
-                    .background(Color.brandLinen)
+                    .background(Color.luxurySurface)
                     .clipShape(Capsule())
-                    .overlay(Capsule().stroke(Color.brandPebble, lineWidth: 0.5))
+                    .overlay(Capsule().stroke(Color.luxuryDivider, lineWidth: 0.5))
             }
         }
     }
@@ -1256,26 +1256,26 @@ struct PaymentSheet: View {
     private func qrPlaceholder(title: String, footer: String) -> some View {
         VStack(spacing: Spacing.md) {
             RoundedRectangle(cornerRadius: Radius.lg)
-                .fill(Color.brandOffWhite)
+                .fill(Color.luxuryBackground)
                 .frame(height: 180)
                 .overlay(
                     VStack(spacing: 8) {
                         Image(systemName: "qrcode")
                             .font(.system(size: 44))
-                            .foregroundStyle(Color.brandPebble)
+                            .foregroundStyle(Color.luxuryDivider)
                         Text(title)
                             .font(BrandFont.body(14))
-                            .foregroundStyle(Color.brandWarmGrey)
+                            .foregroundStyle(Color.luxurySecondaryText)
                     }
                 )
             Text(footer)
                 .font(BrandFont.body(13, weight: .medium))
-                .foregroundStyle(Color.brandWarmBlack)
+                .foregroundStyle(Color.luxuryPrimaryText)
         }
         .padding(Spacing.md)
-        .background(Color.brandLinen)
+        .background(Color.white)
         .clipShape(RoundedRectangle(cornerRadius: Radius.lg))
-        .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.brandPebble, lineWidth: 0.5))
+        .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 2)
     }
 
     private func phoneField(title: String, text: Binding<String>) -> some View {
@@ -1283,14 +1283,14 @@ struct PaymentSheet: View {
             Text(title.uppercased())
                 .font(.system(size: 10, weight: .semibold))
                 .kerning(1.2)
-                .foregroundStyle(Color.brandWarmGrey)
+                .foregroundStyle(Color.luxurySecondaryText)
             TextField("Enter customer phone number", text: text)
                 .keyboardType(.phonePad)
                 .font(BrandFont.body(14))
                 .padding(Spacing.md)
-                .background(Color.brandLinen)
+                .background(Color.luxurySurface)
                 .clipShape(RoundedRectangle(cornerRadius: Radius.md))
-                .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(Color.brandPebble, lineWidth: 0.5))
+                .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(Color.luxuryDivider, lineWidth: 0.5))
         }
     }
 
@@ -1299,28 +1299,28 @@ struct PaymentSheet: View {
             Text(label.uppercased())
                 .font(.system(size: 10, weight: .semibold))
                 .kerning(1.2)
-                .foregroundStyle(Color.brandWarmGrey)
+                .foregroundStyle(Color.luxurySecondaryText)
             Text(value)
                 .font(.system(size: 24, weight: .semibold, design: .serif))
-                .foregroundStyle(Color.brandWarmBlack)
+                .foregroundStyle(Color.luxuryPrimaryText)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(Spacing.md)
-        .background(Color.brandLinen)
+        .background(Color.white)
         .clipShape(RoundedRectangle(cornerRadius: Radius.lg))
-        .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.brandPebble, lineWidth: 0.5))
+        .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 2)
     }
 
     private func cashChip(title: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title)
                 .font(BrandFont.body(13, weight: .medium))
-                .foregroundStyle(Color.brandWarmBlack)
+                .foregroundStyle(Color.luxuryPrimaryText)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
-                .background(Color.brandLinen)
+                .background(Color.luxurySurface)
                 .clipShape(Capsule())
-                .overlay(Capsule().stroke(Color.brandPebble, lineWidth: 0.5))
+                .overlay(Capsule().stroke(Color.luxuryDivider, lineWidth: 0.5))
         }
         .buttonStyle(.plain)
     }
@@ -1329,12 +1329,12 @@ struct PaymentSheet: View {
         Button(action: action) {
             Text(title)
                 .font(BrandFont.body(13, weight: .medium))
-                .foregroundStyle(isSelected ? Color.brandOffWhite : Color.brandWarmBlack)
+                .foregroundStyle(isSelected ? Color.white : Color.luxuryDeepAccent)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
-                .background(isSelected ? Color.brandWarmBlack : Color.brandLinen)
+                .background(isSelected ? Color.luxuryPrimary : Color.luxurySurface)
                 .clipShape(Capsule())
-                .overlay(Capsule().stroke(Color.brandPebble, lineWidth: 0.5))
+                .overlay(Capsule().stroke(Color.luxuryDivider, lineWidth: 0.5))
         }
         .buttonStyle(.plain)
     }
@@ -1343,23 +1343,23 @@ struct PaymentSheet: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(BrandFont.body(14, weight: .semibold))
-                .foregroundStyle(Color.brandWarmBlack)
+                .foregroundStyle(Color.luxuryPrimaryText)
             Text(message)
                 .font(BrandFont.body(13))
-                .foregroundStyle(Color.brandWarmGrey)
+                .foregroundStyle(Color.luxurySecondaryText)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(Spacing.md)
-        .background(Color.brandLinen)
+        .background(Color.white)
         .clipShape(RoundedRectangle(cornerRadius: Radius.lg))
-        .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.brandPebble, lineWidth: 0.5))
+        .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 2)
     }
 
     private func sectionTitle(_ title: String) -> some View {
         Text(title)
             .font(.system(size: 10, weight: .semibold))
             .kerning(1.2)
-            .foregroundStyle(Color.brandWarmGrey)
+            .foregroundStyle(Color.luxurySecondaryText)
     }
 
     private func formatAmount(_ value: Double) -> String {
@@ -1387,22 +1387,22 @@ struct ReceiptSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.brandOffWhite.ignoresSafeArea()
+                Color.luxuryBackground.ignoresSafeArea()
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: Spacing.xl) {
                         // ── Success banner
                         VStack(spacing: Spacing.md) {
                             ZStack {
-                                Circle().fill(Color(hex: "#4A7C59").opacity(0.1)).frame(width: 80, height: 80)
-                                Image(systemName: "checkmark.circle.fill").font(.system(size: 48)).foregroundStyle(Color(hex: "#4A7C59"))
+                                Circle().fill(Color.luxurySurface).frame(width: 80, height: 80)
+                                Image(systemName: "checkmark.circle.fill").font(.system(size: 48)).foregroundStyle(Color.luxuryPrimary)
                             }
                             Text("Order Placed Successfully!")
                                 .font(.system(size: 22, weight: .semibold, design: .serif))
-                                .foregroundStyle(Color.brandWarmBlack).multilineTextAlignment(.center)
+                                .foregroundStyle(Color.luxuryPrimaryText).multilineTextAlignment(.center)
                             if let p = placed {
-                                Text("Order #\(p.orderNumber)").font(BrandFont.body(12)).foregroundStyle(Color.brandWarmGrey).kerning(1)
+                                Text("Order #\(p.orderNumber)").font(BrandFont.body(12)).foregroundStyle(Color.luxurySecondaryText).kerning(1)
                             }
-                            let statusColor = vm.paymentCompleted ? Color(hex: "#4A7C59") : Color(hex: "#C8913A")
+                            let statusColor = vm.paymentCompleted ? Color.luxuryPrimary : Color(hex: "#C8913A")
                             HStack(spacing: 6) {
                                 Circle().fill(statusColor).frame(width: 6, height: 6)
                                 Text(vm.paymentCompleted ? "Status: Completed" : "Status: Pending")
@@ -1417,8 +1417,8 @@ struct ReceiptSheet: View {
                         if let p = placed {
                             VStack(spacing: 0) {
                                 VStack(spacing: 4) {
-                                    Text("RECEIPT").font(.system(size: 11, weight: .semibold)).kerning(2).foregroundStyle(Color.brandWarmGrey)
-                                    Text(p.createdAt.formatted(date: .long, time: .shortened)).font(BrandFont.body(11)).foregroundStyle(Color.brandWarmGrey)
+                                    Text("RECEIPT").font(.system(size: 11, weight: .semibold)).kerning(2).foregroundStyle(Color.luxurySecondaryText)
+                                    Text(p.createdAt.formatted(date: .long, time: .shortened)).font(BrandFont.body(11)).foregroundStyle(Color.luxurySecondaryText)
                                 }
                                 .frame(maxWidth: .infinity).padding(Spacing.md)
                                 BrandDivider()
@@ -1432,28 +1432,28 @@ struct ReceiptSheet: View {
                                 ForEach(Array(p.items.enumerated()), id: \.element.id) { index, item in
                                     HStack {
                                         VStack(alignment: .leading, spacing: 2) {
-                                            Text(item.product.name).font(BrandFont.body(13)).foregroundStyle(Color.brandWarmBlack)
+                                            Text(item.product.name).font(BrandFont.body(13)).foregroundStyle(Color.luxuryPrimaryText)
                                             HStack(spacing: 6) {
-                                                if let sz = item.selectedSize { Text("Size \(sz)").font(BrandFont.body(11)).foregroundStyle(Color.brandWarmGrey) }
-                                                Text("×\(item.quantity)").font(BrandFont.body(11)).foregroundStyle(Color.brandWarmGrey)
-                                                Text("@ ₹\(Int(item.product.price))").font(BrandFont.body(11)).foregroundStyle(Color.brandWarmGrey)
+                                                if let sz = item.selectedSize { Text("Size \(sz)").font(BrandFont.body(11)).foregroundStyle(Color.luxurySecondaryText) }
+                                                Text("×\(item.quantity)").font(BrandFont.body(11)).foregroundStyle(Color.luxurySecondaryText)
+                                                Text("@ ₹\(Int(item.product.price))").font(BrandFont.body(11)).foregroundStyle(Color.luxurySecondaryText)
                                             }
                                         }
                                         Spacer()
-                                        Text("₹\(Int(item.lineTotal))").font(BrandFont.body(13, weight: .medium)).foregroundStyle(Color.brandWarmBlack)
+                                        Text("₹\(Int(item.lineTotal))").font(BrandFont.body(13, weight: .medium)).foregroundStyle(Color.luxuryPrimaryText)
                                     }
                                     .padding(.horizontal, Spacing.md).padding(.vertical, 10)
                                     if index < p.items.count - 1 { BrandDivider().padding(.leading, Spacing.md) }
                                 }
                                 BrandDivider()
                                 HStack {
-                                    Text("Total").font(BrandFont.body(15, weight: .semibold)).foregroundStyle(Color.brandWarmBlack)
+                                    Text("Total").font(BrandFont.body(15, weight: .semibold)).foregroundStyle(Color.luxuryPrimaryText)
                                     Spacer()
-                                    Text("₹\(Int(p.totalAmount))").font(.system(size: 20, weight: .semibold, design: .serif)).foregroundStyle(Color.brandWarmBlack)
+                                    Text("₹\(Int(p.totalAmount))").font(.system(size: 20, weight: .semibold, design: .serif)).foregroundStyle(Color.luxuryDeepAccent)
                                 }.padding(Spacing.md)
                             }
-                            .background(Color.brandLinen).clipShape(RoundedRectangle(cornerRadius: Radius.lg))
-                            .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.brandPebble, lineWidth: 0.5))
+                            .background(Color.luxurySurface).clipShape(RoundedRectangle(cornerRadius: Radius.lg))
+                            .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.luxuryDivider, lineWidth: 0.5))
                             .padding(.horizontal, Spacing.md)
                         }
 
@@ -1470,29 +1470,29 @@ struct ReceiptSheet: View {
                                 Image(systemName: "square.and.arrow.up").font(.system(size: 14))
                                 Text("Download / Share Receipt").font(BrandFont.body(14, weight: .medium))
                             }
-                            .foregroundStyle(Color.brandWarmBlack).frame(maxWidth: .infinity).padding(.vertical, 14)
-                            .background(Color.brandLinen).clipShape(RoundedRectangle(cornerRadius: Radius.lg))
-                            .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.brandPebble, lineWidth: 0.5))
+                            .foregroundStyle(Color.luxuryPrimaryText).frame(maxWidth: .infinity).padding(.vertical, 14)
+                            .background(Color.luxurySurface).clipShape(RoundedRectangle(cornerRadius: Radius.lg))
+                            .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.luxuryDivider, lineWidth: 0.5))
                         }
                         .buttonStyle(.plain).padding(.horizontal, Spacing.md)
 
                         // ── Rating section
                         if !ratingSubmitted {
                             VStack(alignment: .leading, spacing: Spacing.md) {
-                                Text("RATE THIS SERVICE").font(.system(size: 10, weight: .semibold)).kerning(1.2).foregroundStyle(Color.brandWarmGrey)
+                                Text("RATE THIS SERVICE").font(.system(size: 10, weight: .semibold)).kerning(1.2).foregroundStyle(Color.luxurySecondaryText)
                                 HStack(spacing: 10) {
                                     ForEach(1...5, id: \.self) { star in
                                         Button { rating = Double(star) } label: {
                                             Image(systemName: Double(star) <= rating ? "star.fill" : "star")
                                                 .font(.system(size: 28))
-                                                .foregroundStyle(Double(star) <= rating ? Color(hex: "#C8913A") : Color.brandPebble)
+                                                .foregroundStyle(Double(star) <= rating ? Color(hex: "#C8913A") : Color.luxuryDivider)
                                         }.buttonStyle(.plain)
                                     }
                                 }
                                 TextField("Optional feedback...", text: $feedback, axis: .vertical).lineLimit(3).font(BrandFont.body(14))
-                                    .padding(Spacing.md).background(Color.brandOffWhite)
+                                    .padding(Spacing.md).background(Color.luxuryBackground)
                                     .clipShape(RoundedRectangle(cornerRadius: Radius.md))
-                                    .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(Color.brandPebble, lineWidth: 0.5))
+                                    .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(Color.luxuryDivider, lineWidth: 0.5))
                                 Button("Submit Rating") {
                                     Task {
                                         await vm.submitRating(rating: rating, feedback: feedback)
@@ -1503,14 +1503,14 @@ struct ReceiptSheet: View {
                                 .frame(maxWidth: .infinity).padding(.vertical, 12)
                                 .background(Color(hex: "#C8913A").opacity(0.1)).clipShape(RoundedRectangle(cornerRadius: Radius.md))
                             }
-                            .padding(Spacing.md).background(Color.brandLinen).clipShape(RoundedRectangle(cornerRadius: Radius.lg))
-                            .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.brandPebble, lineWidth: 0.5))
+                            .padding(Spacing.md).background(Color.luxurySurface).clipShape(RoundedRectangle(cornerRadius: Radius.lg))
+                            .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.luxuryDivider, lineWidth: 0.5))
                             .padding(.horizontal, Spacing.md)
                         } else {
                             HStack {
                                 Image(systemName: "star.fill").foregroundStyle(Color(hex: "#C8913A"))
                                 Text("Rating submitted — your dashboard will update shortly.")
-                                    .font(BrandFont.body(13)).foregroundStyle(Color.brandWarmGrey)
+                                    .font(BrandFont.body(13)).foregroundStyle(Color.luxurySecondaryText)
                             }
                             .padding(.horizontal, Spacing.md)
                         }
@@ -1531,7 +1531,7 @@ struct ReceiptSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {
-                    Text("ORDER CONFIRMED").font(.system(size: 13, weight: .semibold)).kerning(2).foregroundStyle(Color.brandWarmBlack)
+                    Text("ORDER CONFIRMED").font(.system(size: 13, weight: .semibold)).kerning(2).foregroundStyle(Color.luxuryPrimaryText)
                 }
             }
             .interactiveDismissDisabled()
@@ -1545,9 +1545,9 @@ struct ReceiptSheet: View {
     @ViewBuilder
     private func receiptRow(label: String, value: String) -> some View {
         HStack {
-            Text(label).font(BrandFont.body(13)).foregroundStyle(Color.brandWarmGrey)
+            Text(label).font(BrandFont.body(13)).foregroundStyle(Color.luxurySecondaryText)
             Spacer()
-            Text(value).font(BrandFont.body(13, weight: .medium)).foregroundStyle(Color.brandWarmBlack).multilineTextAlignment(.trailing)
+            Text(value).font(BrandFont.body(13, weight: .medium)).foregroundStyle(Color.luxuryPrimaryText).multilineTextAlignment(.trailing)
         }
         .padding(.horizontal, Spacing.md).padding(.vertical, 10)
     }
@@ -1609,7 +1609,7 @@ struct ProductRequestSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.brandOffWhite.ignoresSafeArea()
+                Color.luxuryBackground.ignoresSafeArea()
                 Form {
                     Section("Select Product") {
                         Picker("Product", selection: $selectedProduct) {
@@ -1633,8 +1633,8 @@ struct ProductRequestSheet: View {
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .principal) { Text("PRODUCT REQUEST").font(.system(size: 13, weight: .semibold)).kerning(2).foregroundStyle(Color.brandWarmBlack) }
-                ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() }.foregroundStyle(Color.brandWarmGrey) }
+                ToolbarItem(placement: .principal) { Text("PRODUCT REQUEST").font(.system(size: 13, weight: .semibold)).kerning(2).foregroundStyle(Color.luxuryPrimaryText) }
+                ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() }.foregroundStyle(Color.luxurySecondaryText) }
             }
         }
     }

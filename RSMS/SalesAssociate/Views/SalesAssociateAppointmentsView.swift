@@ -10,7 +10,7 @@ struct SalesAssociateAppointmentsView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.brandOffWhite.ignoresSafeArea()
+                Color.luxuryBackground.ignoresSafeArea()
 
                 if vm.isLoading && vm.appointments.isEmpty {
                     LoadingView(message: "Loading appointments...")
@@ -32,13 +32,14 @@ struct SalesAssociateAppointmentsView: View {
                                 Text("New")
                                     .font(BrandFont.body(14, weight: .semibold))
                             }
-                            .foregroundStyle(Color.brandOffWhite)
+                            .foregroundStyle(Color.white)
                             .padding(.horizontal, 20)
                             .padding(.vertical, 13)
-                            .background(Color.brandWarmBlack)
+                            .background(Color.luxuryDeepAccent)
                             .clipShape(Capsule())
-                            .shadow(color: Color.brandWarmBlack.opacity(0.25), radius: 10, y: 4)
+                            .shadow(color: Color.luxuryDeepAccent.opacity(0.30), radius: 10, y: 4)
                         }
+                        .buttonStyle(LuxuryPressStyle())
                         .padding(.trailing, 20)
                         .padding(.bottom, 20)
                     }
@@ -50,7 +51,7 @@ struct SalesAssociateAppointmentsView: View {
                     Text("APPOINTMENTS")
                         .font(.system(size: 13, weight: .semibold))
                         .kerning(2)
-                        .foregroundStyle(Color.brandWarmBlack)
+                        .foregroundStyle(Color.luxuryPrimaryText)
                 }
             }
             .sheet(isPresented: $showNewAppointment, onDismiss: {
@@ -98,13 +99,13 @@ struct SalesAssociateAppointmentsView: View {
             Spacer()
             Image(systemName: "calendar.badge.clock")
                 .font(.system(size: 52))
-                .foregroundStyle(Color.brandPebble)
+                .foregroundStyle(Color.luxuryMutedText)
             Text("No upcoming appointments")
                 .font(.system(size: 20, weight: .semibold, design: .serif))
-                .foregroundStyle(Color.brandWarmBlack)
+                .foregroundStyle(Color.luxuryPrimaryText)
             Text("Tap \"New\" to schedule a client appointment.")
                 .font(BrandFont.body(14))
-                .foregroundStyle(Color.brandWarmGrey)
+                .foregroundStyle(Color.luxurySecondaryText)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
             Spacer()
@@ -123,14 +124,14 @@ struct AppointmentCard: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(appointment.customer?.name ?? "Unknown Client")
                         .font(.system(size: 17, weight: .semibold, design: .serif))
-                        .foregroundStyle(Color.brandWarmBlack)
+                        .foregroundStyle(Color.luxuryPrimaryText)
                     HStack(spacing: 6) {
                         Image(systemName: "clock")
                             .font(.system(size: 10))
-                            .foregroundStyle(Color.brandWarmGrey)
+                            .foregroundStyle(Color.luxurySecondaryText)
                         Text(appointment.displayDateTime)
                             .font(BrandFont.body(12))
-                            .foregroundStyle(Color.brandWarmGrey)
+                            .foregroundStyle(Color.luxurySecondaryText)
                     }
                 }
                 Spacer()
@@ -147,17 +148,17 @@ struct AppointmentCard: View {
                     }
                     Text(appointment.durationDisplay)
                         .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(Color.brandWarmGrey)
+                        .foregroundStyle(Color.luxurySecondaryText)
                         .padding(.horizontal, 7)
                         .padding(.vertical, 3)
-                        .background(Color.brandPebble.opacity(0.25))
+                        .background(Color.luxurySurface)
                         .clipShape(Capsule())
                 }
             }
 
             // Product interest chips
             if let products = appointment.appointmentProducts, !products.isEmpty {
-                Divider().background(Color.brandPebble.opacity(0.5))
+                Divider().background(Color.luxuryDivider.opacity(0.5))
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 6) {
                         ForEach(products) { item in
@@ -170,15 +171,14 @@ struct AppointmentCard: View {
                                     if item.quantity > 1 {
                                         Text("×\(item.quantity)")
                                             .font(.system(size: 10))
-                                            .foregroundStyle(Color.brandWarmGrey)
+                                            .foregroundStyle(Color.luxurySecondaryText)
                                     }
                                 }
-                                .foregroundStyle(Color.brandWarmBlack)
+                                .foregroundStyle(Color.luxuryPrimaryText)
                                 .padding(.horizontal, 9)
                                 .padding(.vertical, 5)
-                                .background(Color.brandLinen)
+                                .background(Color.luxurySurface)
                                 .clipShape(Capsule())
-                                .overlay(Capsule().stroke(Color.brandPebble, lineWidth: 0.5))
                             }
                         }
                     }
@@ -189,13 +189,13 @@ struct AppointmentCard: View {
             if let notes = appointment.notes, !notes.isEmpty {
                 Text(notes)
                     .font(BrandFont.body(11))
-                    .foregroundStyle(Color.brandWarmGrey)
+                    .foregroundStyle(Color.luxurySecondaryText)
                     .lineLimit(1)
             }
         }
         .padding(16)
-        .background(Color.brandLinen)
+        .background(Color.white)
         .clipShape(RoundedRectangle(cornerRadius: 16))
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.brandPebble, lineWidth: 0.5))
+        .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 2)
     }
 }

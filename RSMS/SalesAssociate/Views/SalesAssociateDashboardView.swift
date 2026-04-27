@@ -11,7 +11,7 @@ struct SalesAssociateDashboardView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.brandOffWhite.ignoresSafeArea()
+                Color.luxuryBackground.ignoresSafeArea()
 
                 if viewModel.isLoading && viewModel.recentOrders.isEmpty {
                     LoadingView(message: "Loading dashboard...")
@@ -38,7 +38,7 @@ struct SalesAssociateDashboardView: View {
                     Text("DASHBOARD")
                         .font(.system(size: 13, weight: .semibold))
                         .kerning(2)
-                        .foregroundStyle(Color.brandWarmBlack)
+                        .foregroundStyle(Color.luxuryPrimaryText)
                 }
 
             }
@@ -62,10 +62,10 @@ struct SalesAssociateDashboardView: View {
         VStack(alignment: .leading, spacing: 4) {
             Text(greetingTime())
                 .font(BrandFont.body(13))
-                .foregroundStyle(Color.brandWarmGrey)
+                .foregroundStyle(Color.luxurySecondaryText)
             Text("Sales Associate")
                 .font(.system(size: 28, weight: .semibold, design: .serif))
-                .foregroundStyle(Color.brandWarmBlack)
+                .foregroundStyle(Color.luxuryPrimaryText)
         }
         .padding(.horizontal, 16)
     }
@@ -94,28 +94,28 @@ struct SalesAssociateDashboardView: View {
                     HStack(alignment: .firstTextBaseline, spacing: 4) {
                         Text(String(format: "%.1f", ratingCache.averageRating))
                             .font(.system(size: 38, weight: .semibold, design: .serif))
-                            .foregroundStyle(Color.brandWarmBlack)
+                            .foregroundStyle(Color.luxuryPrimaryText)
                         Text("/ 5")
                             .font(BrandFont.body(16))
-                            .foregroundStyle(Color.brandWarmGrey)
+                            .foregroundStyle(Color.luxurySecondaryText)
                     }
                     Text(ratingCache.ratingsCount == 1 ? "1 review" : "\(ratingCache.ratingsCount) reviews")
                         .font(BrandFont.body(12))
-                        .foregroundStyle(Color.brandWarmGrey)
+                        .foregroundStyle(Color.luxurySecondaryText)
                 }
                 Spacer()
                 HStack(spacing: 5) {
                     ForEach(1...5, id: \.self) { star in
                         Image(systemName: Double(star) <= ratingCache.averageRating ? "star.fill" : "star")
-                            .foregroundStyle(Double(star) <= ratingCache.averageRating ? Color.init(hex: "#C8913A") ?? .yellow : Color.brandPebble)
+                            .foregroundStyle(Double(star) <= ratingCache.averageRating ? Color.init(hex: "#C8913A") ?? .yellow : Color.luxuryDivider)
                             .font(.title3)
                     }
                 }
             }
             .padding(16)
-            .background(Color.brandLinen)
+            .background(Color.white)
             .clipShape(RoundedRectangle(cornerRadius: 16))
-            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.brandPebble, lineWidth: 0.5))
+            .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 2)
             .padding(.horizontal, 16)
         }
     }
@@ -133,7 +133,7 @@ struct SalesAssociateDashboardView: View {
                 Text("PRODUCT CATALOG")
                     .font(.system(size: 11, weight: .semibold))
                     .kerning(1.2)
-                    .foregroundStyle(Color.brandWarmGrey)
+                    .foregroundStyle(Color.luxurySecondaryText)
                 Spacer()
                 Button {
                     withAnimation { showCatalog.toggle() }
@@ -143,7 +143,7 @@ struct SalesAssociateDashboardView: View {
                 } label: {
                     Text(showCatalog ? "Hide" : "Show all")
                         .font(BrandFont.body(13))
-                        .foregroundStyle(Color.brandWarmBlack)
+                        .foregroundStyle(Color.luxuryPrimary)
                 }
             }
             .padding(.horizontal, 16)
@@ -152,19 +152,18 @@ struct SalesAssociateDashboardView: View {
                 VStack(spacing: 16) {
                     HStack(spacing: 10) {
                         Image(systemName: "magnifyingglass")
-                            .foregroundStyle(Color.brandWarmGrey)
+                            .foregroundStyle(Color.luxuryPrimary)
                             .font(.system(size: 14))
                         TextField("Search products...", text: $catalogSearch)
                             .font(BrandFont.body(14))
-                            .foregroundStyle(Color.brandWarmBlack)
+                            .foregroundStyle(Color.luxuryPrimaryText)
                             .onChange(of: catalogSearch) { newSearch in
                                 Task { await viewModel.fetchCatalog(search: newSearch) }
                             }
                     }
                     .padding(16)
-                    .background(Color.brandLinen)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.brandPebble, lineWidth: 0.5))
+                    .background(Color.luxurySurface)
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
                     .padding(.horizontal, 16)
 
                     if viewModel.catalog.isEmpty {
@@ -175,14 +174,14 @@ struct SalesAssociateDashboardView: View {
                                 CatalogRow(product: product)
                                 if index < viewModel.catalog.count - 1 {
                                     Divider()
-                                        .background(Color.brandPebble)
+                                        .background(Color.luxuryDivider)
                                         .padding(.leading, 16)
                                 }
                             }
                         }
-                        .background(Color.brandLinen)
+                        .background(Color.white)
                         .clipShape(RoundedRectangle(cornerRadius: 16))
-                        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.brandPebble, lineWidth: 0.5))
+                        .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 2)
                         .padding(.horizontal, 16)
                     }
                 }
@@ -200,16 +199,16 @@ struct SalesAssociateDashboardView: View {
     private func emptyStateCard(icon: String, text: String) -> some View {
         HStack {
             Image(systemName: icon)
-                .foregroundStyle(Color.brandPebble)
+                .foregroundStyle(Color.luxuryMutedText)
             Text(text)
                 .font(BrandFont.body(13))
-                .foregroundStyle(Color.brandWarmGrey)
+                .foregroundStyle(Color.luxurySecondaryText)
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.brandLinen)
+        .background(Color.white)
         .clipShape(RoundedRectangle(cornerRadius: 16))
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.brandPebble, lineWidth: 0.5))
+        .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 2)
         .padding(.horizontal, 16)
     }
 
@@ -217,7 +216,7 @@ struct SalesAssociateDashboardView: View {
         Text(title)
             .font(.system(size: 11, weight: .semibold))
             .kerning(1.2)
-            .foregroundStyle(Color.brandWarmGrey)
+            .foregroundStyle(Color.luxurySecondaryText)
             .padding(.horizontal, 16)
     }
 
@@ -226,22 +225,19 @@ struct SalesAssociateDashboardView: View {
             Text(title)
                 .font(.system(size: 10, weight: .semibold))
                 .kerning(1.2)
-                .foregroundStyle(Color.brandWarmGrey)
+                .foregroundStyle(Color.luxurySecondaryText)
             Text(value)
                 .font(BrandFont.display(24))
-                .foregroundStyle(Color.brandWarmBlack)
+                .foregroundStyle(Color.luxuryDeepAccent)
             Text(subtitle)
                 .font(BrandFont.body(12))
-                .foregroundStyle(Color.brandWarmGrey)
+                .foregroundStyle(Color.luxurySecondaryText)
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.brandLinen)
-        .clipShape(RoundedRectangle(cornerRadius: 14))
-        .overlay(
-            RoundedRectangle(cornerRadius: 14)
-                .stroke(Color.brandPebble, lineWidth: 0.5)
-        )
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 2)
     }
 
     private func currency(_ value: Double) -> String {
@@ -257,31 +253,30 @@ struct CatalogRow: View {
     var body: some View {
         HStack(spacing: 16) {
             RoundedRectangle(cornerRadius: 8)
-                .fill(Color.brandOffWhite)
+                .fill(Color.luxurySurface)
                 .frame(width: 40, height: 40)
                 .overlay(
                     Image(systemName: "tag")
                         .font(.system(size: 14))
-                        .foregroundStyle(Color.brandWarmGrey)
+                        .foregroundStyle(Color.luxuryPrimary)
                 )
-            
+
             VStack(alignment: .leading, spacing: 2) {
                 Text(product.name)
                     .font(BrandFont.body(14, weight: .medium))
-                    .foregroundStyle(Color.brandWarmBlack)
+                    .foregroundStyle(Color.luxuryPrimaryText)
                 Text(product.category)
                     .font(BrandFont.body(11))
-                    .foregroundStyle(Color.brandWarmGrey)
+                    .foregroundStyle(Color.luxurySecondaryText)
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 2) {
                 Text("₹\(Int(product.price))")
                     .font(BrandFont.body(14, weight: .semibold))
-                    .foregroundStyle(Color.brandWarmBlack)
+                    .foregroundStyle(Color.luxuryDeepAccent)
             }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
     }
 }
-

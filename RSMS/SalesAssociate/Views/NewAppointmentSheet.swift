@@ -51,7 +51,7 @@ struct NewAppointmentSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.brandOffWhite.ignoresSafeArea()
+                Color.luxuryBackground.ignoresSafeArea()
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 20) {
                         clientSection
@@ -68,13 +68,13 @@ struct NewAppointmentSheet: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Cancel") { dismiss() }
-                        .foregroundStyle(Color.brandWarmBlack)
+                        .foregroundStyle(Color.luxuryPrimaryText)
                 }
                 ToolbarItem(placement: .principal) {
                     Text("NEW APPOINTMENT")
                         .font(.system(size: 13, weight: .semibold))
                         .kerning(2)
-                        .foregroundStyle(Color.brandWarmBlack)
+                        .foregroundStyle(Color.luxuryPrimaryText)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -91,11 +91,11 @@ struct NewAppointmentSheet: View {
                         }
                     } label: {
                         if vm.isCreating {
-                            ProgressView().tint(Color.brandWarmBlack)
+                            ProgressView().tint(Color.luxuryPrimaryText)
                         } else {
                             Text("Book")
                                 .font(.system(size: 14, weight: .semibold))
-                                .foregroundStyle(canSave ? Color.brandWarmBlack : Color.brandWarmGrey)
+                                .foregroundStyle(canSave ? Color.luxuryPrimaryText : Color.luxurySecondaryText)
                         }
                     }
                     .disabled(!canSave || vm.isCreating)
@@ -120,43 +120,43 @@ struct NewAppointmentSheet: View {
                         .overlay(
                             Text(String(customer.name.prefix(1)).uppercased())
                                 .font(.system(size: 16, weight: .semibold, design: .serif))
-                                .foregroundStyle(Color.brandWarmBlack)
+                                .foregroundStyle(Color.luxuryPrimaryText)
                         )
                     VStack(alignment: .leading, spacing: 2) {
                         Text(customer.name)
                             .font(BrandFont.body(15, weight: .semibold))
-                            .foregroundStyle(Color.brandWarmBlack)
+                            .foregroundStyle(Color.luxuryPrimaryText)
                         if let phone = customer.phone {
-                            Text(phone).font(BrandFont.body(12)).foregroundStyle(Color.brandWarmGrey)
+                            Text(phone).font(BrandFont.body(12)).foregroundStyle(Color.luxurySecondaryText)
                         }
                     }
                     Spacer()
                     Button("Change") { showCustomerPicker = true }
                         .font(BrandFont.body(13))
-                        .foregroundStyle(Color.brandWarmBlack)
+                        .foregroundStyle(Color.luxuryPrimaryText)
                 }
                 .padding(14)
-                .background(Color.brandLinen)
+                .background(Color.luxurySurface)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.brandPebble, lineWidth: 0.5))
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.luxuryDivider, lineWidth: 0.5))
             } else {
                 Button { showCustomerPicker = true } label: {
                     HStack {
                         Image(systemName: "person.badge.plus")
                             .font(.system(size: 15))
-                            .foregroundStyle(Color.brandWarmGrey)
+                            .foregroundStyle(Color.luxurySecondaryText)
                         Text("Select a client")
                             .font(BrandFont.body(14))
-                            .foregroundStyle(Color.brandWarmGrey)
+                            .foregroundStyle(Color.luxurySecondaryText)
                         Spacer()
                         Image(systemName: "chevron.right")
                             .font(.system(size: 12))
-                            .foregroundStyle(Color.brandPebble)
+                            .foregroundStyle(Color.luxuryDivider)
                     }
                     .padding(16)
-                    .background(Color.brandLinen)
+                    .background(Color.luxurySurface)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.brandPebble, lineWidth: 0.5))
+                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.luxuryDivider, lineWidth: 0.5))
                 }
             }
         }
@@ -168,11 +168,11 @@ struct NewAppointmentSheet: View {
             sectionLabel("DATE & TIME")
             DatePicker("", selection: $appointmentDate, in: Date()..., displayedComponents: [.date, .hourAndMinute])
                 .datePickerStyle(.graphical)
-                .tint(Color.brandWarmBlack)
+                .tint(Color.luxuryPrimaryText)
                 .padding(12)
-                .background(Color.brandLinen)
+                .background(Color.luxurySurface)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.brandPebble, lineWidth: 0.5))
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.luxuryDivider, lineWidth: 0.5))
         }
     }
 
@@ -187,12 +187,12 @@ struct NewAppointmentSheet: View {
                     } label: {
                         Text("\(mins)m")
                             .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(durationMins == mins ? Color.brandOffWhite : Color.brandWarmBlack)
+                            .foregroundStyle(durationMins == mins ? Color.luxuryBackground : Color.luxuryPrimaryText)
                             .padding(.horizontal, 14)
                             .padding(.vertical, 8)
-                            .background(durationMins == mins ? Color.brandWarmBlack : Color.brandLinen)
+                            .background(durationMins == mins ? Color.luxuryPrimaryText : Color.luxurySurface)
                             .clipShape(Capsule())
-                            .overlay(Capsule().stroke(Color.brandPebble, lineWidth: 0.5))
+                            .overlay(Capsule().stroke(Color.luxuryDivider, lineWidth: 0.5))
                     }
                 }
             }
@@ -205,32 +205,32 @@ struct NewAppointmentSheet: View {
             sectionLabel("PRODUCTS OF INTEREST  \(selectedProductQtys.isEmpty ? "" : "(\(selectedProductQtys.count))")")
             // Search
             HStack(spacing: 8) {
-                Image(systemName: "magnifyingglass").foregroundStyle(Color.brandWarmGrey).font(.system(size: 13))
+                Image(systemName: "magnifyingglass").foregroundStyle(Color.luxurySecondaryText).font(.system(size: 13))
                 TextField("Search products…", text: $productSearch)
                     .font(BrandFont.body(13))
             }
             .padding(12)
-            .background(Color.brandLinen)
+            .background(Color.luxurySurface)
             .clipShape(RoundedRectangle(cornerRadius: 10))
-            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.brandPebble, lineWidth: 0.5))
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.luxuryDivider, lineWidth: 0.5))
 
             if vm.catalog.isEmpty {
                 Text("Loading products…")
                     .font(BrandFont.body(12))
-                    .foregroundStyle(Color.brandWarmGrey)
+                    .foregroundStyle(Color.luxurySecondaryText)
                     .padding(.vertical, 8)
             } else {
                 VStack(spacing: 0) {
                     ForEach(Array(filteredCatalog.prefix(20).enumerated()), id: \.element.id) { idx, product in
                         productRow(product)
                         if idx < min(filteredCatalog.count, 20) - 1 {
-                            Divider().background(Color.brandPebble).padding(.leading, 14)
+                            Divider().background(Color.luxuryDivider).padding(.leading, 14)
                         }
                     }
                 }
-                .background(Color.brandLinen)
+                .background(Color.luxurySurface)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.brandPebble, lineWidth: 0.5))
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.luxuryDivider, lineWidth: 0.5))
             }
         }
     }
@@ -244,15 +244,15 @@ struct NewAppointmentSheet: View {
             } label: {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                     .font(.system(size: 20))
-                    .foregroundStyle(isSelected ? Color.brandWarmBlack : Color.brandPebble)
+                    .foregroundStyle(isSelected ? Color.luxuryPrimaryText : Color.luxuryDivider)
             }
             VStack(alignment: .leading, spacing: 2) {
                 Text(product.name)
                     .font(BrandFont.body(13, weight: .medium))
-                    .foregroundStyle(Color.brandWarmBlack)
+                    .foregroundStyle(Color.luxuryPrimaryText)
                 Text(product.category)
                     .font(BrandFont.body(11))
-                    .foregroundStyle(Color.brandWarmGrey)
+                    .foregroundStyle(Color.luxurySecondaryText)
             }
             Spacer()
             if isSelected {
@@ -275,13 +275,13 @@ struct NewAppointmentSheet: View {
                             .frame(width: 26, height: 26)
                     }
                 }
-                .foregroundStyle(Color.brandWarmBlack)
-                .background(Color.brandOffWhite)
+                .foregroundStyle(Color.luxuryPrimaryText)
+                .background(Color.luxuryBackground)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
             } else {
                 Text("₹\(Int(product.price))")
                     .font(BrandFont.body(12))
-                    .foregroundStyle(Color.brandWarmGrey)
+                    .foregroundStyle(Color.luxurySecondaryText)
             }
         }
         .padding(.horizontal, 14).padding(.vertical, 12)
@@ -293,12 +293,12 @@ struct NewAppointmentSheet: View {
             sectionLabel("NOTES (OPTIONAL)")
             TextEditor(text: $notes)
                 .font(BrandFont.body(14))
-                .foregroundStyle(Color.brandWarmBlack)
+                .foregroundStyle(Color.luxuryPrimaryText)
                 .frame(minHeight: 80)
                 .padding(12)
-                .background(Color.brandLinen)
+                .background(Color.luxurySurface)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.brandPebble, lineWidth: 0.5))
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.luxuryDivider, lineWidth: 0.5))
         }
     }
 
@@ -306,17 +306,17 @@ struct NewAppointmentSheet: View {
     private var customerPickerSheet: some View {
         NavigationStack {
             ZStack {
-                Color.brandOffWhite.ignoresSafeArea()
+                Color.luxuryBackground.ignoresSafeArea()
                 VStack(spacing: 0) {
                     HStack(spacing: 8) {
-                        Image(systemName: "magnifyingglass").foregroundStyle(Color.brandWarmGrey).font(.system(size: 13))
+                        Image(systemName: "magnifyingglass").foregroundStyle(Color.luxurySecondaryText).font(.system(size: 13))
                         TextField("Search clients…", text: $customerSearch)
                             .font(BrandFont.body(14))
                     }
                     .padding(14)
-                    .background(Color.brandLinen)
+                    .background(Color.luxurySurface)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.brandPebble, lineWidth: 0.5))
+                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.luxuryDivider, lineWidth: 0.5))
                     .padding([.horizontal, .top], 16)
 
                     ScrollView(showsIndicators: false) {
@@ -333,15 +333,15 @@ struct NewAppointmentSheet: View {
                                             .overlay(
                                                 Text(String(customer.name.prefix(1)).uppercased())
                                                     .font(.system(size: 14, weight: .semibold, design: .serif))
-                                                    .foregroundStyle(Color.brandWarmBlack)
+                                                    .foregroundStyle(Color.luxuryPrimaryText)
                                             )
                                         VStack(alignment: .leading, spacing: 2) {
                                             Text(customer.name)
                                                 .font(BrandFont.body(14, weight: .medium))
-                                                .foregroundStyle(Color.brandWarmBlack)
+                                                .foregroundStyle(Color.luxuryPrimaryText)
                                             Text(customer.phone ?? customer.email ?? "")
                                                 .font(BrandFont.body(11))
-                                                .foregroundStyle(Color.brandWarmGrey)
+                                                .foregroundStyle(Color.luxurySecondaryText)
                                         }
                                         Spacer()
                                         if let cat = customer.customerCategory {
@@ -354,9 +354,9 @@ struct NewAppointmentSheet: View {
                                         }
                                     }
                                     .padding(.horizontal, 16).padding(.vertical, 12)
-                                    .background(Color.brandLinen)
+                                    .background(Color.luxurySurface)
                                     .clipShape(RoundedRectangle(cornerRadius: 12))
-                                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.brandPebble, lineWidth: 0.5))
+                                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.luxuryDivider, lineWidth: 0.5))
                                 }
                                 .buttonStyle(.plain)
                                 .padding(.horizontal, 16)
@@ -372,11 +372,11 @@ struct NewAppointmentSheet: View {
                 ToolbarItem(placement: .principal) {
                     Text("SELECT CLIENT")
                         .font(.system(size: 13, weight: .semibold)).kerning(2)
-                        .foregroundStyle(Color.brandWarmBlack)
+                        .foregroundStyle(Color.luxuryPrimaryText)
                 }
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Cancel") { showCustomerPicker = false }
-                        .foregroundStyle(Color.brandWarmBlack)
+                        .foregroundStyle(Color.luxuryPrimaryText)
                 }
             }
         }
@@ -386,6 +386,6 @@ struct NewAppointmentSheet: View {
         Text(text)
             .font(.system(size: 11, weight: .semibold))
             .kerning(1.2)
-            .foregroundStyle(Color.brandWarmGrey)
+            .foregroundStyle(Color.luxurySecondaryText)
     }
 }

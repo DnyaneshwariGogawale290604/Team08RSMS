@@ -12,7 +12,7 @@ struct BillingView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.brandOffWhite.ignoresSafeArea()
+                Color.luxuryBackground.ignoresSafeArea()
 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: Spacing.lg) {
@@ -33,24 +33,24 @@ struct BillingView: View {
                         Spacer()
                         HStack(spacing: 10) {
                             Image(systemName: "checkmark.circle.fill")
-                                .foregroundStyle(Color(hex: "#4A7C59"))
+                                .foregroundStyle(Color.luxuryPrimary)
                                 .font(.system(size: 16))
                             Text("Billing plan saved")
                                 .font(BrandFont.body(13, weight: .medium))
-                                .foregroundStyle(Color.brandWarmBlack)
+                                .foregroundStyle(Color.luxuryPrimaryText)
                             Spacer()
                         }
                         .padding(.horizontal, Spacing.md)
                         .padding(.vertical, 14)
                         .background(
                             RoundedRectangle(cornerRadius: Radius.lg)
-                                .fill(Color.brandLinen)
-                                .shadow(color: Color.brandWarmBlack.opacity(0.12),
+                                .fill(Color.luxurySurface)
+                                .shadow(color: Color.luxuryPrimaryText.opacity(0.12),
                                         radius: 12, y: 4)
                         )
                         .overlay(
                             RoundedRectangle(cornerRadius: Radius.lg)
-                                .stroke(Color(hex: "#4A7C59").opacity(0.3),
+                                .stroke(Color.luxuryPrimary.opacity(0.3),
                                         lineWidth: 1)
                         )
                         .padding(.horizontal, Spacing.md)
@@ -68,11 +68,11 @@ struct BillingView: View {
                     Text("BILLING & PAYMENT")
                         .font(.system(size: 13, weight: .semibold))
                         .kerning(2)
-                        .foregroundStyle(Color.brandWarmBlack)
+                        .foregroundStyle(Color.luxuryPrimaryText)
                 }
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Cancel") { dismiss() }
-                        .foregroundStyle(Color.brandWarmGrey)
+                        .foregroundStyle(Color.luxurySecondaryText)
                 }
             }
             .safeAreaInset(edge: .bottom) {
@@ -120,15 +120,15 @@ struct BillingView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(item.product.name)
                                 .font(BrandFont.body(14, weight: .medium))
-                                .foregroundStyle(Color.brandWarmBlack)
+                                .foregroundStyle(Color.luxuryPrimaryText)
                             Text("₹\(Int(item.product.price)) × \(item.quantity)")
                                 .font(BrandFont.body(12))
-                                .foregroundStyle(Color.brandWarmGrey)
+                                .foregroundStyle(Color.luxurySecondaryText)
                         }
                         Spacer()
                         Text("₹\(Int(item.lineTotal))")
                             .font(BrandFont.body(14, weight: .semibold))
-                            .foregroundStyle(Color.brandWarmBlack)
+                            .foregroundStyle(Color.luxuryPrimaryText)
                     }
                     .padding(Spacing.md)
                     
@@ -142,18 +142,18 @@ struct BillingView: View {
                 HStack {
                     Text("Total Amount")
                         .font(BrandFont.body(15, weight: .bold))
-                        .foregroundStyle(Color.brandWarmBlack)
+                        .foregroundStyle(Color.luxuryPrimaryText)
                     Spacer()
                     Text("₹\(Int(vm.cartTotal))")
                         .font(.system(size: 20, weight: .bold, design: .serif))
-                        .foregroundStyle(Color.brandWarmBlack)
+                        .foregroundStyle(Color.luxuryPrimaryText)
                 }
                 .padding(Spacing.md)
-                .background(Color.brandLinen.opacity(0.5))
+                .background(Color.luxurySurface.opacity(0.5))
             }
-            .background(Color.brandLinen)
+            .background(Color.luxurySurface)
             .clipShape(RoundedRectangle(cornerRadius: Radius.lg))
-            .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.brandPebble, lineWidth: 0.5))
+            .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.luxuryDivider, lineWidth: 0.5))
             .padding(.horizontal, Spacing.md)
         }
     }
@@ -175,12 +175,12 @@ struct BillingView: View {
                         Text("Add Payment Leg")
                             .font(BrandFont.body(14, weight: .semibold))
                     }
-                    .foregroundStyle(Color.brandWarmBlack)
+                    .foregroundStyle(Color.luxuryPrimaryText)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
-                    .background(Color.brandLinen)
+                    .background(Color.luxurySurface)
                     .clipShape(RoundedRectangle(cornerRadius: Radius.md))
-                    .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(Color.brandPebble, lineWidth: 0.5))
+                    .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(Color.luxuryDivider, lineWidth: 0.5))
                 }
                 .padding(.horizontal, Spacing.md)
             }
@@ -194,16 +194,16 @@ struct BillingView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Leg \(leg.legNumber)")
                         .font(.system(size: 15, weight: .bold, design: .serif))
-                        .foregroundStyle(Color.brandWarmBlack)
+                        .foregroundStyle(Color.luxuryPrimaryText)
                     
                     // Leg status badge
                     switch leg.existingStatus {
                     case "paid":
                         Text("✅ Paid")
                             .font(BrandFont.body(11, weight: .semibold))
-                            .foregroundStyle(Color(hex: "#4A7C59"))
+                            .foregroundStyle(Color.luxuryPrimary)
                             .padding(.horizontal, 8).padding(.vertical, 3)
-                            .background(Color(hex: "#4A7C59").opacity(0.1))
+                            .background(Color.luxuryPrimary.opacity(0.1))
                             .clipShape(Capsule())
                     case "partially_paid":
                         Text("⏳ Partial")
@@ -215,9 +215,9 @@ struct BillingView: View {
                     case "pending":
                         Text("🕐 Pending")
                             .font(BrandFont.body(11, weight: .semibold))
-                            .foregroundStyle(Color.brandWarmGrey)
+                            .foregroundStyle(Color.luxurySecondaryText)
                             .padding(.horizontal, 8).padding(.vertical, 3)
-                            .background(Color.brandPebble.opacity(0.2))
+                            .background(Color.luxuryDivider.opacity(0.2))
                             .clipShape(Capsule())
                     default:
                         EmptyView()
@@ -230,9 +230,9 @@ struct BillingView: View {
                 if leg.hasAnyPaidItem {
                     Text(leg.dueType == "immediate" ? "Now" : "Later")
                         .font(BrandFont.body(13, weight: .bold))
-                        .foregroundStyle(Color.brandWarmGrey)
+                        .foregroundStyle(Color.luxurySecondaryText)
                         .padding(.horizontal, 12).padding(.vertical, 6)
-                        .background(Color.brandPebble.opacity(0.1))
+                        .background(Color.luxuryDivider.opacity(0.1))
                         .clipShape(Capsule())
                 } else {
                     Picker("Due Type", selection: $vm.billingLegs[index].dueType) {
@@ -258,7 +258,7 @@ struct BillingView: View {
             HStack {
                 Text("Leg Total")
                     .font(BrandFont.body(13))
-                    .foregroundStyle(Color.brandWarmGrey)
+                    .foregroundStyle(Color.luxurySecondaryText)
                 Spacer()
                 TextField("Leg total", value: Binding(
                     get: { vm.billingLegs[index].totalAmount },
@@ -268,10 +268,10 @@ struct BillingView: View {
                     .keyboardType(.decimalPad)
                     .multilineTextAlignment(.trailing)
                     .font(BrandFont.body(15, weight: .bold))
-                    .foregroundStyle(leg.isFullyLocked ? Color.brandWarmGrey : Color.brandWarmBlack)
+                    .foregroundStyle(leg.isFullyLocked ? Color.luxurySecondaryText : Color.luxuryPrimaryText)
                     .frame(width: 100)
                     .padding(.horizontal, 8).padding(.vertical, 4)
-                    .background(leg.isFullyLocked ? Color.brandPebble.opacity(0.15) : Color.clear)
+                    .background(leg.isFullyLocked ? Color.luxuryDivider.opacity(0.15) : Color.clear)
                     .clipShape(RoundedRectangle(cornerRadius: 4))
             }
             
@@ -295,19 +295,19 @@ struct BillingView: View {
                         Text("Add Split")
                             .font(BrandFont.body(13))
                     }
-                    .foregroundStyle(Color.brandWarmGrey)
+                    .foregroundStyle(Color.luxurySecondaryText)
                     .padding(.vertical, 6)
                     .padding(.horizontal, 12)
-                    .background(Color.brandOffWhite)
+                    .background(Color.luxuryBackground)
                     .clipShape(Capsule())
-                    .overlay(Capsule().stroke(Color.brandPebble, lineWidth: 0.5))
+                    .overlay(Capsule().stroke(Color.luxuryDivider, lineWidth: 0.5))
                 }
             }
         }
         .padding(Spacing.md)
-        .background(Color.brandLinen)
+        .background(Color.luxurySurface)
         .clipShape(RoundedRectangle(cornerRadius: Radius.lg))
-        .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.brandPebble, lineWidth: 0.5))
+        .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.luxuryDivider, lineWidth: 0.5))
         .padding(.horizontal, Spacing.md)
     }
 
@@ -327,19 +327,19 @@ struct BillingView: View {
                                     .font(BrandFont.body(12, weight: .medium))
                                     .foregroundStyle(
                                         item.method == method
-                                        ? (item.isPaid ? Color(hex: "#4A7C59") : Color.brandOffWhite)
-                                        : Color.brandWarmBlack
+                                        ? (item.isPaid ? Color.luxuryPrimary : Color.luxuryBackground)
+                                        : Color.luxuryPrimaryText
                                     )
                                     .padding(.horizontal, 12).padding(.vertical, 6)
                                     .background(
                                         item.method == method
-                                        ? (item.isPaid ? Color(hex: "#4A7C59").opacity(0.15) : Color.brandWarmBlack)
-                                        : Color.brandLinen
+                                        ? (item.isPaid ? Color.luxuryPrimary.opacity(0.15) : Color.luxuryPrimaryText)
+                                        : Color.luxurySurface
                                     )
                                     .clipShape(Capsule())
                                     .overlay(
                                         Capsule().stroke(
-                                            item.isPaid ? Color(hex: "#4A7C59").opacity(0.4) : Color.brandPebble,
+                                            item.isPaid ? Color.luxuryPrimary.opacity(0.4) : Color.luxuryDivider,
                                             lineWidth: 0.5
                                         )
                                     )
@@ -369,7 +369,7 @@ struct BillingView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Amount")
                         .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(Color.brandWarmGrey)
+                        .foregroundStyle(Color.luxurySecondaryText)
                     HStack {
                         TextField("0.00", value: Binding(
                             get: { vm.billingLegs[legIdx].items[itemIdx].amount },
@@ -378,12 +378,12 @@ struct BillingView: View {
                             .disabled(item.isPaid)
                             .keyboardType(.decimalPad)
                             .font(BrandFont.body(14, weight: .semibold))
-                            .foregroundStyle(item.isPaid ? Color.brandWarmGrey : Color.brandWarmBlack)
+                            .foregroundStyle(item.isPaid ? Color.luxurySecondaryText : Color.luxuryPrimaryText)
                         
                         // Status icon
                         if item.isPaid {
                             Image(systemName: "checkmark.circle.fill")
-                                .foregroundStyle(Color(hex: "#4A7C59"))
+                                .foregroundStyle(Color.luxuryPrimary)
                                 .font(.system(size: 16))
                         } else if item.existingStatus == "pending" {
                             Image(systemName: "clock")
@@ -392,7 +392,7 @@ struct BillingView: View {
                         }
                     }
                     .padding(10)
-                    .background(item.isPaid ? Color.brandPebble.opacity(0.15) : Color.brandOffWhite)
+                    .background(item.isPaid ? Color.luxuryDivider.opacity(0.15) : Color.luxuryBackground)
                     .cornerRadius(Radius.sm)
                 }
                 
@@ -400,32 +400,32 @@ struct BillingView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Tendered")
                             .font(.system(size: 10, weight: .bold))
-                            .foregroundStyle(Color.brandWarmGrey)
+                            .foregroundStyle(Color.luxurySecondaryText)
                         TextField("0.00", value: $vm.billingLegs[legIdx].items[itemIdx].tendered, format: .number)
                             .keyboardType(.decimalPad)
                             .font(BrandFont.body(14, weight: .semibold))
                             .padding(10)
-                            .background(Color.brandOffWhite)
+                            .background(Color.luxuryBackground)
                             .cornerRadius(Radius.sm)
                     }
                 } else {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Note")
                             .font(.system(size: 10, weight: .bold))
-                            .foregroundStyle(Color.brandWarmGrey)
+                            .foregroundStyle(Color.luxurySecondaryText)
                         Text(item.isPaid ? "Payment Collected" : "To be collected via \(vm.activeGateway.capitalized)")
                             .font(BrandFont.body(12))
-                            .foregroundStyle(Color.brandWarmGrey)
+                            .foregroundStyle(Color.luxurySecondaryText)
                             .padding(10)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color.brandOffWhite.opacity(0.5))
+                            .background(Color.luxuryBackground.opacity(0.5))
                             .cornerRadius(Radius.sm)
                     }
                 }
             }
         }
         .padding(12)
-        .background(Color.brandOffWhite.opacity(0.3))
+        .background(Color.luxuryBackground.opacity(0.3))
         .cornerRadius(Radius.md)
     }
 
@@ -446,7 +446,7 @@ struct BillingView: View {
                             Text("Balanced")
                         }
                         .font(BrandFont.body(12, weight: .bold))
-                        .foregroundStyle(Color(hex: "#4A7C59"))
+                        .foregroundStyle(Color.luxuryPrimary)
                     } else {
                         Text(diff > 0 ? "Short: ₹\(Int(diff))" : "Over: ₹\(Int(abs(diff)))")
                             .font(BrandFont.body(12, weight: .bold))
@@ -462,12 +462,12 @@ struct BillingView: View {
                     HStack {
                         Text("Leg \(leg.legNumber)")
                             .font(BrandFont.body(12))
-                            .foregroundStyle(Color.brandWarmGrey)
+                            .foregroundStyle(Color.luxurySecondaryText)
                         Spacer()
                         if leg.lockedAmount > 0 {
                             Text("₹\(Int(leg.lockedAmount)) paid")
                                 .font(BrandFont.body(11, weight: .semibold))
-                                .foregroundStyle(Color(hex: "#4A7C59"))
+                                .foregroundStyle(Color.luxuryPrimary)
                                 .padding(.trailing, 4)
                         }
                         if leg.pendingAmount > 0 {
@@ -479,11 +479,11 @@ struct BillingView: View {
                 }
             }
             .padding(Spacing.md)
-            .background(Color.brandLinen)
+            .background(Color.luxurySurface)
             .clipShape(RoundedRectangle(cornerRadius: Radius.md))
             .overlay(
                 RoundedRectangle(cornerRadius: Radius.md)
-                    .stroke(Color.brandPebble, lineWidth: 0.5)
+                    .stroke(Color.luxuryDivider, lineWidth: 0.5)
             )
         }
         .padding(.horizontal, Spacing.md)
@@ -493,10 +493,10 @@ struct BillingView: View {
         HStack {
             if vm.gatewayConfigured {
                 HStack(spacing: 6) {
-                    Circle().fill(Color(hex: "#4A7C59")).frame(width: 8, height: 8)
+                    Circle().fill(Color.luxuryPrimary).frame(width: 8, height: 8)
                     Text("\(vm.activeGateway.capitalized) connected")
                         .font(BrandFont.body(12, weight: .medium))
-                        .foregroundStyle(Color(hex: "#4A7C59"))
+                        .foregroundStyle(Color.luxuryPrimary)
                 }
             } else {
                 HStack(spacing: 6) {
@@ -534,7 +534,7 @@ struct BillingView: View {
             } label: {
                 HStack {
                     if vm.isLoading {
-                        ProgressView().tint(Color.brandWarmBlack)
+                        ProgressView().tint(Color.luxuryPrimaryText)
                     } else {
                         Text("Save Billing Plan")
                             .font(BrandFont.body(15, weight: .semibold))
@@ -542,10 +542,10 @@ struct BillingView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .frame(height: 52)
-                .background(Color.brandLinen)
-                .foregroundStyle(Color.brandWarmBlack)
+                .background(Color.luxurySurface)
+                .foregroundStyle(Color.luxuryPrimaryText)
                 .clipShape(RoundedRectangle(cornerRadius: Radius.md))
-                .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(Color.brandPebble, lineWidth: 1))
+                .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(Color.luxuryDivider, lineWidth: 1))
             }
             .disabled(vm.isLoading)
 
@@ -567,7 +567,7 @@ struct BillingView: View {
             }
         }
         .padding(Spacing.md)
-        .background(Color.brandOffWhite)
+        .background(Color.luxuryBackground)
         .shadow(color: Color.black.opacity(0.05), radius: 10, y: -5)
     }
 }

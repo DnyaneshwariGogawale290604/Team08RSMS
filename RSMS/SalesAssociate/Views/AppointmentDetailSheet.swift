@@ -18,7 +18,7 @@ struct AppointmentDetailSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.brandOffWhite.ignoresSafeArea()
+                Color.luxuryBackground.ignoresSafeArea()
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 20) {
                         clientHeader
@@ -37,12 +37,12 @@ struct AppointmentDetailSheet: View {
                 }
 
                 if isStartingOrder {
-                    Color.brandOffWhite.opacity(0.85).ignoresSafeArea()
+                    Color.luxuryBackground.opacity(0.85).ignoresSafeArea()
                     VStack(spacing: 12) {
                         ProgressView()
                         Text("Preparing order…")
                             .font(BrandFont.body(13))
-                            .foregroundStyle(Color.brandWarmGrey)
+                            .foregroundStyle(Color.luxurySecondaryText)
                     }
                 }
             }
@@ -52,12 +52,12 @@ struct AppointmentDetailSheet: View {
                     Text("APPOINTMENT")
                         .font(.system(size: 13, weight: .semibold))
                         .kerning(2)
-                        .foregroundStyle(Color.brandWarmBlack)
+                        .foregroundStyle(Color.luxuryPrimaryText)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Close") { dismiss() }
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Color.brandWarmBlack)
+                        .foregroundStyle(Color.luxuryPrimaryText)
                 }
             }
             .confirmationDialog("Cancel Appointment", isPresented: $showCancelConfirm, titleVisibility: .visible) {
@@ -99,11 +99,11 @@ struct AppointmentDetailSheet: View {
                 .overlay(
                     Text(String((appointment.customer?.name ?? "?").prefix(1)).uppercased())
                         .font(.system(size: 28, weight: .semibold, design: .serif))
-                        .foregroundStyle(Color.brandWarmBlack)
+                        .foregroundStyle(Color.luxuryPrimaryText)
                 )
             Text(appointment.customer?.name ?? "Unknown Client")
                 .font(.system(size: 22, weight: .semibold, design: .serif))
-                .foregroundStyle(Color.brandWarmBlack)
+                .foregroundStyle(Color.luxuryPrimaryText)
             if let cat = appointment.customer?.customerCategory {
                 Text(cat.uppercased())
                     .font(.system(size: 9, weight: .bold)).kerning(1)
@@ -118,59 +118,59 @@ struct AppointmentDetailSheet: View {
     private var detailCard: some View {
         VStack(spacing: 0) {
             detailRow(icon: "calendar", label: "Date & Time", value: appointment.displayDateTime)
-            Divider().background(Color.brandPebble).padding(.leading, 44)
+            Divider().background(Color.luxuryDivider).padding(.leading, 44)
             detailRow(icon: "clock", label: "Duration", value: appointment.durationDisplay)
             if let phone = appointment.customer?.phone {
-                Divider().background(Color.brandPebble).padding(.leading, 44)
+                Divider().background(Color.luxuryDivider).padding(.leading, 44)
                 detailRow(icon: "phone", label: "Phone", value: phone)
             }
         }
-        .background(Color.brandLinen)
+        .background(Color.luxurySurface)
         .clipShape(RoundedRectangle(cornerRadius: 16))
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.brandPebble, lineWidth: 0.5))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.luxuryDivider, lineWidth: 0.5))
     }
 
     private func productsSection(_ products: [AppointmentProductItem]) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("PRODUCTS OF INTEREST")
                 .font(.system(size: 11, weight: .semibold)).kerning(1.2)
-                .foregroundStyle(Color.brandWarmGrey)
+                .foregroundStyle(Color.luxurySecondaryText)
             VStack(spacing: 0) {
                 ForEach(Array(products.enumerated()), id: \.element.id) { idx, item in
                     HStack(spacing: 12) {
                         RoundedRectangle(cornerRadius: 6)
-                            .fill(Color.brandOffWhite)
+                            .fill(Color.luxuryBackground)
                             .frame(width: 36, height: 36)
-                            .overlay(Image(systemName: "tag").font(.system(size: 13)).foregroundStyle(Color.brandWarmGrey))
+                            .overlay(Image(systemName: "tag").font(.system(size: 13)).foregroundStyle(Color.luxurySecondaryText))
                         VStack(alignment: .leading, spacing: 2) {
                             Text(item.product?.name ?? "Unknown product")
                                 .font(BrandFont.body(14, weight: .medium))
-                                .foregroundStyle(Color.brandWarmBlack)
+                                .foregroundStyle(Color.luxuryPrimaryText)
                             if let notes = item.notes, !notes.isEmpty {
-                                Text(notes).font(BrandFont.body(11)).foregroundStyle(Color.brandWarmGrey)
+                                Text(notes).font(BrandFont.body(11)).foregroundStyle(Color.luxurySecondaryText)
                             }
                         }
                         Spacer()
                         VStack(alignment: .trailing, spacing: 2) {
                             Text("×\(item.quantity)")
                                 .font(BrandFont.body(13, weight: .semibold))
-                                .foregroundStyle(Color.brandWarmBlack)
+                                .foregroundStyle(Color.luxuryPrimaryText)
                             if let price = item.product?.price {
                                 Text("₹\(Int(price))")
                                     .font(BrandFont.body(11))
-                                    .foregroundStyle(Color.brandWarmGrey)
+                                    .foregroundStyle(Color.luxurySecondaryText)
                             }
                         }
                     }
                     .padding(.horizontal, 14).padding(.vertical, 12)
                     if idx < products.count - 1 {
-                        Divider().background(Color.brandPebble).padding(.leading, 62)
+                        Divider().background(Color.luxuryDivider).padding(.leading, 62)
                     }
                 }
             }
-            .background(Color.brandLinen)
+            .background(Color.luxurySurface)
             .clipShape(RoundedRectangle(cornerRadius: 16))
-            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.brandPebble, lineWidth: 0.5))
+            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.luxuryDivider, lineWidth: 0.5))
         }
     }
 
@@ -178,15 +178,15 @@ struct AppointmentDetailSheet: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("NOTES")
                 .font(.system(size: 11, weight: .semibold)).kerning(1.2)
-                .foregroundStyle(Color.brandWarmGrey)
+                .foregroundStyle(Color.luxurySecondaryText)
             Text(notes)
                 .font(BrandFont.body(14))
-                .foregroundStyle(Color.brandWarmBlack)
+                .foregroundStyle(Color.luxuryPrimaryText)
                 .padding(14)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.brandLinen)
+                .background(Color.luxurySurface)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.brandPebble, lineWidth: 0.5))
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.luxuryDivider, lineWidth: 0.5))
         }
     }
 
@@ -206,10 +206,10 @@ struct AppointmentDetailSheet: View {
                     Text(hasProducts ? "Edit Order" : "Start Order")
                         .font(BrandFont.body(15, weight: .semibold))
                 }
-                .foregroundStyle(Color.brandOffWhite)
+                .foregroundStyle(Color.luxuryBackground)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
-                .background(Color.brandWarmBlack)
+                .background(Color.luxuryPrimaryText)
                 .clipShape(RoundedRectangle(cornerRadius: 13))
             }
             .disabled(isStartingOrder)
@@ -218,7 +218,7 @@ struct AppointmentDetailSheet: View {
             Button { showCancelConfirm = true } label: {
                 Text("Cancel Appointment")
                     .font(BrandFont.body(13))
-                    .foregroundStyle(Color.brandWarmGrey)
+                    .foregroundStyle(Color.luxurySecondaryText)
             }
             .padding(.top, 4)
         }
@@ -229,15 +229,15 @@ struct AppointmentDetailSheet: View {
         HStack(spacing: 12) {
             Image(systemName: icon)
                 .font(.system(size: 14))
-                .foregroundStyle(Color.brandWarmGrey)
+                .foregroundStyle(Color.luxurySecondaryText)
                 .frame(width: 20)
             Text(label)
                 .font(.system(size: 13))
-                .foregroundStyle(Color.brandWarmGrey)
+                .foregroundStyle(Color.luxurySecondaryText)
             Spacer()
             Text(value)
                 .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(Color.brandWarmBlack)
+                .foregroundStyle(Color.luxuryPrimaryText)
         }
         .padding(.horizontal, 14).padding(.vertical, 14)
     }

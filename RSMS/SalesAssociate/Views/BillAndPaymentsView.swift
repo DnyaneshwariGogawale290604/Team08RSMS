@@ -10,7 +10,7 @@ struct BillAndPaymentsView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.brandOffWhite.ignoresSafeArea()
+                Color.luxuryBackground.ignoresSafeArea()
 
                 if vm.isLoadingPaymentSummary {
                     VStack {
@@ -18,7 +18,7 @@ struct BillAndPaymentsView: View {
                             .scaleEffect(1.5)
                         Text("Fetching payment details...")
                             .font(BrandFont.body(14))
-                            .foregroundStyle(Color.brandWarmGrey)
+                            .foregroundStyle(Color.luxurySecondaryText)
                             .padding(.top, 10)
                     }
                 } else if let summary = vm.orderPaymentSummary {
@@ -40,10 +40,10 @@ struct BillAndPaymentsView: View {
                     VStack {
                         Image(systemName: "creditcard.and.123")
                             .font(.system(size: 48))
-                            .foregroundStyle(Color.brandPebble)
+                            .foregroundStyle(Color.luxuryDivider)
                         Text("No payment info found.")
                             .font(BrandFont.body(14))
-                            .foregroundStyle(Color.brandWarmGrey)
+                            .foregroundStyle(Color.luxurySecondaryText)
                     }
                 }
 
@@ -57,12 +57,12 @@ struct BillAndPaymentsView: View {
                     Text("BILL & PAYMENTS")
                         .font(.system(size: 13, weight: .semibold))
                         .kerning(2)
-                        .foregroundStyle(Color.brandWarmBlack)
+                        .foregroundStyle(Color.luxuryPrimaryText)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") { dismiss() }
                         .font(BrandFont.body(14, weight: .semibold))
-                        .foregroundStyle(Color.brandWarmBlack)
+                        .foregroundStyle(Color.luxuryPrimaryText)
                 }
             }
             .task {
@@ -83,19 +83,19 @@ struct BillAndPaymentsView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Total Amount")
                         .font(BrandFont.body(12))
-                        .foregroundStyle(Color.brandWarmGrey)
+                        .foregroundStyle(Color.luxurySecondaryText)
                     Text("₹\(Int(summary.totalAmount))")
                         .font(.system(size: 24, weight: .bold, design: .serif))
-                        .foregroundStyle(Color.brandWarmBlack)
+                        .foregroundStyle(Color.luxuryPrimaryText)
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 4) {
                     Text("Status")
                         .font(BrandFont.body(12))
-                        .foregroundStyle(Color.brandWarmGrey)
+                        .foregroundStyle(Color.luxurySecondaryText)
                     BadgeView(
                         text: summary.paymentStatus.uppercased(),
-                        color: summary.paymentStatus == "paid" ? Color(hex: "#4A7C59") : Color(hex: "#C8913A")
+                        color: summary.paymentStatus == "paid" ? Color.luxuryPrimary : Color(hex: "#C8913A")
                     )
                 }
             }
@@ -106,26 +106,26 @@ struct BillAndPaymentsView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Paid")
                         .font(BrandFont.body(11))
-                        .foregroundStyle(Color.brandWarmGrey)
+                        .foregroundStyle(Color.luxurySecondaryText)
                     Text("₹\(Int(summary.amountPaid))")
                         .font(BrandFont.body(15, weight: .bold))
-                        .foregroundStyle(Color(hex: "#4A7C59"))
+                        .foregroundStyle(Color.luxuryPrimary)
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 2) {
                     Text("Remaining")
                         .font(BrandFont.body(11))
-                        .foregroundStyle(Color.brandWarmGrey)
+                        .foregroundStyle(Color.luxurySecondaryText)
                     Text("₹\(Int(summary.remaining))")
                         .font(BrandFont.body(15, weight: .bold))
-                        .foregroundStyle(summary.remaining > 0 ? Color(hex: "#9B4444") : Color.brandWarmGrey)
+                        .foregroundStyle(summary.remaining > 0 ? Color(hex: "#9B4444") : Color.luxurySecondaryText)
                 }
             }
         }
         .padding(Spacing.md)
-        .background(Color.brandLinen)
+        .background(Color.luxurySurface)
         .clipShape(RoundedRectangle(cornerRadius: Radius.lg))
-        .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.brandPebble, lineWidth: 0.5))
+        .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.luxuryDivider, lineWidth: 0.5))
         .padding(.horizontal, Spacing.md)
     }
 
@@ -134,35 +134,35 @@ struct BillAndPaymentsView: View {
             HStack {
                 Text("Leg \(leg.legNumber) — \(leg.dueType == "immediate" ? "Initial" : "On Delivery")")
                     .font(BrandFont.body(14, weight: .bold))
-                    .foregroundStyle(Color.brandWarmBlack)
+                    .foregroundStyle(Color.luxuryPrimaryText)
                 
                 Spacer()
                 
                 BadgeView(
                     text: leg.status.uppercased(),
-                    color: leg.status == "paid" ? Color(hex: "#4A7C59") : Color(hex: "#C8913A")
+                    color: leg.status == "paid" ? Color.luxuryPrimary : Color(hex: "#C8913A")
                 )
             }
             
             HStack {
                 Text("Amount Due")
                     .font(BrandFont.body(13))
-                    .foregroundStyle(Color.brandWarmGrey)
+                    .foregroundStyle(Color.luxurySecondaryText)
                 Spacer()
                 Text("₹\(Int(leg.totalAmount))")
                     .font(BrandFont.body(15, weight: .semibold))
-                    .foregroundStyle(Color.brandWarmBlack)
+                    .foregroundStyle(Color.luxuryPrimaryText)
             }
             
             if leg.amountPaid > 0 {
                 HStack {
                     Text("Amount Paid")
                         .font(BrandFont.body(13))
-                        .foregroundStyle(Color.brandWarmGrey)
+                        .foregroundStyle(Color.luxurySecondaryText)
                     Spacer()
                     Text("₹\(Int(leg.amountPaid))")
                         .font(BrandFont.body(15, weight: .semibold))
-                        .foregroundStyle(Color(hex: "#4A7C59"))
+                        .foregroundStyle(Color.luxuryPrimary)
                 }
             }
             
@@ -172,7 +172,7 @@ struct BillAndPaymentsView: View {
                 HStack {
                     Image(systemName: item.method == "cash" ? "banknote" : "creditcard")
                         .font(.system(size: 14))
-                        .foregroundStyle(Color.brandWarmGrey)
+                        .foregroundStyle(Color.luxurySecondaryText)
                     
                     VStack(alignment: .leading, spacing: 2) {
                         Text(item.method.uppercased())
@@ -180,7 +180,7 @@ struct BillAndPaymentsView: View {
                         if let note = item.note {
                             Text(note)
                                 .font(BrandFont.body(11))
-                                .foregroundStyle(Color.brandWarmGrey)
+                                .foregroundStyle(Color.luxurySecondaryText)
                         }
                     }
                     
@@ -191,16 +191,16 @@ struct BillAndPaymentsView: View {
                             .font(BrandFont.body(13, weight: .medium))
                         Text(item.status.capitalized)
                             .font(.system(size: 9))
-                            .foregroundStyle(item.status == "paid" ? Color(hex: "#4A7C59") : Color(hex: "#C8913A"))
+                            .foregroundStyle(item.status == "paid" ? Color.luxuryPrimary : Color(hex: "#C8913A"))
                     }
                 }
                 .padding(.vertical, 4)
             }
         }
         .padding(Spacing.md)
-        .background(Color.brandLinen.opacity(0.6))
+        .background(Color.luxurySurface.opacity(0.6))
         .clipShape(RoundedRectangle(cornerRadius: Radius.lg))
-        .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.brandPebble, lineWidth: 0.5))
+        .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.luxuryDivider, lineWidth: 0.5))
         .padding(.horizontal, Spacing.md)
     }
 
@@ -210,7 +210,7 @@ struct BillAndPaymentsView: View {
             
             Text("The customer has an outstanding balance of ₹\(Int(summary.remaining)). Choose a method to record the remaining payment.")
                 .font(BrandFont.body(13))
-                .foregroundStyle(Color.brandWarmGrey)
+                .foregroundStyle(Color.luxurySecondaryText)
                 .padding(.horizontal, Spacing.md)
             
             HStack(spacing: 12) {
@@ -238,8 +238,8 @@ struct BillAndPaymentsView: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 12)
-            .background(isEnabled ? Color.brandWarmBlack : Color.brandPebble)
-            .foregroundStyle(isEnabled ? Color.brandOffWhite : Color.brandWarmGrey)
+            .background(isEnabled ? Color.luxuryPrimaryText : Color.luxuryDivider)
+            .foregroundStyle(isEnabled ? Color.luxuryBackground : Color.luxurySecondaryText)
             .cornerRadius(Radius.md)
         }
         .disabled(!isEnabled || vm.isLoading)
