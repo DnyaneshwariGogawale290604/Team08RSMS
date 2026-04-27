@@ -9,7 +9,7 @@ struct AdminDashboardView: View {
     @ObservedObject private var engine = InventoryEngine.shared
 
     @State private var showingApprovalDialog = false
-    @State private var selectedDemand: Transfer? = nil
+    @State private var selectedDemand: VendorOrder? = nil
     @State private var approvalReason: String = ""
 
     init(sessionViewModel: SessionViewModel) {
@@ -52,7 +52,7 @@ struct AdminDashboardView: View {
                         topPerformingStoresCard
 
                         // IM-3 & IM-4: Pending Approvals
-                        let pendingVendorOrders = engine.demands.filter { $0.type == .vendor && $0.status == .pending }
+                        let pendingVendorOrders = adminViewModel.pendingVendorOrders
                         if !pendingVendorOrders.isEmpty {
                             VStack(alignment: .leading, spacing: 12) {
                                 Text("Action Required: Pending Approvals")
@@ -86,18 +86,22 @@ struct AdminDashboardView: View {
             .alert("Process Vendor Order", isPresented: $showingApprovalDialog, presenting: selectedDemand) { demand in
                 TextField("Add Reason (Optional)", text: $approvalReason)
                 Button("Approve", action: {
-                    engine.processAdminDecision(demandId: demand.id, isApproved: true, reason: approvalReason.isEmpty ? "Approved" : approvalReason)
-                    approvalReason = ""
+                    Task {
+                        await adminViewModel.approveVendorOrder(id: demand.id)
+                        approvalReason = ""
+                    }
                 })
                 Button("Reject", role: .destructive, action: {
-                    engine.processAdminDecision(demandId: demand.id, isApproved: false, reason: approvalReason.isEmpty ? "Rejected due to policy limitations" : approvalReason)
-                    approvalReason = ""
+                    Task {
+                        await adminViewModel.rejectVendorOrder(id: demand.id, reason: approvalReason.isEmpty ? "Rejected due to policy limitations" : approvalReason)
+                        approvalReason = ""
+                    }
                 })
                 Button("Cancel", role: .cancel, action: {
                     approvalReason = ""
                 })
             } message: { demand in
-                Text("Process PO: \(demand.orderId) for \(demand.items.first?.quantity ?? 0)x \(demand.items.first?.productName ?? "Items")")
+                Text("Process PO for \(demand.quantity ?? 0)x \(demand.product?.name ?? "Items")")
             }
         }
     }
@@ -477,18 +481,18 @@ struct AdminDashboardView: View {
     }
     
     @ViewBuilder
-    private func approvalAlertCard(for demand: Transfer) -> some View {
+    private func approvalAlertCard(for demand: VendorOrder) -> some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
                     Image(systemName: "exclamationmark.circle.fill")
                         .foregroundColor(CatalogTheme.deepAccent)
-                    Text("Vendor Order: \(demand.orderId)")
+                    Text("Vendor Order")
                         .font(.subheadline.bold())
                         .foregroundColor(CatalogTheme.primaryText)
                 }
 
-                Text("\(demand.items.first?.quantity ?? 0)x \(demand.items.first?.productName ?? "")")
+                Text("\(demand.quantity ?? 0)x \(demand.product?.name ?? "")")
                     .font(.footnote)
                     .foregroundColor(CatalogTheme.secondaryText)
             }

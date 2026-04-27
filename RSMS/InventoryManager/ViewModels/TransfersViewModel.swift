@@ -170,12 +170,14 @@ public final class TransfersViewModel: ObservableObject {
         }
     }
 
-    /// Marks a PO as received — stock will be added manually or via a separate flow.
     public func markPOReceived(order: VendorOrder) async {
         isLoading = true
         defer { isLoading = false }
         do {
             try await RequestService.shared.updateVendorOrderStatus(id: order.id, status: "received")
+            if let warehouseId = try? await resolveWarehouseId(), let productId = order.productId, let qty = order.quantity {
+                try await WarehouseService.shared.incrementStock(warehouseId: warehouseId, productId: productId, by: qty)
+            }
             await loadData()
         } catch {
             errorMessage = error.localizedDescription
@@ -200,9 +202,21 @@ public final class TransfersViewModel: ObservableObject {
             warehouseId: warehouseId,
             productId: productId
         )
-        if remaining < 5 {
-            print("⚠️ Stock < 5 for product \(productId) — auto-creating vendor reorder")
-            try await RequestService.shared.createVendorOrder(quantity: 20)
+        
+        // Use dynamic Reorder Point (ROP) and Reorder Quantity (ROQ)
+        if let product = brandProducts.first(where: { $0.id == productId }) {
+            let rop = product.reorderPoint ?? 5
+            let roq = product.reorderQuantity ?? 20
+            
+            if remaining <= rop {
+                print("⚠️ Stock \(remaining) <= ROP \(rop) for product \(productId) — auto-creating vendor reorder")
+                // Pick the first vendor available for this brand
+                if let vendorId = brandVendors.first?.id {
+                    try await RequestService.shared.createVendorOrder(productId: productId, vendorId: vendorId, quantity: roq)
+                } else {
+                    print("❌ No vendor available to place auto-reorder")
+                }
+            }
         }
     }
 

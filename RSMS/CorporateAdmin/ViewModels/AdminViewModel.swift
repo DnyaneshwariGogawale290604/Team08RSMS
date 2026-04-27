@@ -11,6 +11,7 @@ public final class AdminViewModel: ObservableObject {
     @Published public var products: [Product] = []
     @Published public var stores: [Store] = []
     @Published public var warehouses: [Warehouse] = []
+    @Published public var pendingVendorOrders: [VendorOrder] = []
     @Published public var isLoading = false
     @Published public var errorMessage: String?
     @Published public var successMessage: String?
@@ -50,6 +51,7 @@ public final class AdminViewModel: ObservableObject {
         await fetchWarehouses()
         await fetchProducts()
         await fetchStaff(for: selectedRole)
+        await fetchPendingVendorOrders()
     }
 
     public func fetchStaff(for role: StaffRoleTab) async {
@@ -187,6 +189,40 @@ public final class AdminViewModel: ObservableObject {
             errorMessage = error.localizedDescription
             successMessage = nil
             return false
+        }
+    }
+
+    // MARK: - Vendor Orders
+
+    public func fetchPendingVendorOrders() async {
+        do {
+            pendingVendorOrders = try await RequestService.shared.fetchPendingVendorOrdersForAdmin()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    public func approveVendorOrder(id: UUID) async {
+        isLoading = true
+        defer { isLoading = false }
+        do {
+            try await RequestService.shared.approveVendorOrder(id: id)
+            await fetchPendingVendorOrders()
+            successMessage = "Vendor Order Approved."
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+    
+    public func rejectVendorOrder(id: UUID, reason: String) async {
+        isLoading = true
+        defer { isLoading = false }
+        do {
+            try await RequestService.shared.updateVendorOrderStatus(id: id, status: "rejected")
+            await fetchPendingVendorOrders()
+            successMessage = "Vendor Order Rejected."
+        } catch {
+            errorMessage = error.localizedDescription
         }
     }
 }

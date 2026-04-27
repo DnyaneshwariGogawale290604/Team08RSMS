@@ -107,72 +107,91 @@ public struct RequestsTabView: View {
         let canShip = stockCheckResults[request.id]
         let stockQty = request.productId.flatMap { viewModel.stockAvailability[$0] }
 
-        ReusableCardView {
-            VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 14) {
+            // Header: Status Badge + REQ ID
+            HStack {
+                Text("REQ-\(request.id.uuidString.prefix(5).uppercased())")
+                    .font(.subheadline.bold())
+                    .foregroundColor(Color(UIColor.label))
+                Spacer()
+                statusBadge(for: request.status)
+            }
 
-                // Header: REQ ID + Status badge
-                HStack {
-                    Text("REQ-\(request.id.uuidString.prefix(5).uppercased())")
-                        .font(.headline).foregroundColor(.appPrimaryText)
-                    Spacer()
-                    statusBadge(for: request.status)
+            // ASN badge (if shipped)
+            if request.status == "approved" {
+                HStack(spacing: 4) {
+                    Image(systemName: "shippingbox.fill")
+                        .font(.caption2)
+                    Text("Shipment In Transit")
+                        .font(.caption2.bold())
                 }
+                .foregroundColor(.white)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .background(Color.blue)
+                .clipShape(Capsule())
+            }
 
-                // ASN badge (if shipped)
-                if request.status == "approved" {
-                    HStack(spacing: 4) {
-                        Image(systemName: "shippingbox.fill")
-                            .font(.caption2)
-                        Text("Shipment In Transit")
-                            .font(.caption2.bold())
+            Divider()
+
+            // Details
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Product")
+                            .font(.caption)
+                            .foregroundColor(Color(UIColor.secondaryLabel))
+                        Text(request.product?.name ?? "Unknown Product")
+                            .font(.body.weight(.semibold))
+                            .foregroundColor(Color(UIColor.label))
                     }
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
-                    .background(Color.blue)
-                    .clipShape(Capsule())
+                    Spacer()
+                    VStack(alignment: .trailing, spacing: 4) {
+                        Text("Quantity")
+                            .font(.caption)
+                            .foregroundColor(Color(UIColor.secondaryLabel))
+                        Text("\(request.requestedQuantity)")
+                            .font(.title3.bold())
+                            .foregroundColor(.appAccent)
+                    }
                 }
-
-                Text("From: \(request.store?.name ?? "Unknown Boutique")")
-                    .font(.subheadline)
-                    .foregroundColor(.appSecondaryText)
-
-                Divider()
-
+                
                 HStack {
-                    Text("\(request.requestedQuantity)× \(request.product?.name ?? "Unknown Product")")
-                        .font(.body)
+                    Label(request.store?.name ?? "Unknown Boutique", systemImage: "building.2")
+                        .font(.subheadline)
+                        .foregroundColor(Color(UIColor.secondaryLabel))
                     Spacer()
                     if let qty = stockQty {
-                        VStack(alignment: .trailing, spacing: 2) {
-                            Text("\(qty) in stock")
-                                .font(.caption.bold())
-                                .foregroundColor(qty >= request.requestedQuantity ? .green : .orange)
-                        }
+                        Text("\(qty) in stock")
+                            .font(.caption.bold())
+                            .foregroundColor(qty >= request.requestedQuantity ? .green : .orange)
                     }
                 }
-
-                // Low stock warning
-                if let canShip = canShip, !canShip {
-                    HStack(spacing: 4) {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .font(.caption)
-                        Text("Insufficient stock — consider placing a vendor order first")
-                            .font(.caption)
-                    }
-                    .foregroundColor(.orange)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(Color.orange.opacity(0.1))
-                    .cornerRadius(8)
-                }
-
-                Divider()
-
-                // Action buttons based on status
-                actionButtons(for: request, canShip: canShip)
             }
+
+            // Low stock warning
+            if let canShip = canShip, !canShip {
+                HStack(spacing: 6) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                    Text("Insufficient stock. Auto-PO will be created.")
+                }
+                .font(.caption.bold())
+                .foregroundColor(.orange)
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.orange.opacity(0.15))
+                .cornerRadius(8)
+            }
+
+            Divider()
+
+            // Action buttons based on status
+            actionButtons(for: request, canShip: canShip)
         }
+        .padding(16)
+        .background(Color(UIColor.secondarySystemGroupedBackground))
+        .cornerRadius(16)
+        .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 2)
     }
 
     @ViewBuilder
@@ -187,17 +206,16 @@ public struct RequestsTabView: View {
             .foregroundColor(.red)
 
         case "approved":
-            // Approved but not yet shipped → show "Ship Now" button
             Button {
                 requestPendingShipment = request
             } label: {
                 Label("Ship Now", systemImage: "shippingbox.fill")
-                    .font(.caption.bold())
+                    .font(.subheadline.bold())
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 8)
+                    .padding(.vertical, 12)
                     .background(Color.blue)
                     .foregroundColor(.white)
-                    .cornerRadius(8)
+                    .cornerRadius(10)
             }
 
         case "shipped":
@@ -210,42 +228,44 @@ public struct RequestsTabView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
 
         default: // "pending"
-            VStack(spacing: 8) {
-                HStack(spacing: 8) {
+            VStack(spacing: 12) {
+                HStack(spacing: 12) {
                     // Reject button
                     Button {
                         rejectTargetRequest = request
                         showRejectAlert = true
                     } label: {
                         Text("Reject")
-                            .font(.caption.bold())
+                            .font(.subheadline.bold())
                             .foregroundColor(.red)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 8)
-                            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.red, lineWidth: 1))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(Color.red.opacity(0.1))
+                            .cornerRadius(10)
                     }
 
-                    // Accept button — moves to Pick Lists
+                    // Accept button
                     Button {
                         Task {
                             let hasSufficientStock = await viewModel.checkWarehouseStock(for: request)
                             stockCheckResults[request.id] = hasSufficientStock
+                            // Wait a moment for UI to reflect stock check if desired, but proceed to accept
                             await viewModel.acceptRequest(request: request)
                         }
                     } label: {
-                        Text("Accept → Pick List")
-                            .font(.caption.bold())
+                        Text("Accept Order")
+                            .font(.subheadline.bold())
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 8)
-                            .background(canShip == false ? Color.orange : Color.green)
-                            .cornerRadius(8)
+                            .padding(.vertical, 12)
+                            .background(Color.green)
+                            .cornerRadius(10)
                     }
                 }
-                // Hint
-                Text("Accepting moves this to Workflows → Pick Lists for dispatch.")
+                
+                Text("Accepting moves this to Workflows → Pick Lists")
                     .font(.caption2)
-                    .foregroundColor(.appSecondaryText)
+                    .foregroundColor(Color(UIColor.tertiaryLabel))
             }
         }
     }

@@ -14,6 +14,7 @@ struct ShipmentDetailsSheet: View {
     @State private var notes: String = ""
     @State private var showSuccess = false
     @State private var generatedASN: String = ""
+    @State private var showErrorAlert = false
 
     private var isFormValid: Bool {
         !carrier.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
@@ -68,6 +69,13 @@ struct ShipmentDetailsSheet: View {
                     asnSuccessBanner
                         .transition(.move(edge: .top).combined(with: .opacity))
                 }
+            }
+            .alert("Error Creating Shipment", isPresented: $showErrorAlert) {
+                Button("OK", role: .cancel) {
+                    viewModel.errorMessage = nil
+                }
+            } message: {
+                Text(viewModel.errorMessage ?? "An unknown error occurred.")
             }
         }
     }
@@ -244,6 +252,8 @@ struct ShipmentDetailsSheet: View {
         ) {
             generatedASN = asn
             withAnimation(.spring()) { showSuccess = true }
+        } else if viewModel.errorMessage != nil {
+            showErrorAlert = true
         }
     }
 

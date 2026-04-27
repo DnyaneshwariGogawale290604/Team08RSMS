@@ -14,6 +14,10 @@ public struct TransfersTabView: View {
     @State private var lastASN: String? = nil
     @State private var showASNToast = false
 
+    // State for Check Stock reorder alert
+    @State private var requestForReorder: ProductRequest?
+    @State private var showReorderAlert: Bool = false
+
     // PO detail
     @State private var selectedPO: VendorOrder? = nil
 
@@ -101,6 +105,24 @@ public struct TransfersTabView: View {
         }
         .sheet(item: $selectedPO) { po in
             PurchaseOrderDetailSheet(order: po, viewModel: viewModel)
+        }
+        .alert("Insufficient Stock", isPresented: $showReorderAlert, presenting: requestForReorder) { req in
+            Button("Cancel", role: .cancel) {}
+            Button("Create Vendor Order") {
+                Task {
+                    if let pid = req.productId, let vendorId = viewModel.brandVendors.first?.id {
+                        let roq = req.product?.reorderQuantity ?? 20
+                        _ = await viewModel.createPurchaseOrder(
+                            vendorId: vendorId,
+                            productId: pid,
+                            quantity: roq,
+                            notes: "Auto-generated due to insufficient stock for boutique request REQ-\(req.id.uuidString.prefix(4).uppercased())"
+                        )
+                    }
+                }
+            }
+        } message: { req in
+            Text("There is not enough stock in the warehouse to dispatch this order. Would you like to automatically create a Purchase Order to restock?")
         }
     }
 
@@ -296,6 +318,10 @@ public struct TransfersTabView: View {
                             let ok = await viewModel.checkWarehouseStock(for: request)
                             if let pid = request.productId {
                                 stockCheckCache[pid] = ok
+                            }
+                            if !ok {
+                                requestForReorder = request
+                                showReorderAlert = true
                             }
                         }
                     } label: {

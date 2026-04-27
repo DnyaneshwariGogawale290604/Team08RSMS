@@ -577,9 +577,8 @@ public struct AddItemManualView: View {
     @Environment(\.presentationMode) var presentationMode
     @ObservedObject var viewModel: InventoryDashboardViewModel
     
-    @State private var name = ""
+    @State private var selectedProduct: Product? = nil
     @State private var rfid = "RFID-\(Int.random(in: 1000...9999))"
-    @State private var category = ""
     @State private var batchNo = "B-MANUAL"
     @State private var location = "Warehouse"
     @State private var errorText: String?
@@ -591,13 +590,16 @@ public struct AddItemManualView: View {
         NavigationView {
             Form {
                 Section(header: Text("Product Details")) {
-                    TextField("Product Name", text: $name)
-                    
-                    Picker("Category", selection: $category) {
-                        Text("Select Category").tag("")
-                        ForEach(availableCategories, id: \.self) { cat in
-                            Text(cat).tag(cat)
+                    Picker("Select Product", selection: $selectedProduct) {
+                        Text("Choose a product...").tag(nil as Product?)
+                        ForEach(viewModel.products, id: \.id) { product in
+                            Text(product.name).tag(product as Product?)
                         }
+                    }
+                    
+                    if let product = selectedProduct {
+                        LabeledContent("Category", value: product.category.isEmpty ? "General" : product.category)
+                            .foregroundColor(.appSecondaryText)
                     }
                 }
                 
@@ -665,7 +667,7 @@ public struct AddItemManualView: View {
     }
     
     private var canSave: Bool {
-        !name.isEmpty && !category.isEmpty
+        selectedProduct != nil
     }
     
     private func saveItem() {
@@ -673,8 +675,7 @@ public struct AddItemManualView: View {
         
         Task {
             do {
-                let products = viewModel.products.filter { $0.name == name }
-                if let product = products.first {
+                if let product = selectedProduct {
                     // Update aggregate inventory
                     try await DataService.shared.createInventoryItem(productId: product.id, quantity: 1)
                     
@@ -694,7 +695,7 @@ public struct AddItemManualView: View {
                     await viewModel.loadDashboardData()
                     presentationMode.wrappedValue.dismiss()
                 } else {
-                    errorText = "Product '\(name)' not found in database. Please create the product first."
+                    errorText = "Please select a product."
                 }
             } catch {
                 errorText = "Failed to save to Supabase: \(error.localizedDescription)"

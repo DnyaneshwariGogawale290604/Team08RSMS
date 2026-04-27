@@ -188,7 +188,7 @@ public final class RequestService: @unchecked Sendable {
             requestId: requestId,
             sourceWarehouseId: warehouseId,
             destinationStoreId: storeId,
-            status: "in_transit",
+            status: "shipped",
             asnNumber: asnNumber,
             carrier: carrier,
             trackingNumber: trackingNumber,
@@ -294,16 +294,55 @@ public final class RequestService: @unchecked Sendable {
     }
 
     /// Lightweight auto-reorder — used when warehouse stock falls below threshold.
-    public func createVendorOrder(quantity: Int) async throws {
+    public func createVendorOrder(productId: UUID, vendorId: UUID, quantity: Int) async throws {
         struct VendorOrderInsert: Encodable {
+            let productId: UUID
+            let vendorId: UUID
             let quantity: Int
             let status: String
-            enum CodingKeys: String, CodingKey { case quantity; case status }
+            enum CodingKeys: String, CodingKey {
+                case productId = "product_id"
+                case vendorId = "vendor_id"
+                case quantity
+                case status
+            }
         }
         try await client
             .from("vendor_orders")
-            .insert(VendorOrderInsert(quantity: quantity, status: "pending"))
+            .insert(VendorOrderInsert(productId: productId, vendorId: vendorId, quantity: quantity, status: "pending"))
             .execute()
+    }
+
+    /// Fetches all pending vendor orders scoped to the corporate admin's brand.
+    public func fetchPendingVendorOrdersForAdmin() async throws -> [VendorOrder] {
+        let currentUserId = try await client.auth.session.user.id
+        struct AdminBrand: Decodable {
+            let brandId: UUID
+            enum CodingKeys: String, CodingKey { case brandId = "brand_id" }
+        }
+        let rows: [AdminBrand] = try await client
+            .from("corporate_admins")
+            .select("brand_id")
+            .eq("user_id", value: currentUserId)
+            .limit(1)
+            .execute()
+            .value
+        
+        guard let brandId = rows.first?.brandId else { return [] }
+
+        return try await client
+            .from("vendor_orders")
+            .select("*, vendors!inner(*), products(*)")
+            .eq("vendors.brand_id", value: brandId)
+            .eq("status", value: "pending")
+            .order("created_at", ascending: false)
+            .execute()
+            .value
+    }
+
+    /// Corporate Admin approves a pending vendor order.
+    public func approveVendorOrder(id: UUID) async throws {
+        try await updateVendorOrderStatus(id: id, status: "approved")
     }
 
     // MARK: - Vendors (brand-scoped for Inventory Manager)

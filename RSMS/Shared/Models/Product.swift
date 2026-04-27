@@ -13,6 +13,8 @@ public struct Product: Identifiable, Codable, Hashable, Sendable {
     public var tax: Double?
     public var totalPrice: Double?
     public var sizeOptions: [String]?
+    public var reorderPoint: Int?
+    public var reorderQuantity: Int?
 
     enum CodingKeys: String, CodingKey {
         case id = "product_id"
@@ -27,6 +29,8 @@ public struct Product: Identifiable, Codable, Hashable, Sendable {
         case tax
         case totalPrice = "total_price"
         case sizeOptions = "size_options"
+        case reorderPoint = "reorder_point"
+        case reorderQuantity = "reorder_quantity"
     }
 
     // Custom decoder: DB columns are all nullable (text, numeric) so we
@@ -75,6 +79,8 @@ public struct Product: Identifiable, Codable, Hashable, Sendable {
         } else {
             sizeOptions = nil
         }
+        reorderPoint = try? c.decodeIfPresent(Int.self, forKey: .reorderPoint) ?? 5
+        reorderQuantity = try? c.decodeIfPresent(Int.self, forKey: .reorderQuantity) ?? 20
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -91,13 +97,16 @@ public struct Product: Identifiable, Codable, Hashable, Sendable {
         try c.encodeIfPresent(tax, forKey: .tax)
         try c.encodeIfPresent(totalPrice, forKey: .totalPrice)
         try c.encodeIfPresent(sizeOptions, forKey: .sizeOptions)
+        try c.encodeIfPresent(reorderPoint, forKey: .reorderPoint)
+        try c.encodeIfPresent(reorderQuantity, forKey: .reorderQuantity)
     }
 
     // Memberwise init for constructing products in code
     public init(id: UUID = UUID(), name: String, brandId: UUID? = nil, category: String,
                 price: Double, sku: String? = nil, makingPrice: Double? = nil,
                 imageUrl: String? = nil, isActive: Bool? = true,
-                tax: Double? = nil, totalPrice: Double? = nil, sizeOptions: [String]? = nil) {
+                tax: Double? = nil, totalPrice: Double? = nil, sizeOptions: [String]? = nil,
+                reorderPoint: Int? = 5, reorderQuantity: Int? = 20) {
         self.id = id
         self.name = name
         self.brandId = brandId
@@ -110,5 +119,7 @@ public struct Product: Identifiable, Codable, Hashable, Sendable {
         self.tax = tax
         self.totalPrice = totalPrice
         self.sizeOptions = sizeOptions
+        self.reorderPoint = reorderPoint
+        self.reorderQuantity = reorderQuantity
     }
 }

@@ -145,6 +145,29 @@ public final class WarehouseService: @unchecked Sendable {
             .execute()
     }
 
+    /// Increments warehouse stock by `quantity` after a vendor PO is received.
+    public func incrementStock(warehouseId: UUID, productId: UUID, by quantity: Int) async throws {
+        let current = try await stockQuantity(warehouseId: warehouseId, productId: productId)
+        let newQty = current + quantity
+        struct StockUpsert: Encodable {
+            let warehouseId: UUID
+            let productId: UUID
+            let quantity: Int
+            enum CodingKeys: String, CodingKey {
+                case warehouseId = "warehouse_id"
+                case productId   = "product_id"
+                case quantity
+            }
+        }
+        try await client
+            .from("warehouse_inventory")
+            .upsert(
+                StockUpsert(warehouseId: warehouseId, productId: productId, quantity: newQty),
+                onConflict: "warehouse_id,product_id"
+            )
+            .execute()
+    }
+
     /// Fetch all inventory rows for a given warehouse (with product join).
     public func fetchInventory(warehouseId: UUID) async throws -> [WarehouseInventoryRow] {
         return try await client
