@@ -422,6 +422,9 @@ public struct RepairInputView: View {
         
         Task {
             do {
+                if let newTicket = updatedItem.activeTicket {
+                    try await DataService.shared.insertRepairTicket(ticket: newTicket)
+                }
                 try await DataService.shared.updateInventoryItem(item: updatedItem)
                 await viewModel.loadDashboardData()
                 self.item = updatedItem
@@ -508,9 +511,9 @@ public struct RepairTicketDetailView: View {
         guard var ticket = item.activeTicket else { return }
         
         ticket.status = newStatus
-        ticket.updatedAt = Date()
-        
         var updatedItem = item
+        updatedItem.activeTicket?.status = newStatus
+        updatedItem.activeTicket?.updatedAt = Date()
         
         // Completion logic
         if newStatus == .completed {
@@ -519,12 +522,16 @@ public struct RepairTicketDetailView: View {
         } else if newStatus == .scrapped {
             updatedItem.status = .scrapped
             updatedItem.activeTicket = nil
-        } else {
-            updatedItem.activeTicket = ticket
         }
         
         Task {
             do {
+                if let ticket = item.activeTicket {
+                    var updatedTicket = ticket
+                    updatedTicket.status = newStatus
+                    updatedTicket.updatedAt = Date()
+                    try await DataService.shared.updateRepairTicket(ticket: updatedTicket)
+                }
                 try await DataService.shared.updateInventoryItem(item: updatedItem)
                 await viewModel.loadDashboardData()
                 self.item = updatedItem

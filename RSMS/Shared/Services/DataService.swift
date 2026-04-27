@@ -401,7 +401,7 @@ public actor DataService {
     // MARK: - Individual Inventory Items (RFID/Serial)
     public func fetchInventoryItems() async throws -> [InventoryItem] {
         do {
-            let result: [InventoryItem] = try await client
+            var result: [InventoryItem] = try await client
                 .from("inventory_items")
                 .select()
                 .execute()
@@ -410,6 +410,28 @@ public actor DataService {
             if result.isEmpty {
                 return try await generateMockInventoryItems()
             }
+            
+            // Try to fetch active repairs and attach them to the inventory items
+            do {
+                let repairs: [RepairTicket] = try await client
+                    .from("repairs")
+                    .select()
+                    .in("status", values: ["Created", "Diagnosed", "In Repair", "QA Check"])
+                    .execute()
+                    .value
+                
+                let repairDict = Dictionary(grouping: repairs, by: { $0.itemId })
+                    .compactMapValues { $0.sorted(by: { $0.createdAt > $1.createdAt }).first }
+                
+                for i in 0..<result.count {
+                    if let ticket = repairDict[result[i].id] {
+                        result[i].activeTicket = ticket
+                    }
+                }
+            } catch {
+                print("Failed to fetch repairs, but returning items anyway: \(error)")
+            }
+            
             return result
         } catch {
             print("Supabase: inventory_items fetch failed or empty, using mock. \(error)")
@@ -465,6 +487,22 @@ public actor DataService {
         try? await client
             .from("inventory_items")
             .insert(item)
+            .execute()
+    }
+    
+    // MARK: - Repairs
+    public func insertRepairTicket(ticket: RepairTicket) async throws {
+        try await client
+            .from("repairs")
+            .insert(ticket)
+            .execute()
+    }
+    
+    public func updateRepairTicket(ticket: RepairTicket) async throws {
+        try await client
+            .from("repairs")
+            .update(ticket)
+            .eq("id", value: ticket.id)
             .execute()
     }
 

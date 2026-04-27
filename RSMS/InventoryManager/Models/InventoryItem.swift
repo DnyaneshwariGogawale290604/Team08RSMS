@@ -30,6 +30,18 @@ public struct RepairTicket: Identifiable, Codable, Hashable, Sendable {
     public var createdAt: Date
     public var updatedAt: Date
     
+    enum CodingKeys: String, CodingKey {
+        case id
+        case itemId = "item_id"
+        case issueType = "issue_type"
+        case description
+        case status
+        case assignedTo = "assigned_to"
+        case eta
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+    }
+    
     public init(id: UUID = UUID(), itemId: String, issueType: String, description: String, status: RepairStatus = .created, assignedTo: String? = nil, eta: Date? = nil, createdAt: Date = Date(), updatedAt: Date = Date()) {
         self.id = id
         self.itemId = itemId

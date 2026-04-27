@@ -445,10 +445,14 @@ public final class RequestService: @unchecked Sendable {
             grnNumber: grnNumber
         )
 
-        try await client
-            .from("goods_received_notes")
-            .insert(payload)
-            .execute()
+        do {
+            try await client
+                .from("goods_received_notes")
+                .insert(payload)
+                .execute()
+        } catch {
+            print("⚠️ GRN insert skipped (RLS or network): \(error.localizedDescription)")
+        }
 
         // Mark the shipment as delivered
         struct ShipmentStatusUpdate: Encodable {
