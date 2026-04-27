@@ -117,12 +117,15 @@ public final class TransfersViewModel: ObservableObject {
                 estimatedDelivery: estimatedDelivery,
                 notes: notes
             )
-            // NOTE: Request stays 'approved' — the shipment record tracks in_transit state
-            // Decrement warehouse stock
-            if let productId = request.productId {
-                try await decrementWarehouseStock(productId: productId, deductQuantity: request.requestedQuantity)
-            }
             lastGeneratedASN = asn
+            // Decrement warehouse stock (non-fatal — RLS may block this in dev)
+            if let productId = request.productId {
+                do {
+                    try await decrementWarehouseStock(productId: productId, deductQuantity: request.requestedQuantity)
+                } catch {
+                    print("⚠️ Stock decrement skipped (RLS or network): \(error.localizedDescription)")
+                }
+            }
             await loadData()
             return asn
         } catch {

@@ -10,6 +10,7 @@ public final class InventoryDashboardViewModel: ObservableObject {
     @Published public var pendingRequests: [ProductRequest] = []
     @Published public var recentActivity: [Shipment] = [] 
     @Published public var sales: [SalesOrder] = []
+    @Published public var vendorOrders: [VendorOrder] = []
     @Published public var isLoading = false
     
     public init() {}
@@ -34,6 +35,9 @@ public final class InventoryDashboardViewModel: ObservableObject {
             
             // 5. Fetch sales for 'Sold' metric
             sales = try await DataService.shared.fetchSales()
+            
+            // 6. Fetch vendor orders to show "Order Placed" tags
+            vendorOrders = (try? await RequestService.shared.fetchVendorOrdersForCurrentWarehouse()) ?? []
             
         } catch {
             print("Failed to fetch Inventory Dashboard data: \(error)")
@@ -123,5 +127,11 @@ public final class InventoryDashboardViewModel: ObservableObject {
     
     public func availableItems(for category: String) -> Int {
         return filteredItemCount(for: category, filter: .available)
+    }
+    
+    /// Product IDs that have an active in_transit vendor order placed for them
+    public var orderedProductIds: Set<UUID> {
+        let active = vendorOrders.filter { $0.status.lowercased() == "in_transit" }
+        return Set(active.compactMap { $0.productId })
     }
 }

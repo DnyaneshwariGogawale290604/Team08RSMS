@@ -176,10 +176,25 @@ public struct DashboardView: View {
         let statusColor: Color = percent > 0.5 ? .green : (percent > 0.2 ? .orange : .red)
         let statusBadge: String = percent > 0.5 ? "Good" : (percent > 0.2 ? "Low" : "Very Low")
         
+        // Check if any product in this category has an active vendor order
+        let categoryProductIds = viewModel.products
+            .filter { ($0.category.isEmpty ? "General" : $0.category) == category }
+            .map { $0.id }
+        let hasActiveOrder = categoryProductIds.contains(where: { viewModel.orderedProductIds.contains($0) })
+        
         VStack(spacing: 8) {
             HStack {
                 Text(category).font(.subheadline.bold()).foregroundColor(CatalogTheme.primaryText)
                 Spacer()
+                if hasActiveOrder {
+                    Text("Order Placed")
+                        .font(.caption2.bold())
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.blue.opacity(0.15))
+                        .foregroundColor(.blue)
+                        .cornerRadius(4)
+                }
                 Text(statusBadge)
                     .font(.caption2.bold())
                     .padding(.horizontal, 6)
