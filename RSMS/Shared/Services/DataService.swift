@@ -401,106 +401,131 @@ public actor DataService {
     // MARK: - Individual Inventory Items (RFID/Serial)
     public func fetchInventoryItems() async throws -> [InventoryItem] {
         do {
-            var result: [InventoryItem] = try await client
-                .from("inventory_items")
+            // Read from the VIEW which nests the active repair ticket as JSON
+            let result: [InventoryItem] = try await client
+                .from("inventory_items_with_ticket")
                 .select()
                 .execute()
                 .value
-                
+
             if result.isEmpty {
                 return try await generateMockInventoryItems()
             }
             
-            // Try to fetch active repairs and attach them to the inventory items
-            do {
-                let repairs: [RepairTicket] = try await client
-                    .from("repairs")
-                    .select()
-                    .in("status", values: ["Created", "Diagnosed", "In Repair", "QA Check"])
-                    .execute()
-                    .value
-                
-                let repairDict = Dictionary(grouping: repairs, by: { $0.itemId })
-                    .compactMapValues { $0.sorted(by: { $0.createdAt > $1.createdAt }).first }
-                
-                for i in 0..<result.count {
-                    if let ticket = repairDict[result[i].id] {
-                        result[i].activeTicket = ticket
-                    }
-                }
-            } catch {
-                print("Failed to fetch repairs, but returning items anyway: \(error)")
-            }
-            
             return result
         } catch {
-            print("Supabase: inventory_items fetch failed or empty, using mock. \(error)")
+            print("Supabase: inventory_items_with_ticket fetch failed, using mock. \(error)")
             return try await generateMockInventoryItems()
         }
     }
     
+    /// Called on first launch when inventory_items table is empty.
+    /// Seeds one item per product directly into Supabase.
     private func generateMockInventoryItems() async throws -> [InventoryItem] {
-        // Fallback: generate mock items based on the user's actual products so the UI works
         let products = try await fetchProducts()
-        var mockItems: [InventoryItem] = []
-        
+        var items: [InventoryItem] = []
         for (index, product) in products.enumerated() {
-            // Add 1 available item for each product
-            mockItems.append(InventoryItem(
-                id: "RFID-900\(index)",
-                serialId: "SN-\(Int.random(in: 1000...9999))",
+            let item = InventoryItem(
+                id: "RFID-\(String(format: "%04d", index + 1))",
+                serialId: "SN-\(Int.random(in: 10000...99999))",
                 productId: product.id,
-                batchNo: "B-21",
+                batchNo: "B-\(Calendar.current.component(.year, from: Date()))",
                 productName: product.name,
                 category: product.category.isEmpty ? "General" : product.category,
                 location: "Warehouse",
                 status: .available
-            ))
-            
-            // Add 1 under repair item for the first product
-            if index == 0 {
-                mockItems.append(InventoryItem(
-                    id: "RFID-R\(index)",
-                    serialId: "SN-\(Int.random(in: 1000...9999))",
-                    productId: product.id,
-                    batchNo: "B-21",
-                    productName: product.name,
-                    category: product.category.isEmpty ? "General" : product.category,
-                    location: "Warehouse",
-                    status: .underRepair,
-                    activeTicket: RepairTicket(itemId: "RFID-R\(index)", issueType: "Broken Part", description: "Needs fixing", assignedTo: "Repair Team")
-                ))
-            }
+            )
+            items.append(item)
+            // Persist to Supabase so next launch reads real data
+            try? await insertInventoryItem(item: item)
         }
-        return mockItems
+        return items
     }
     
     public func updateInventoryItem(item: InventoryItem) async throws {
+        // 1. Update only the status column (view columns are read-only)
+        struct ItemStatusUpdate: Encodable { let status: String }
         try? await client
             .from("inventory_items")
-            .update(item)
+            .update(ItemStatusUpdate(status: item.status.rawValue))
             .eq("id", value: item.id)
             .execute()
+
+        // 2. Upsert the active ticket if one exists
+        if let ticket = item.activeTicket {
+            struct TicketUpsert: Encodable {
+                let id: String; let item_id: String; let issue_type: String
+                let description: String; let status: String; let assigned_to: String?
+                let eta: String?; let created_at: String; let updated_at: String
+            }
+            let iso = ISO8601DateFormatter()
+            let df = DateFormatter(); df.dateFormat = "yyyy-MM-dd"
+            try? await client.from("repair_tickets").upsert(
+                TicketUpsert(
+                    id: ticket.id.uuidString, item_id: ticket.itemId,
+                    issue_type: ticket.issueType, description: ticket.description,
+                    status: ticket.status.rawValue, assigned_to: ticket.assignedTo,
+                    eta: ticket.eta.map { df.string(from: $0) },
+                    created_at: iso.string(from: ticket.createdAt),
+                    updated_at: iso.string(from: ticket.updatedAt)
+                )
+            ).execute()
+        }
     }
     
     public func insertInventoryItem(item: InventoryItem) async throws {
+        struct ItemInsert: Encodable {
+            let id: String; let serial_id: String; let product_id: String
+            let batch_no: String; let certificate_id: String?
+            let product_name: String; let category: String
+            let location: String; let status: String
+        }
+        try? await client.from("inventory_items").insert(
+            ItemInsert(
+                id: item.id, serial_id: item.serialId,
+                product_id: item.productId.uuidString, batch_no: item.batchNo,
+                certificate_id: item.certificateId, product_name: item.productName,
+                category: item.category, location: item.location,
+                status: item.status.rawValue
+            )
+        ).execute()
+    }
+
+    /// Called when a repair ticket reaches a terminal state (Completed or Scrapped).
+    /// Updates the ticket's status in repair_tickets and the item's status in inventory_items.
+    public func finalizeRepairTicket(ticketId: UUID, newStatus: RepairStatus, itemId: String, itemStatus: ItemStatus) async throws {
+        // 1. Update the ticket row to the final status
+        struct TicketStatusUpdate: Encodable {
+            let status: String
+            let updated_at: String
+        }
+        let iso = ISO8601DateFormatter()
+        try? await client
+            .from("repair_tickets")
+            .update(TicketStatusUpdate(status: newStatus.rawValue, updated_at: iso.string(from: Date())))
+            .eq("id", value: ticketId.uuidString)
+            .execute()
+
+        // 2. Update the item's status
+        struct ItemStatusUpdate: Encodable { let status: String }
         try? await client
             .from("inventory_items")
-            .insert(item)
+            .update(ItemStatusUpdate(status: itemStatus.rawValue))
+            .eq("id", value: itemId)
             .execute()
     }
     
     // MARK: - Repairs
     public func insertRepairTicket(ticket: RepairTicket) async throws {
         try await client
-            .from("repairs")
+            .from("repair_tickets")
             .insert(ticket)
             .execute()
     }
     
     public func updateRepairTicket(ticket: RepairTicket) async throws {
         try await client
-            .from("repairs")
+            .from("repair_tickets")
             .update(ticket)
             .eq("id", value: ticket.id)
             .execute()
