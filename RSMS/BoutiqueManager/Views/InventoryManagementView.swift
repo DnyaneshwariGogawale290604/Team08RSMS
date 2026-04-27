@@ -7,47 +7,55 @@ public struct InventoryManagementView: View {
     @State private var selectedTab = 0
     @State private var showOrderStock = false
     @State private var preselectedProductId: UUID?
+    @State private var searchText = ""
     
     public init() {}
     
-    private var nonOrderedAlerts: [StockAlert] {
-        inventoryVM.activeAlerts.filter { alert in
-            !(inventoryVM.orderedProductIds.contains(alert.productId)
-              || alert.requestStatus?.lowercased() == "pending"
-              || alert.requestStatus?.lowercased() == "approved")
-        }
+    private var filteredInventory: [InventoryProduct] {
+        if searchText.isEmpty { return inventoryVM.inventoryList }
+        return inventoryVM.inventoryList.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
     }
     
-    private var orderedAlerts: [StockAlert] {
+    private var nonOrderedAlerts: [StockAlert] {
         inventoryVM.activeAlerts.filter { alert in
-            inventoryVM.orderedProductIds.contains(alert.productId)
-            || alert.requestStatus?.lowercased() == "pending"
-            || alert.requestStatus?.lowercased() == "approved"
+            (searchText.isEmpty || alert.message.localizedCaseInsensitiveContains(searchText)) &&
+            alert.requestStatus == nil
         }
     }
     
     private var alertCount: Int { inventoryVM.activeAlerts.count }
     
     private var lowStockCount: Int { nonOrderedAlerts.count }
-    private var orderCount: Int { orderedAlerts.count }
     
     public var body: some View {
         NavigationView {
             ZStack {
-                Color.appBackground.ignoresSafeArea()
+                BoutiqueTheme.background.ignoresSafeArea()
                 
                 VStack(spacing: 0) {
                     // Segmented picker — Stock Levels | Low Stock | Orders
                     InventorySegmentedControl(
-                        selected: $selectedTab,
-                        lowStockCount: lowStockCount,
-                        orderCount: orderCount
+                        selected: $selectedTab
                     )
                         .padding(.horizontal, 16)
                         .padding(.top, 8)
-                        .padding(.bottom, 4)
+                        .padding(.bottom, 8)
                     
-                    Divider().background(Color.appBorder)
+                    // Search Bar
+                    HStack(spacing: 12) {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundColor(BoutiqueTheme.primary)
+                        TextField("Search inventory...", text: $searchText)
+                            .foregroundColor(BoutiqueTheme.textPrimary)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(BoutiqueTheme.surface)
+                    .cornerRadius(20)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 4)
+                    
+
                     
                     if inventoryVM.isLoading {
                         Spacer()
@@ -57,7 +65,7 @@ public struct InventoryManagementView: View {
                         Spacer()
                         VStack(spacing: 10) {
                             Image(systemName: "exclamationmark.circle")
-                                .font(.largeTitle).foregroundColor(Theme.error)
+                                .font(.largeTitle).foregroundColor(BoutiqueTheme.error)
                             Text(error)
                                 .foregroundColor(.appSecondaryText)
                                 .font(.subheadline)
@@ -66,10 +74,10 @@ public struct InventoryManagementView: View {
                         Spacer()
                     } else {
                         if selectedTab == 0 {
-                            StockLevelsTab(inventoryList: inventoryVM.inventoryList) { product in
+                            StockLevelsTab(inventoryList: filteredInventory) { product in
                                 inventoryVM.toggleProductAvailability(product: product)
                             }
-                        } else if selectedTab == 1 {
+                        } else {
                             LowStockTab(
                                 alerts: nonOrderedAlerts,
                                 inventoryList: inventoryVM.inventoryList,
@@ -82,18 +90,13 @@ public struct InventoryManagementView: View {
                                     }
                                 }
                             )
-                        } else {
-                            OrdersTab(
-                                alerts: orderedAlerts,
-                                inventoryList: inventoryVM.inventoryList,
-                                orderedProductIds: inventoryVM.orderedProductIds,
-                                onDismiss: { id in inventoryVM.resolveAlert(id: id) }
-                            )
                         }
                     }
                 }
             }
             .navigationTitle("Inventory")
+            .toolbarColorScheme(.light, for: .navigationBar)
+            
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: {
@@ -101,7 +104,7 @@ public struct InventoryManagementView: View {
                         showOrderStock = true
                     }) {
                         Image(systemName: "plus")
-                            .foregroundColor(Theme.textPrimary)
+                            .foregroundColor(BoutiqueTheme.textPrimary)
                     }
                 }
             }
@@ -119,14 +122,11 @@ public struct InventoryManagementView: View {
 
 struct InventorySegmentedControl: View {
     @Binding var selected: Int
-    let lowStockCount: Int
-    let orderCount: Int
     
     private var tabs: [(String, String)] {
         [
             ("Stock Levels", "Stock Levels"),
-            (lowStockCount > 0 ? "Low Stock (\(lowStockCount))" : "Low Stock", "Low Stock"),
-            (orderCount > 0 ? "Orders (\(orderCount))" : "Orders", "Orders")
+            ("Low Stock", "Low Stock")
         ]
     }
     
@@ -136,21 +136,21 @@ struct InventorySegmentedControl: View {
                 Button(action: { withAnimation(.easeInOut(duration: 0.2)) { selected = index } }) {
                     Text(tab.0)
                         .font(.system(size: 13, weight: selected == index ? .semibold : .regular))
-                        .foregroundColor(selected == index ? Theme.textPrimary : Theme.textSecondary)
+                        .foregroundColor(selected == index ? .white : BoutiqueTheme.secondaryText)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
                         .background(
                             selected == index
-                                ? Color.appBackground
+                                ? BoutiqueTheme.primary
                                 : Color.clear
                         )
-                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        .clipShape(Capsule())
                 }
             }
         }
         .padding(4)
-        .background(Color.appCard)
-        .clipShape(RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius, style: .continuous))
+        .background(BoutiqueTheme.card)
+        .clipShape(Capsule())
     }
 }
 
@@ -165,8 +165,8 @@ struct StockLevelsTab: View {
             Spacer()
             VStack(spacing: 12) {
                 Image(systemName: "cube.box")
-                    .font(.system(size: 48)).foregroundColor(Theme.border)
-                Text("No inventory data").foregroundColor(Theme.textSecondary)
+                    .font(.system(size: 48)).foregroundColor(BoutiqueTheme.border)
+                Text("No inventory data").foregroundColor(BoutiqueTheme.textSecondary)
             }
             Spacer()
         } else {
@@ -193,10 +193,10 @@ struct StockLevelRow: View {
                 // Category icon
                 ZStack {
                     RoundedRectangle(cornerRadius: 10)
-                        .fill(Theme.beige)
+                        .fill(BoutiqueTheme.surface)
                         .frame(width: 44, height: 44)
                     Image(systemName: iconFor(product.category))
-                        .foregroundColor(Theme.textSecondary)
+                        .foregroundColor(BoutiqueTheme.primary)
                         .font(.system(size: 18))
                 }
                 
@@ -204,7 +204,7 @@ struct StockLevelRow: View {
                     Text(product.name)
                         .font(.body)
                         .fontWeight(.medium)
-                        .foregroundColor(Theme.textPrimary)
+                        .foregroundColor(BoutiqueTheme.textPrimary)
                 }
                 
                 Spacer()
@@ -214,10 +214,10 @@ struct StockLevelRow: View {
                     Text("\(product.stockQuantity)")
                         .font(.title3)
                         .fontWeight(.bold)
-                        .foregroundColor(product.isLowStock ? Theme.error : Theme.textPrimary)
+                        .foregroundColor(product.isLowStock ? BoutiqueTheme.error : BoutiqueTheme.textPrimary)
                     Text("in stock")
                         .font(.caption2)
-                        .foregroundColor(Theme.textSecondary)
+                        .foregroundColor(BoutiqueTheme.textSecondary)
                 }
                 
                 // Removed Sort/transfer icon
@@ -226,7 +226,7 @@ struct StockLevelRow: View {
             .padding(.horizontal, 14)
             
         }
-        .appCardChrome()
+        .boutiqueCardChrome()
     }
     
     private func iconFor(_ category: String) -> String {
@@ -257,10 +257,10 @@ struct LowStockTab: View {
             Spacer()
             VStack(spacing: 12) {
                 Image(systemName: "checkmark.circle")
-                    .font(.system(size: 48)).foregroundColor(Theme.primary)
-                Text("All stock levels are healthy").font(.headline).foregroundColor(Theme.textPrimary)
+                    .font(.system(size: 48)).foregroundColor(BoutiqueTheme.primary)
+                Text("All stock levels are healthy").font(.headline).foregroundColor(BoutiqueTheme.textPrimary)
                 Text("No replenishment needed at this time")
-                    .font(.subheadline).foregroundColor(Theme.textSecondary)
+                    .font(.subheadline).foregroundColor(BoutiqueTheme.textSecondary)
             }
             Spacer()
         } else {
@@ -285,116 +285,6 @@ struct LowStockTab: View {
     }
 }
 
-// MARK: - Orders Tab
-
-struct OrdersTab: View {
-    let alerts: [StockAlert]
-    let inventoryList: [InventoryProduct]
-    let orderedProductIds: Set<UUID>
-    let onDismiss: (UUID) -> Void
-    
-    var body: some View {
-        if alerts.isEmpty {
-            Spacer()
-            VStack(spacing: 12) {
-                Image(systemName: "box.truck")
-                    .font(.system(size: 48)).foregroundColor(Theme.textSecondary)
-                Text("No active orders").font(.headline).foregroundColor(Theme.textPrimary)
-                Text("Your placed orders will appear here")
-                    .font(.subheadline).foregroundColor(Theme.textSecondary)
-            }
-            Spacer()
-        } else {
-            ScrollView {
-                VStack(spacing: 16) {
-
-                    ForEach(alerts) { alert in
-                        let product = inventoryList.first { $0.productId == alert.productId }
-                        AlertCard(
-                            alert: alert,
-                            currentStock: product?.stockQuantity ?? 0,
-                            threshold: product?.baselineQuantity ?? 15,
-                            isOrdered: orderedProductIds.contains(alert.productId),
-                            hideOrderButton: true,
-                            onResolve: { onDismiss(alert.id) },
-                            onOrder: { }
-                        )
-                    }
-                }
-                .padding(16)
-            }
-        }
-    }
-}
-
-// MARK: - Alert Section Header
-
-struct AlertSectionHeader: View {
-    let title: String
-    let subtitle: String
-    let iconName: String
-    
-    var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: iconName)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(Theme.textSecondary)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(Theme.textPrimary)
-                Text(subtitle)
-                    .font(.system(size: 11))
-                    .foregroundColor(Theme.textSecondary)
-            }
-            Spacer()
-        }
-        .padding(.horizontal, 4)
-        .padding(.top, 4)
-    }
-}
-
-// MARK: - Alerts Tab (kept for compatibility)
-
-struct AlertsTab: View {
-    let alerts: [StockAlert]
-    let inventoryList: [InventoryProduct]
-    let orderedProductIds: Set<UUID>
-    let onResolve: (UUID) -> Void
-    let onOrder: (UUID) -> Void
-    
-    var body: some View {
-        if alerts.isEmpty {
-            Spacer()
-            VStack(spacing: 12) {
-                Image(systemName: "checkmark.circle")
-                    .font(.system(size: 48)).foregroundColor(Theme.primary)
-                Text("No active alerts").font(.headline).foregroundColor(Theme.textPrimary)
-                Text("All stock levels are healthy")
-                    .font(.subheadline).foregroundColor(Theme.textSecondary)
-            }
-            Spacer()
-        } else {
-            ScrollView {
-                VStack(spacing: 12) {
-                    ForEach(alerts) { alert in
-                        let product = inventoryList.first { $0.productId == alert.productId }
-                        AlertCard(
-                            alert: alert,
-                            currentStock: product?.stockQuantity ?? 0,
-                            threshold: product?.baselineQuantity ?? 15,
-                            isOrdered: orderedProductIds.contains(alert.productId),
-                            hideOrderButton: false,
-                            onResolve: { onResolve(alert.id) },
-                            onOrder: { onOrder(alert.productId) }
-                        )
-                    }
-                }
-                .padding(16)
-            }
-        }
-    }
-}
 
 struct AlertCard: View {
     let alert: StockAlert
@@ -419,28 +309,29 @@ struct AlertCard: View {
     }
     
     private var statusColor: Color {
-        if isRejected { return Theme.error }
-        if isOrdered || alert.requestStatus?.lowercased() == "pending" || alert.requestStatus?.lowercased() == "approved" { return Theme.primary }
-        return Theme.textSecondary
+        if isRejected { return BoutiqueTheme.error }
+        if isOrdered || alert.requestStatus?.lowercased() == "pending" || alert.requestStatus?.lowercased() == "approved" { return BoutiqueTheme.primary }
+        return BoutiqueTheme.textSecondary
     }
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // Header row
-            HStack(alignment: .top) {
+        VStack(alignment: .leading, spacing: 8) {
+            // Header: Product name + Status
+            HStack(alignment: .top, spacing: 12) {
+                Text(alert.message.components(separatedBy: " is low").first ?? alert.message)
+                    .font(.headline)
+                    .fontWeight(.bold)
+                    .foregroundColor(BoutiqueTheme.textPrimary)
+                    .lineLimit(2)
+                
                 Spacer()
+                
                 Text(statusText)
                     .font(.caption2)
                     .fontWeight(isOrdered || isRejected || alert.requestStatus != nil ? .bold : .regular)
                     .foregroundColor(statusColor)
+                    .fixedSize(horizontal: true, vertical: false)
             }
-            
-            // Product name
-            Text(alert.message.components(separatedBy: " is low").first ?? alert.message)
-                .font(.headline)
-                .fontWeight(.bold)
-                .foregroundColor(Theme.textPrimary)
-                .lineLimit(2)
                 
             if isRejected {
                 VStack(alignment: .leading, spacing: 4) {
@@ -449,17 +340,17 @@ struct AlertCard: View {
                         Text("Order Rejected")
                             .font(.caption).fontWeight(.bold)
                     }
-                    .foregroundColor(Theme.error)
+                    .foregroundColor(BoutiqueTheme.error)
                     
                     if let reason = alert.rejectionReason, !reason.isEmpty {
                         Text(reason)
                             .font(.caption2)
-                            .foregroundColor(Theme.textSecondary)
+                            .foregroundColor(BoutiqueTheme.textSecondary)
                     }
                 }
                 .padding(8)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Theme.error.opacity(0.1))
+                .background(BoutiqueTheme.error.opacity(0.1))
                 .cornerRadius(8)
             }
             
@@ -468,20 +359,20 @@ struct AlertCard: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Current Stock")
                         .font(.caption2)
-                        .foregroundColor(Theme.textSecondary)
+                        .foregroundColor(BoutiqueTheme.textSecondary)
                     Text("\(currentStock)")
                         .font(.title3)
                         .fontWeight(.bold)
-                        .foregroundColor(Theme.textPrimary)
+                        .foregroundColor(BoutiqueTheme.textPrimary)
                 }
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Threshold")
                         .font(.caption2)
-                        .foregroundColor(Theme.textSecondary)
+                        .foregroundColor(BoutiqueTheme.textSecondary)
                     Text("\(threshold)")
                         .font(.title3)
                         .fontWeight(.bold)
-                        .foregroundColor(Theme.textPrimary)
+                        .foregroundColor(BoutiqueTheme.textPrimary)
                 }
                 Spacer()
                 
@@ -492,10 +383,10 @@ struct AlertCard: View {
                             Text("Dismiss")
                                 .font(.system(size: 13, weight: .medium))
                                 .fixedSize(horizontal: true, vertical: false)
-                                .foregroundColor(isRejected ? Theme.textSecondary : Theme.primary)
+                                .foregroundColor(isRejected ? BoutiqueTheme.textSecondary : BoutiqueTheme.primary)
                                 .padding(.horizontal, 16)
                                 .padding(.vertical, 8)
-                                .background(isRejected ? Theme.textSecondary.opacity(0.12) : Theme.surface)
+                                .background(isRejected ? BoutiqueTheme.textSecondary.opacity(0.12) : BoutiqueTheme.surface)
                                 .cornerRadius(10)
                         }
                     } else {
@@ -503,10 +394,10 @@ struct AlertCard: View {
                             Text("Received")
                                 .font(.system(size: 13, weight: .medium))
                                 .fixedSize(horizontal: true, vertical: false)
-                                .foregroundColor(Theme.primary)
+                                .foregroundColor(BoutiqueTheme.primary)
                                 .padding(.horizontal, 16)
                                 .padding(.vertical, 8)
-                                .background(Theme.surface)
+                                .background(BoutiqueTheme.surface)
                                 .cornerRadius(10)
                         }
                     }
@@ -516,18 +407,18 @@ struct AlertCard: View {
                             HStack(spacing: 4) {
                                 Image(systemName: isOrdered ? "box.truck.fill" : "box.truck")
                                     .font(.system(size: 11))
-                                Text(isOrdered ? "Re-Order" : "Order")
+                                Text(isOrdered || isRejected ? "Re-Order" : "Order")
                                     .font(.system(size: 12, weight: .medium))
                                     .fixedSize(horizontal: true, vertical: false)
                             }
-                            .foregroundColor(isOrdered ? Theme.textSecondary : Theme.textPrimary)
+                            .foregroundColor(isOrdered ? BoutiqueTheme.textSecondary : BoutiqueTheme.textPrimary)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 7)
-                            .background(isOrdered ? Theme.border.opacity(0.3) : Theme.beige)
+                            .background(isOrdered ? BoutiqueTheme.border.opacity(0.3) : BoutiqueTheme.beige)
                             .cornerRadius(10)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 10)
-                                    .stroke(isOrdered ? Theme.border : Theme.textPrimary.opacity(0.2), lineWidth: 1)
+                                    .stroke(isOrdered ? BoutiqueTheme.border : BoutiqueTheme.textPrimary.opacity(0.2), lineWidth: 1)
                             )
                         }
                     }
@@ -535,7 +426,7 @@ struct AlertCard: View {
             }
         }
         .padding(16)
-        .appCardChrome()
+        .boutiqueCardChrome()
     }
 }
 
@@ -553,10 +444,10 @@ struct AssortmentTab: View {
                         Text(product.name)
                             .font(.body)
                             .fontWeight(.medium)
-                            .foregroundColor(product.enabledInStore ? Theme.textPrimary : Theme.textSecondary)
+                            .foregroundColor(product.enabledInStore ? BoutiqueTheme.textPrimary : BoutiqueTheme.textSecondary)
                         Text(product.category)
                             .font(.caption)
-                            .foregroundColor(Theme.textSecondary)
+                            .foregroundColor(BoutiqueTheme.textSecondary)
                     }
                     Spacer()
                     Toggle("", isOn: Binding(
@@ -564,7 +455,7 @@ struct AssortmentTab: View {
                         set: { _ in onToggle(product) }
                     ))
                     .labelsHidden()
-                    .tint(Theme.primary)
+                    .tint(BoutiqueTheme.primary)
                 }
                 .padding(.vertical, 6)
                 .listRowBackground(Color.clear)

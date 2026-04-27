@@ -44,8 +44,10 @@ public struct OrderStockView: View {
                 }
             }
             .scrollContentBackground(.hidden)
-            .background(Color.appBackground.ignoresSafeArea())
+            .background(BoutiqueTheme.background.ignoresSafeArea())
             .navigationTitle("Order Stock")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarColorScheme(.light, for: .navigationBar)
             .navigationBarItems(leading: Button(action: {
                 presentationMode.wrappedValue.dismiss()
             }) {

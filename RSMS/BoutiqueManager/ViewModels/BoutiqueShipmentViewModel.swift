@@ -4,6 +4,7 @@ import Combine
 @MainActor
 public final class BoutiqueShipmentViewModel: ObservableObject {
     @Published public var incomingShipments: [Shipment] = []
+    @Published public var allRequests: [ProductRequest] = []
     @Published public var receivedGRNs: [GoodsReceivedNote] = []
     @Published public var isLoading = false
     @Published public var errorMessage: String? = nil
@@ -19,13 +20,28 @@ public final class BoutiqueShipmentViewModel: ObservableObject {
         do {
             async let shipmentsFetch = RequestService.shared.fetchShipmentsForCurrentBoutiqueStore()
             async let grnsFetch = RequestService.shared.fetchGRNsForCurrentBoutiqueStore()
+            async let requestsFetch = RequestService.shared.fetchRequestsForCurrentBoutiqueStore()
+            
             incomingShipments = try await shipmentsFetch
             receivedGRNs = try await grnsFetch
+            allRequests = try await requestsFetch
             errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription
             print("BoutiqueShipmentViewModel.loadAll error: \(error)")
         }
+    }
+
+    public func reorderRequest(request: ProductRequest) async {
+        guard let productId = request.productId else { return }
+        isLoading = true
+        do {
+            try await DataService.shared.createStockRequest(productId: productId, quantity: request.requestedQuantity)
+            await loadAll()
+        } catch {
+            errorMessage = "Re-order failed: \(error.localizedDescription)"
+        }
+        isLoading = false
     }
 
     // MARK: - Receive Goods → GRN

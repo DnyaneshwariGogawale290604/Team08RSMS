@@ -7,7 +7,7 @@ public struct HomeTabView: View {
     public var body: some View {
         NavigationView {
             ZStack {
-                Theme.offWhite.ignoresSafeArea()
+                BoutiqueTheme.offWhite.ignoresSafeArea()
 
                 ScrollView {
                     VStack(spacing: 20) {
@@ -25,19 +25,18 @@ public struct HomeTabView: View {
                                     HStack {
                                         HStack(spacing: 6) {
                                             Image(systemName: "exclamationmark.triangle.fill")
-                                                .foregroundColor(Theme.error)
+                                                .foregroundColor(BoutiqueTheme.error)
                                                 .font(.system(size: 11))
                                             Text("LOW STOCK ALERTS")
-                                                .font(.caption)
-                                                .fontWeight(.semibold)
-                                                .foregroundColor(Theme.textSecondary)
+                                                .font(.system(size: 11, weight: .bold, design: .serif))
+                                                .foregroundColor(BoutiqueTheme.secondaryText)
                                                 .tracking(1)
                                         }
                                         Spacer()
                                         Text("\(summary.activeAlertsCount) item\(summary.activeAlertsCount == 1 ? "" : "s")")
                                             .font(.caption)
                                             .fontWeight(.bold)
-                                            .foregroundColor(Theme.error)
+                                            .foregroundColor(BoutiqueTheme.error)
                                     }
 
                                     ForEach(dashboardVM.activeAlerts) { alert in
@@ -48,14 +47,14 @@ public struct HomeTabView: View {
                             } else {
                                 HStack(spacing: 10) {
                                     Image(systemName: "checkmark.circle.fill")
-                                        .foregroundColor(Theme.primary)
+                                        .foregroundColor(BoutiqueTheme.primary)
                                     Text("All stock levels are healthy")
                                         .font(.subheadline)
-                                        .foregroundColor(Theme.textPrimary)
+                                        .foregroundColor(BoutiqueTheme.textPrimary)
                                 }
                                 .padding()
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(Theme.surface)
+                                .background(BoutiqueTheme.surface)
                                 .cornerRadius(20)
                                 .transition(.opacity)
                             }
@@ -65,12 +64,11 @@ public struct HomeTabView: View {
                                 HStack {
                                     HStack(spacing: 6) {
                                         Image(systemName: "calendar")
-                                            .foregroundColor(Theme.textPrimary)
+                                            .foregroundColor(BoutiqueTheme.textPrimary)
                                             .font(.system(size: 11))
                                         Text("TODAY'S APPOINTMENTS")
-                                            .font(.caption)
-                                            .fontWeight(.semibold)
-                                            .foregroundColor(Theme.textSecondary)
+                                            .font(.system(size: 11, weight: .bold, design: .serif))
+                                            .foregroundColor(BoutiqueTheme.secondaryText)
                                             .tracking(1)
                                     }
                                     Spacer()
@@ -78,21 +76,21 @@ public struct HomeTabView: View {
                                         Text("\(dashboardVM.todayAppointments.count)")
                                             .font(.caption)
                                             .fontWeight(.bold)
-                                            .foregroundColor(Theme.textPrimary)
+                                            .foregroundColor(BoutiqueTheme.textPrimary)
                                     }
                                 }
                                 
                                 if dashboardVM.todayAppointments.isEmpty {
                                     HStack(spacing: 10) {
                                         Image(systemName: "calendar.badge.minus")
-                                            .foregroundColor(Theme.textSecondary)
+                                            .foregroundColor(BoutiqueTheme.textSecondary)
                                         Text("No appointments scheduled for today")
                                             .font(.subheadline)
-                                            .foregroundColor(Theme.textSecondary)
+                                            .foregroundColor(BoutiqueTheme.textSecondary)
                                     }
                                     .padding()
                                     .frame(maxWidth: .infinity, alignment: .leading)
-                                    .background(Theme.textSecondary.opacity(0.08))
+                                    .background(BoutiqueTheme.textSecondary.opacity(0.08))
                                     .cornerRadius(20)
                                     .transition(.opacity)
                                 } else {
@@ -108,14 +106,14 @@ public struct HomeTabView: View {
                             VStack(spacing: 10) {
                                 Image(systemName: "exclamationmark.circle")
                                     .font(.largeTitle)
-                                    .foregroundColor(Theme.error)
+                                    .foregroundColor(BoutiqueTheme.error)
                                 Text(error)
                                     .font(.subheadline)
-                                    .foregroundColor(Theme.textSecondary)
+                                    .foregroundColor(BoutiqueTheme.textSecondary)
                                     .multilineTextAlignment(.center)
                                 Button("Retry") { dashboardVM.loadDashboardData() }
                                     .font(.subheadline)
-                                    .foregroundColor(Theme.textPrimary)
+                                    .foregroundColor(BoutiqueTheme.textPrimary)
                             }
                             .padding(40)
                         }
@@ -130,6 +128,7 @@ public struct HomeTabView: View {
                 }
             }
             .navigationTitle("Dashboard")
+            .toolbarColorScheme(.light, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Menu {
@@ -141,7 +140,7 @@ public struct HomeTabView: View {
                     } label: {
                         Image(systemName: "person.crop.circle")
                             .font(.title2)
-                            .foregroundColor(Theme.textPrimary)
+                            .foregroundColor(BoutiqueTheme.textPrimary)
                     }
                 }
             }
@@ -186,7 +185,7 @@ struct DashboardSkeleton: View {
                 }
             }
             .padding(20)
-            .background(Theme.beige)
+            .background(BoutiqueTheme.beige)
             .cornerRadius(20)
 
             // Alert rows skeleton
@@ -202,7 +201,7 @@ struct DashboardSkeleton: View {
                 }
                 .padding(.vertical, 10)
                 .padding(.horizontal, 14)
-                .background(Theme.beige)
+                .background(BoutiqueTheme.beige)
                 .cornerRadius(20)
             }
         }
@@ -228,9 +227,9 @@ struct ShimmerBar: View {
     private var shimmerGradient: LinearGradient {
         LinearGradient(
             gradient: Gradient(colors: [
-                Theme.border.opacity(0.4),
-                Theme.border.opacity(0.9),
-                Theme.border.opacity(0.4)
+                BoutiqueTheme.border.opacity(0.4),
+                BoutiqueTheme.border.opacity(0.9),
+                BoutiqueTheme.border.opacity(0.4)
             ]),
             startPoint: UnitPoint(x: phase - 0.5, y: 0),
             endPoint: UnitPoint(x: phase + 0.5, y: 0)
@@ -256,9 +255,9 @@ struct ShimmerCircle: View {
     private var shimmerGradient: LinearGradient {
         LinearGradient(
             gradient: Gradient(colors: [
-                Theme.border.opacity(0.4),
-                Theme.border.opacity(0.9),
-                Theme.border.opacity(0.4)
+                BoutiqueTheme.border.opacity(0.4),
+                BoutiqueTheme.border.opacity(0.9),
+                BoutiqueTheme.border.opacity(0.4)
             ]),
             startPoint: UnitPoint(x: phase - 0.5, y: 0),
             endPoint: UnitPoint(x: phase + 0.5, y: 0)
@@ -275,10 +274,10 @@ struct AlertRow: View {
         HStack(spacing: 14) {
             ZStack {
                 Circle()
-                    .fill(Theme.surface)
+                    .fill(BoutiqueTheme.surface)
                     .frame(width: 36, height: 36)
                 Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundColor(Theme.primary)
+                    .foregroundColor(BoutiqueTheme.primary)
                     .font(.system(size: 13))
             }
 
@@ -286,10 +285,10 @@ struct AlertRow: View {
                 Text(alert.name)
                     .font(.subheadline)
                     .fontWeight(.medium)
-                    .foregroundColor(Theme.textPrimary)
+                    .foregroundColor(BoutiqueTheme.textPrimary)
                 Text(alert.category.isEmpty ? "General" : alert.category)
                     .font(.caption2)
-                    .foregroundColor(Theme.textSecondary)
+                    .foregroundColor(BoutiqueTheme.textSecondary)
             }
 
             Spacer()
@@ -298,15 +297,15 @@ struct AlertRow: View {
                 Text("\(alert.stockQuantity)")
                     .font(.subheadline)
                     .fontWeight(.bold)
-                    .foregroundColor(Theme.primary)
+                    .foregroundColor(BoutiqueTheme.primary)
                 Text("left")
                     .font(.caption2)
-                    .foregroundColor(Theme.textSecondary)
+                    .foregroundColor(BoutiqueTheme.textSecondary)
             }
         }
         .padding(.vertical, 10)
         .padding(.horizontal, 14)
-        .background(Theme.beige)
+        .background(BoutiqueTheme.beige)
         .cornerRadius(20)
     }
 }
@@ -321,13 +320,12 @@ struct SalesTargetCard: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("TODAY'S SALES")
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                        .foregroundColor(Theme.textSecondary)
+                        .font(.system(size: 10, weight: .bold, design: .serif))
+                        .foregroundColor(BoutiqueTheme.secondaryText)
                         .tracking(1.2)
                     Text(formatCurrency(summary.dailyRevenue))
                         .font(.system(size: 34, weight: .bold))
-                        .foregroundColor(Theme.textPrimary)
+                        .foregroundColor(BoutiqueTheme.textPrimary)
                         .contentTransition(.numericText())
                 }
                 Spacer()
@@ -336,55 +334,56 @@ struct SalesTargetCard: View {
                     : 0
                 ZStack {
                     Circle()
-                        .stroke(Theme.border, lineWidth: 10)
+                        .stroke(BoutiqueTheme.border, lineWidth: 10)
                     Circle()
                         .trim(from: 0, to: CGFloat(percent))
-                        .stroke(Theme.primary, style: StrokeStyle(lineWidth: 10, lineCap: .round))
+                        .stroke(BoutiqueTheme.primary, style: StrokeStyle(lineWidth: 10, lineCap: .round))
                         .rotationEffect(.degrees(-90))
                         .animation(.easeOut(duration: 0.8), value: percent)
                     Text("\(Int(percent * 100))%")
                         .font(.system(size: 13, weight: .bold))
-                        .foregroundColor(Theme.textPrimary)
+                        .foregroundColor(BoutiqueTheme.textPrimary)
                 }
                 .frame(width: 72, height: 72)
             }
 
-            Divider().background(Theme.border)
+            Divider().background(BoutiqueTheme.border)
 
             HStack(spacing: 0) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Target")
                         .font(.caption)
-                        .foregroundColor(Theme.textSecondary)
+                        .foregroundColor(BoutiqueTheme.textSecondary)
                     Text(formatCurrency(summary.targetRevenue))
                         .font(.subheadline)
                         .fontWeight(.semibold)
-                        .foregroundColor(Theme.textPrimary)
+                        .foregroundColor(BoutiqueTheme.textPrimary)
                 }
                 Spacer()
                 let gap = max(summary.targetRevenue - summary.dailyRevenue, 0)
                 VStack(alignment: .trailing, spacing: 4) {
                     Text("Remaining")
                         .font(.caption)
-                        .foregroundColor(Theme.textSecondary)
+                        .foregroundColor(BoutiqueTheme.textSecondary)
                     Text(formatCurrency(gap))
                         .font(.subheadline)
                         .fontWeight(.semibold)
-                        .foregroundColor(gap == 0 ? Theme.success : Theme.error)
+                        .foregroundColor(gap == 0 ? BoutiqueTheme.success : BoutiqueTheme.error)
                 }
             }
         }
         .padding(20)
-        .background(Theme.beige)
-        .cornerRadius(20)
+        .background(Color.white)
+        .cornerRadius(16)
+        .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
     }
 
     private func formatCurrency(_ value: Double) -> String {
         let formatter = NumberFormatter()
         formatter.numberStyle = .currency
-        formatter.currencyCode = "USD"
+        formatter.currencyCode = "INR"
         formatter.maximumFractionDigits = 0
-        return formatter.string(from: NSNumber(value: value)) ?? "$0"
+        return formatter.string(from: NSNumber(value: value)) ?? "₹0"
     }
 }
 

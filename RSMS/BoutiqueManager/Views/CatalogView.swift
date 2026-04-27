@@ -13,27 +13,27 @@ public struct CatalogView: View {
     public var body: some View {
         NavigationView {
             ZStack {
-                CatalogTheme.background.ignoresSafeArea()
+                BoutiqueTheme.background.ignoresSafeArea()
                 
                 VStack(spacing: 0) {
                     // Search Bar
                     HStack(spacing: 12) {
                         Image(systemName: "magnifyingglass")
-                            .foregroundColor(CatalogTheme.primary)
+                            .foregroundColor(BoutiqueTheme.primary)
                         TextField(
                             "Search products or SKU...",
                             text: $catalogVM.searchText,
-                            prompt: Text("Search products or SKU...").foregroundColor(CatalogTheme.mutedText)
+                            prompt: Text("Search products or SKU...").foregroundColor(BoutiqueTheme.mutedText)
                         )
-                            .foregroundColor(CatalogTheme.primaryText)
-                            .tint(CatalogTheme.deepAccent)
+                            .foregroundColor(BoutiqueTheme.primaryText)
+                            .tint(BoutiqueTheme.deepAccent)
                             .autocapitalization(.none)
                     }
                     .padding(.horizontal, 14)
                     .frame(height: 44)
                     .background(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .fill(CatalogTheme.surface)
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .fill(BoutiqueTheme.surface)
                     )
                     .padding(.horizontal, 16)
                     .padding(.top, 8)
@@ -57,7 +57,7 @@ public struct CatalogView: View {
                         }
                     }
                     
-                    Divider().background(CatalogTheme.divider)
+
                     
                     // Content
                     if catalogVM.isLoading {
@@ -87,6 +87,7 @@ public struct CatalogView: View {
             .navigationTitle("Catalog")
             .navigationBarTitleDisplayMode(.large)
             .toolbarColorScheme(.light, for: .navigationBar)
+            
             .onAppear {
                 catalogVM.fetchProducts()
             }
@@ -106,10 +107,10 @@ struct CategoryPill: View {
             Text(label)
                 .font(.caption)
                 .fontWeight(isSelected ? .semibold : .regular)
-                .foregroundColor(isSelected ? .white : CatalogTheme.chipInactiveText)
+                .foregroundColor(isSelected ? .white : BoutiqueTheme.chipInactiveText)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
-                .background(isSelected ? CatalogTheme.primary : CatalogTheme.surface)
+                .background(isSelected ? BoutiqueTheme.primary : BoutiqueTheme.surface)
                 .clipShape(RoundedRectangle(cornerRadius: AppTheme.buttonCornerRadius, style: .continuous))
         }
     }
@@ -127,7 +128,7 @@ struct ProductCard: View {
             // Product image / icon area
             ZStack {
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(CatalogTheme.imageBackground)
+                    .fill(BoutiqueTheme.imageBackground)
                     .frame(maxWidth: .infinity)
                     .frame(height: 130)
 
@@ -170,16 +171,16 @@ struct ProductCard: View {
 
                 // Name
                 Text(product.name)
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundColor(CatalogTheme.primaryText)
+                    .font(.system(size: 13, weight: .bold, design: .serif))
+                    .foregroundColor(BoutiqueTheme.primaryText)
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
 
                 // Category
                 if !product.category.isEmpty {
                     Text(product.category.uppercased())
-                        .font(.system(size: 9, weight: .semibold))
-                        .foregroundColor(CatalogTheme.mutedText)
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundColor(BoutiqueTheme.subtleCategory)
                         .tracking(1.2)
                         .lineLimit(1)
                 }
@@ -189,7 +190,7 @@ struct ProductCard: View {
                     VStack(alignment: .leading, spacing: 5) {
                         Text("SIZES")
                             .font(.system(size: 8, weight: .bold))
-                            .foregroundColor(CatalogTheme.mutedText)
+                            .foregroundColor(BoutiqueTheme.mutedText)
                             .tracking(1.5)
 
                         // Wrap chips: use a simple FlowLayout approximation
@@ -204,21 +205,21 @@ struct ProductCard: View {
                 if product.price > 0 {
                     Text(formatPrice(product.price))
                         .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(CatalogTheme.deepAccent)
+                        .foregroundColor(BoutiqueTheme.deepAccent)
                 }
 
             }
             .padding(10)
         }
         .frame(maxWidth: .infinity)
-        .frame(minHeight: 290, alignment: .top)
+        .frame(minHeight: 240, alignment: .top)
         .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(CatalogTheme.card)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(BoutiqueTheme.card)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(CatalogTheme.divider, lineWidth: 0.8)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(BoutiqueTheme.divider, lineWidth: 0.5)
         )
         .shadow(color: Color.black.opacity(0.03), radius: 4, x: 0, y: 2)
         .scaleEffect(isPressed ? 1.02 : 1)
@@ -233,12 +234,12 @@ struct ProductCard: View {
         VStack(spacing: 6) {
             Image(systemName: iconForCategory(product.category))
                 .font(.system(size: 32))
-                .foregroundColor(CatalogTheme.mutedText)
+                .foregroundColor(BoutiqueTheme.mutedText)
 
             if !product.category.isEmpty {
                 Text(product.category.uppercased())
                     .font(.system(size: 8, weight: .semibold))
-                    .foregroundColor(CatalogTheme.mutedText)
+                    .foregroundColor(BoutiqueTheme.mutedText)
                     .tracking(1.5)
             }
         }
@@ -261,9 +262,9 @@ struct ProductCard: View {
     private func formatPrice(_ value: Double) -> String {
         let formatter = NumberFormatter()
         formatter.numberStyle = .currency
-        formatter.currencyCode = "USD"
+        formatter.currencyCode = "INR"
         formatter.maximumFractionDigits = 0
-        return formatter.string(from: NSNumber(value: value)) ?? "$\(Int(value))"
+        return formatter.string(from: NSNumber(value: value)) ?? "₹\(Int(value))"
     }
 }
 
@@ -303,22 +304,22 @@ struct SizeChip: View {
         Button(action: action) {
             Text(label)
                 .font(.system(size: 10, weight: isSelected ? .bold : .medium))
-                .foregroundColor(isSelected ? .white : CatalogTheme.primary)
+                .foregroundColor(isSelected ? .white : BoutiqueTheme.primary)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
                 .background(
                     RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .fill(isSelected ? CatalogTheme.primary : CatalogTheme.surface)
+                        .fill(isSelected ? BoutiqueTheme.primary : BoutiqueTheme.surface)
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 6, style: .continuous)
                         .stroke(
-                            isSelected ? CatalogTheme.primary : CatalogTheme.primary.opacity(0.35),
+                            isSelected ? BoutiqueTheme.primary : BoutiqueTheme.primary.opacity(0.35),
                             lineWidth: isSelected ? 0 : 0.8
                         )
                 )
                 .shadow(
-                    color: isSelected ? CatalogTheme.primary.opacity(0.3) : .clear,
+                    color: isSelected ? BoutiqueTheme.primary.opacity(0.3) : .clear,
                     radius: 3, x: 0, y: 1
                 )
         }

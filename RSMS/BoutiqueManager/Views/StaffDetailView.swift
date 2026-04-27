@@ -15,7 +15,7 @@ public struct StaffDetailView: View {
     public var body: some View {
         NavigationView {
             ZStack {
-                Theme.offWhite.ignoresSafeArea()
+                BoutiqueTheme.offWhite.ignoresSafeArea()
 
                 ScrollView {
                     VStack(spacing: 24) {
@@ -36,21 +36,21 @@ public struct StaffDetailView: View {
                             } else if let err = errorMsg {
                                 Text(err)
                                     .font(.caption)
-                                    .foregroundColor(Theme.error)
+                                    .foregroundColor(BoutiqueTheme.error)
                                     .padding()
                             } else if selectedTab == 0 {
                                 // Appointments Tab
                                 if appointments.isEmpty {
                                     HStack(spacing: 12) {
                                         Image(systemName: "calendar.badge.exclamationmark")
-                                            .foregroundColor(Theme.border)
+                                            .foregroundColor(BoutiqueTheme.border)
                                         Text("No appointments found")
                                             .font(.subheadline)
-                                            .foregroundColor(Theme.textSecondary)
+                                            .foregroundColor(BoutiqueTheme.textSecondary)
                                     }
                                     .padding()
                                     .frame(maxWidth: .infinity)
-                                    .background(Theme.beige)
+                                    .background(BoutiqueTheme.beige)
                                     .cornerRadius(14)
                                 } else {
                                     ForEach(appointments) { appointment in
@@ -62,14 +62,14 @@ public struct StaffDetailView: View {
                                 if ratings.isEmpty {
                                     HStack(spacing: 12) {
                                         Image(systemName: "star.slash")
-                                            .foregroundColor(Theme.border)
+                                            .foregroundColor(BoutiqueTheme.border)
                                         Text("No customer ratings yet")
                                             .font(.subheadline)
-                                            .foregroundColor(Theme.textSecondary)
+                                            .foregroundColor(BoutiqueTheme.textSecondary)
                                     }
                                     .padding()
                                     .frame(maxWidth: .infinity)
-                                    .background(Theme.beige)
+                                    .background(BoutiqueTheme.beige)
                                     .cornerRadius(14)
                                 } else {
                                     ForEach(ratings) { rating in
@@ -133,25 +133,25 @@ private struct StaffProfileHeader: View {
             // Avatar
             ZStack {
                 Circle()
-                    .fill(Theme.beige)
+                    .fill(BoutiqueTheme.beige)
                     .frame(width: 80, height: 80)
                 Text(String((staff.name ?? "U").prefix(1)).uppercased())
                     .font(.system(size: 32, weight: .bold))
-                    .foregroundColor(Theme.textPrimary)
+                    .foregroundColor(BoutiqueTheme.textPrimary)
             }
 
             VStack(spacing: 4) {
                 Text(staff.name ?? "Unnamed Staff")
                     .font(.title3)
                     .fontWeight(.bold)
-                    .foregroundColor(Theme.textPrimary)
+                    .foregroundColor(BoutiqueTheme.textPrimary)
                 Text(staff.email ?? "")
                     .font(.subheadline)
-                    .foregroundColor(Theme.textSecondary)
+                    .foregroundColor(BoutiqueTheme.textSecondary)
                 if let phone = staff.phone, !phone.isEmpty {
                     Text(phone)
                         .font(.caption)
-                        .foregroundColor(Theme.textSecondary)
+                        .foregroundColor(BoutiqueTheme.textSecondary)
                 }
             }
 
@@ -166,17 +166,17 @@ private struct StaffProfileHeader: View {
                     Text(String(format: "%.1f", averageRating))
                         .font(.headline)
                         .fontWeight(.bold)
-                        .foregroundColor(Theme.textPrimary)
+                        .foregroundColor(BoutiqueTheme.textPrimary)
                         .padding(.leading, 4)
                     Text("/ 5")
                         .font(.subheadline)
-                        .foregroundColor(Theme.textSecondary)
+                        .foregroundColor(BoutiqueTheme.textSecondary)
                 }
             }
         }
         .padding(20)
         .frame(maxWidth: .infinity)
-        .background(Color.white)
+        .background(BoutiqueTheme.card)
         .cornerRadius(20)
         .shadow(color: Color.black.opacity(0.02), radius: 6, x: 0, y: 2)
     }
@@ -207,24 +207,24 @@ private struct RatingCard: View {
                 Text(String(format: "%.0f/5", rating.ratingValue))
                     .font(.caption)
                     .fontWeight(.semibold)
-                    .foregroundColor(Theme.textPrimary)
+                    .foregroundColor(BoutiqueTheme.textPrimary)
                 Spacer()
                 if let date = rating.createdAt {
                     Text(formatDate(date))
                         .font(.caption2)
-                        .foregroundColor(Theme.textSecondary)
+                        .foregroundColor(BoutiqueTheme.textSecondary)
                 }
             }
 
             if let feedback = rating.feedbackText, !feedback.isEmpty {
                 Text("\"\(feedback)\"")
                     .font(.subheadline.italic())
-                    .foregroundColor(Theme.textPrimary)
+                    .foregroundColor(BoutiqueTheme.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
         .padding(14)
-        .background(Color.white)
+        .background(BoutiqueTheme.card)
         .cornerRadius(20)
         .shadow(color: Color.black.opacity(0.02), radius: 6, x: 0, y: 2)
     }

@@ -12,11 +12,11 @@ public struct RegisterView: View {
                 VStack(spacing: 10) {
                     Text("RSMS")
                         .font(.system(size: 40, weight: .bold, design: .serif))
-                        .foregroundColor(.luxuryPrimaryText)
+                        .foregroundColor(BoutiqueTheme.primaryText)
 
                     Text("Register Boutique Manager")
                         .font(.system(size: 14, weight: .regular, design: .default))
-                        .foregroundColor(.luxurySecondaryText)
+                        .foregroundColor(BoutiqueTheme.secondaryText)
                         .tracking(1.5)
                 }
                 .padding(.top, 40)
@@ -26,11 +26,11 @@ public struct RegisterView: View {
                     TextField(
                         "",
                         text: $authVM.name,
-                        prompt: Text("Full Name").foregroundColor(.luxuryMutedText)
+                        prompt: Text("Full Name").foregroundColor(BoutiqueTheme.mutedText)
                     )
                         .padding()
-                        .foregroundColor(.luxuryPrimaryText)
-                        .background(Color.luxurySurface)
+                        .foregroundColor(BoutiqueTheme.primaryText)
+                        .background(BoutiqueTheme.surface)
                         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                         .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color.luxuryDivider, lineWidth: 0.8))
                         .autocapitalization(.words)
@@ -38,11 +38,11 @@ public struct RegisterView: View {
                     TextField(
                         "",
                         text: $authVM.email,
-                        prompt: Text("Email").foregroundColor(.luxuryMutedText)
+                        prompt: Text("Email").foregroundColor(BoutiqueTheme.mutedText)
                     )
                         .padding()
-                        .foregroundColor(.luxuryPrimaryText)
-                        .background(Color.luxurySurface)
+                        .foregroundColor(BoutiqueTheme.primaryText)
+                        .background(BoutiqueTheme.surface)
                         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                         .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color.luxuryDivider, lineWidth: 0.8))
                         .keyboardType(.emailAddress)
@@ -51,11 +51,11 @@ public struct RegisterView: View {
                     TextField(
                         "",
                         text: $authVM.phone,
-                        prompt: Text("Phone Number (Optional)").foregroundColor(.luxuryMutedText)
+                        prompt: Text("Phone Number (Optional)").foregroundColor(BoutiqueTheme.mutedText)
                     )
                         .padding()
-                        .foregroundColor(.luxuryPrimaryText)
-                        .background(Color.luxurySurface)
+                        .foregroundColor(BoutiqueTheme.primaryText)
+                        .background(BoutiqueTheme.surface)
                         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                         .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color.luxuryDivider, lineWidth: 0.8))
                         .keyboardType(.phonePad)
@@ -63,11 +63,11 @@ public struct RegisterView: View {
                     SecureField(
                         "",
                         text: $authVM.password,
-                        prompt: Text("Password").foregroundColor(.luxuryMutedText)
+                        prompt: Text("Password").foregroundColor(BoutiqueTheme.mutedText)
                     )
                         .padding()
-                        .foregroundColor(.luxuryPrimaryText)
-                        .background(Color.luxurySurface)
+                        .foregroundColor(BoutiqueTheme.primaryText)
+                        .background(BoutiqueTheme.surface)
                         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                         .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color.luxuryDivider, lineWidth: 0.8))
                 }
@@ -75,7 +75,7 @@ public struct RegisterView: View {
 
                 if let error = authVM.errorMessage {
                     Text(error)
-                        .foregroundColor(.luxuryDeepAccent)
+                        .foregroundColor(BoutiqueTheme.deepAccent)
                         .font(.caption)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 40)
@@ -110,14 +110,14 @@ public struct RegisterView: View {
                 }) {
                     Text("Already have an account? Sign In")
                         .font(.caption)
-                        .foregroundColor(.luxurySecondaryText)
+                        .foregroundColor(BoutiqueTheme.secondaryText)
                 }
                 .padding(.top, 20)
                 
                 Spacer(minLength: 40)
             }
         }
-        .background(Color.luxuryBackground.ignoresSafeArea())
+        .background(BoutiqueTheme.background.ignoresSafeArea())
         .navigationBarHidden(true)
     }
 }

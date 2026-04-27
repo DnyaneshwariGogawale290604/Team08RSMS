@@ -3,213 +3,226 @@ import SwiftUI
 /// Boutique Manager's view for all incoming shipments and their GRN status.
 public struct ShipmentTrackingView: View {
     @StateObject private var viewModel = BoutiqueShipmentViewModel()
+    @State private var selectedSegment = 0
     @State private var shipmentForGRN: Shipment? = nil
     @State private var lastGRN: String? = nil
     @State private var showGRNBanner = false
 
+    private let segments = ["Approved", "Rejected", "Order"]
+
     public init() {}
 
-    public var body: some View {
-        ZStack {
-            Color.appBackground.ignoresSafeArea()
-
-            if viewModel.isLoading && viewModel.incomingShipments.isEmpty {
-                LoadingView(message: "Loading shipments...")
-            } else if let err = viewModel.errorMessage {
-                errorView(message: err)
-            } else if viewModel.incomingShipments.isEmpty {
-                emptyView
-            } else {
-                shipmentsList
-            }
-
-            // GRN Banner
-            if showGRNBanner, let grn = lastGRN {
-                grnBanner(grnNumber: grn)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-            }
+    private var filteredRequests: [ProductRequest] {
+        switch selectedSegment {
+        case 0: // Approved
+            return viewModel.allRequests.filter { $0.status.lowercased() == "approved" }
+        case 1: // Rejected
+            return viewModel.allRequests.filter { $0.status.lowercased() == "rejected" }
+        case 2: // Order (Pending)
+            return viewModel.allRequests.filter { $0.status.lowercased() == "pending" }
+        default:
+            return []
         }
-        .navigationTitle("Incoming Shipments")
-        .navigationBarTitleDisplayMode(.inline)
-        .task { await viewModel.loadAll() }
-        .refreshable { await viewModel.loadAll() }
-        .sheet(item: $shipmentForGRN) { shipment in
-            GRNFormSheet(shipment: shipment) { grn in
-                lastGRN = grn
-                withAnimation(.spring()) { showGRNBanner = true }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
-                    withAnimation { showGRNBanner = false }
+    }
+
+    public var body: some View {
+        NavigationView {
+            ZStack {
+                BoutiqueTheme.background.ignoresSafeArea()
+
+                VStack(spacing: 0) {
+                    // Segmented Control
+                    ShipmentSegmentedControl(selected: $selectedSegment, segments: segments)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+
+                    if viewModel.isLoading && viewModel.allRequests.isEmpty {
+                        Spacer()
+                        LoadingView(message: "Loading details...")
+                        Spacer()
+                    } else if let err = viewModel.errorMessage {
+                        errorView(message: err)
+                    } else if filteredRequests.isEmpty {
+                        emptyView
+                    } else {
+                        requestsList
+                    }
+                }
+
+                // GRN Banner
+                if showGRNBanner, let grn = lastGRN {
+                    grnBanner(grnNumber: grn)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
-            .environmentObject(viewModel)
+            .navigationTitle("Shipments")
+            .toolbarColorScheme(.light, for: .navigationBar)
+            .onAppear {
+                Task {
+                    await viewModel.loadAll()
+                }
+            }
+            .refreshable { await viewModel.loadAll() }
+            .sheet(item: $shipmentForGRN) { shipment in
+                GRNFormSheet(shipment: shipment) { grn in
+                    lastGRN = grn
+                    withAnimation(.spring()) { showGRNBanner = true }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+                        withAnimation { showGRNBanner = false }
+                    }
+                }
+                .environmentObject(viewModel)
+            }
         }
     }
 
     // MARK: - Sub-views
 
-    private var shipmentsList: some View {
-        List {
-            ForEach(viewModel.incomingShipments) { shipment in
-                shipmentCard(for: shipment)
-                    .listRowInsets(EdgeInsets())
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
-                    .padding(.vertical, 6)
-                    .padding(.horizontal, 16)
+    private var requestsList: some View {
+        ScrollView {
+            LazyVStack(spacing: 16) {
+                ForEach(filteredRequests) { request in
+                    requestCard(for: request)
+                }
             }
+            .padding(16)
         }
-        .listStyle(.plain)
     }
 
     @ViewBuilder
-    private func shipmentCard(for shipment: Shipment) -> some View {
-        let existingGRN = viewModel.grn(forShipment: shipment)
+    private func requestCard(for request: ProductRequest) -> some View {
+        let shipment = viewModel.incomingShipments.first { $0.requestId == request.id }
+        let existingGRN = shipment.flatMap { viewModel.grn(forShipment: $0) }
         let hasGRN = existingGRN != nil
 
-        ReusableCardView {
-            VStack(alignment: .leading, spacing: 12) {
-
-                // Header: ASN + Status
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        if let asn = shipment.asnNumber {
-                            Text(asn)
-                                .font(.system(.caption, design: .monospaced).bold())
-                                .foregroundColor(.appAccent)
-                        } else {
-                            Text("SHP-\(shipment.id.uuidString.prefix(6).uppercased())")
-                                .font(.caption.bold())
-                                .foregroundColor(.appAccent)
-                        }
-                        Text(shipment.request?.product?.name ?? "Shipment")
-                            .font(.headline)
-                            .foregroundColor(.appPrimaryText)
-                    }
-                    Spacer()
-                    statusChip(shipment.status)
+        VStack(alignment: .leading, spacing: 12) {
+            // Header: Product + Status
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(request.product?.name ?? "Unknown Product")
+                        .font(.headline)
+                        .foregroundColor(BoutiqueTheme.textPrimary)
+                    
+                    Text("Qty: \(request.requestedQuantity)")
+                        .font(.subheadline)
+                        .foregroundColor(BoutiqueTheme.textSecondary)
                 }
+                Spacer()
+                statusChip(request.status)
+            }
 
-                // Carrier & Tracking
-                if let carrier = shipment.carrier {
-                    HStack(spacing: 6) {
-                        Image(systemName: "shippingbox")
-                            .font(.caption)
-                            .foregroundColor(.appSecondaryText)
-                        Text(carrier)
-                            .font(.subheadline)
-                            .foregroundColor(.appSecondaryText)
-                        if let tracking = shipment.trackingNumber {
-                            Text("· \(tracking)")
-                                .font(.caption)
-                                .foregroundColor(.appSecondaryText)
-                        }
+            if let rejectionReason = request.rejectionReason, !rejectionReason.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "xmark.circle.fill").font(.caption)
+                        Text("Order Rejected")
+                            .font(.caption).fontWeight(.bold)
                     }
+                    .foregroundColor(BoutiqueTheme.error)
+                    
+                    Text(rejectionReason)
+                        .font(.caption2)
+                        .foregroundColor(BoutiqueTheme.textSecondary)
                 }
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(BoutiqueTheme.error.opacity(0.1))
+                .cornerRadius(10)
+            }
 
-                // ETA
-                if let eta = shipment.estimatedDelivery {
-                    HStack(spacing: 6) {
-                        Image(systemName: "calendar")
-                            .font(.caption)
-                            .foregroundColor(.appSecondaryText)
-                        Text("Est. Delivery: \(eta)")
-                            .font(.caption)
-                            .foregroundColor(.appSecondaryText)
+            if request.status.lowercased() == "rejected" {
+                Button {
+                    Task {
+                        await viewModel.reorderRequest(request: request)
                     }
-                }
-
-                // Quantity
-                if let req = shipment.request {
-                    HStack(spacing: 6) {
-                        Image(systemName: "cube.box")
-                            .font(.caption)
-                            .foregroundColor(.appSecondaryText)
-                        Text("\(req.requestedQuantity) units ordered")
-                            .font(.caption)
-                            .foregroundColor(.appSecondaryText)
+                } label: {
+                    HStack {
+                        Image(systemName: "arrow.clockwise")
+                        Text("Re-Order Product")
+                            .font(.subheadline.bold())
                     }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background(BoutiqueTheme.primary)
+                    .foregroundColor(.white)
+                    .cornerRadius(12)
                 }
+                .padding(.top, 4)
+            }
 
+            if let shipment = shipment {
                 Divider()
+                
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Image(systemName: "truck.box")
+                            .foregroundColor(BoutiqueTheme.primary)
+                        Text(shipment.carrier ?? "Standard Carrier")
+                            .font(.subheadline.bold())
+                        Spacer()
+                        if let tracking = shipment.trackingNumber {
+                            Text(tracking)
+                                .font(.system(.caption, design: .monospaced))
+                                .foregroundColor(BoutiqueTheme.textSecondary)
+                        }
+                    }
 
-                // GRN Status or Receive Button
-                if hasGRN, let grn = existingGRN {
-                    // GRN already created
-                    HStack(spacing: 6) {
-                        Image(systemName: "checkmark.seal.fill")
-                            .font(.system(size: 14))
-                            .foregroundColor(.green)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("GRN Generated")
+                    if let eta = shipment.estimatedDelivery {
+                        Text("ETA: \(eta)")
+                            .font(.caption)
+                            .foregroundColor(BoutiqueTheme.textSecondary)
+                    }
+
+                    if hasGRN, let grn = existingGRN {
+                        HStack {
+                            Image(systemName: "checkmark.seal.fill")
+                                .foregroundColor(.green)
+                            Text("Received: \(grn.grnNumber ?? "")")
                                 .font(.caption.bold())
                                 .foregroundColor(.green)
-                            Text(grn.grnNumber ?? "")
-                                .font(.system(.caption2, design: .monospaced))
-                                .foregroundColor(.appSecondaryText)
                         }
-                        Spacer()
-                        conditionBadge(grn.condition)
-                    }
-                    .padding(10)
-                    .background(Color.green.opacity(0.08))
-                    .cornerRadius(10)
-
-                } else if shipment.status == "in_transit" {
-                    // Ready to receive
-                    Button {
-                        shipmentForGRN = shipment
-                    } label: {
-                        HStack {
-                            Image(systemName: "checkmark.circle")
-                            Text("Receive Goods & Generate GRN")
+                        .padding(8)
+                        .background(Color.green.opacity(0.1))
+                        .cornerRadius(8)
+                    } else if shipment.status == "in_transit" {
+                        Button {
+                            shipmentForGRN = shipment
+                        } label: {
+                            Text("Receive Goods")
                                 .font(.subheadline.bold())
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 8)
+                                .background(BoutiqueTheme.primary)
+                                .foregroundColor(.white)
+                                .cornerRadius(10)
                         }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(Color.appAccent)
-                        .foregroundColor(.white)
-                        .cornerRadius(10)
                     }
-                } else if shipment.status == "delivered" && !hasGRN {
-                    HStack(spacing: 4) {
-                        Image(systemName: "clock").font(.caption)
-                        Text("Delivered — GRN pending")
-                            .font(.caption)
-                    }
-                    .foregroundColor(.orange)
                 }
             }
         }
-    }
-
-    @ViewBuilder
-    private func errorView(message: String) -> some View {
-        VStack(spacing: 12) {
-            Image(systemName: "exclamationmark.circle")
-                .font(.largeTitle)
-                .foregroundColor(.red)
-            Text(message)
-                .font(.subheadline)
-                .multilineTextAlignment(.center)
-                .foregroundColor(.appSecondaryText)
-        }
-        .padding(40)
+        .padding(16)
+        .boutiqueCardChrome()
     }
 
     private var emptyView: some View {
-        EmptyStateView(
-            icon: "shippingbox",
-            title: "No Shipments",
-            message: "No incoming shipments for your store yet."
-        )
+        VStack(spacing: 16) {
+            Spacer()
+            Image(systemName: "shippingbox")
+                .font(.system(size: 48))
+                .foregroundColor(BoutiqueTheme.border)
+            Text("No \(segments[selectedSegment]) Requests")
+                .font(.headline)
+                .foregroundColor(BoutiqueTheme.textPrimary)
+            Spacer()
+        }
     }
 
     private func statusChip(_ status: String) -> some View {
         let (color, label): (Color, String) = {
-            switch status {
-            case "in_transit": return (.blue, "In Transit")
-            case "delivered": return (.green, "Delivered")
-            case "pending": return (.orange, "Pending")
+            switch status.lowercased() {
+            case "approved": return (.green, "Approved")
+            case "rejected": return (BoutiqueTheme.error, "Rejected")
+            case "pending": return (.orange, "Order Placed")
             default: return (.gray, status.capitalized)
             }
         }()
@@ -222,21 +235,18 @@ public struct ShipmentTrackingView: View {
             .clipShape(Capsule())
     }
 
-    private func conditionBadge(_ condition: GoodsReceivedNote.GRNCondition) -> some View {
-        let (color, label): (Color, String) = {
-            switch condition {
-            case .good: return (.green, "Good")
-            case .damaged: return (.red, "Damaged")
-            case .partial: return (.orange, "Partial")
-            }
-        }()
-        return Text(label)
-            .font(.caption2.bold())
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
-            .background(color.opacity(0.15))
-            .foregroundColor(color)
-            .clipShape(Capsule())
+    @ViewBuilder
+    private func errorView(message: String) -> some View {
+        VStack(spacing: 12) {
+            Image(systemName: "exclamationmark.circle")
+                .font(.largeTitle)
+                .foregroundColor(BoutiqueTheme.error)
+            Text(message)
+                .font(.subheadline)
+                .multilineTextAlignment(.center)
+                .foregroundColor(BoutiqueTheme.textSecondary)
+        }
+        .padding(40)
     }
 
     @ViewBuilder
@@ -245,29 +255,48 @@ public struct ShipmentTrackingView: View {
             Spacer()
             HStack(spacing: 12) {
                 Image(systemName: "checkmark.seal.fill")
-                    .font(.title3)
                     .foregroundColor(.green)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("GRN Generated Successfully!")
+                    Text("GRN Generated!")
                         .font(.subheadline.bold())
-                        .foregroundColor(.appPrimaryText)
                     Text(grnNumber)
-                        .font(.system(.caption, design: .monospaced).bold())
-                        .foregroundColor(.appAccent)
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundColor(BoutiqueTheme.primary)
                 }
                 Spacer()
                 Button { withAnimation { showGRNBanner = false } } label: {
-                    Image(systemName: "xmark")
-                        .font(.caption)
-                        .foregroundColor(.appSecondaryText)
+                    Image(systemName: "xmark").foregroundColor(BoutiqueTheme.textSecondary)
                 }
             }
             .padding(16)
-            .background(Color.appCard)
+            .background(BoutiqueTheme.card)
             .cornerRadius(16)
-            .shadow(radius: 12)
-            .padding(.horizontal, 16)
-            .padding(.bottom, 16)
+            .shadow(radius: 8)
+            .padding(16)
         }
+    }
+}
+
+struct ShipmentSegmentedControl: View {
+    @Binding var selected: Int
+    let segments: [String]
+    
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(0..<segments.count, id: \.self) { index in
+                Button(action: { withAnimation { selected = index } }) {
+                    Text(segments[index])
+                        .font(.system(size: 13, weight: selected == index ? .semibold : .medium))
+                        .foregroundColor(selected == index ? .white : BoutiqueTheme.textSecondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(selected == index ? BoutiqueTheme.primary : Color.clear)
+                        .clipShape(Capsule())
+                }
+            }
+        }
+        .padding(4)
+        .background(BoutiqueTheme.surface)
+        .clipShape(Capsule())
     }
 }

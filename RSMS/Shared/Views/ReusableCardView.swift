@@ -73,7 +73,7 @@ public enum AppTheme {
 public extension View {
     func appCardChrome() -> some View {
         self
-            .background(Color.white)
+            .background(CatalogTheme.card)
             .clipShape(RoundedRectangle(cornerRadius: CatalogTheme.cardCornerRadius, style: .continuous))
             .shadow(color: Color.black.opacity(0.03), radius: 8, x: 0, y: 3)
     }

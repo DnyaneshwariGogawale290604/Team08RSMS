@@ -21,7 +21,7 @@ public struct ChangePasswordView: View {
             if let error = errorMessage {
                 Section {
                     Text(error)
-                        .foregroundColor(Theme.error)
+                        .foregroundColor(BoutiqueTheme.error)
                         .font(.caption)
                 }
             }
@@ -42,7 +42,7 @@ public struct ChangePasswordView: View {
         }
         .scrollContentBackground(.hidden)
         .navigationTitle("Change Password")
-        .background(Color.appBackground.ignoresSafeArea())
+        .background(BoutiqueTheme.background.ignoresSafeArea())
         .tint(.appAccent)
     }
     

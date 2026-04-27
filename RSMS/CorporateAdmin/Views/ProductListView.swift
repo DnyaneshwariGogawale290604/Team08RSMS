@@ -330,7 +330,7 @@ private struct ProductCardView: View {
             .padding(.bottom, 12)
         }
         .frame(maxWidth: .infinity)
-        .frame(height: 250, alignment: .top)
+        .frame(height: 220, alignment: .top)
         .background(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .fill(CatalogTheme.card)
