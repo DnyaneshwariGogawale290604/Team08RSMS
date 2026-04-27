@@ -11,6 +11,7 @@ public final class AdminViewModel: ObservableObject {
     @Published public var products: [Product] = []
     @Published public var stores: [Store] = []
     @Published public var warehouses: [Warehouse] = []
+    @Published public var pendingVendorOrders: [VendorOrder] = []
     @Published public var isLoading = false
     @Published public var errorMessage: String?
     @Published public var successMessage: String?
