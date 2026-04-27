@@ -117,8 +117,8 @@ public final class TransfersViewModel: ObservableObject {
                 estimatedDelivery: estimatedDelivery,
                 notes: notes
             )
-            // Mark request as shipped
-            try await RequestService.shared.updateRequestStatus(id: request.id, status: "shipped")
+            // Mark request as in_transit
+            try await RequestService.shared.updateRequestStatus(id: request.id, status: "in_transit")
             // Decrement warehouse stock
             if let productId = request.productId {
                 try await decrementWarehouseStock(productId: productId, deductQuantity: request.requestedQuantity)
