@@ -2,6 +2,7 @@ import SwiftUI
 
 public struct InventoryManagerTabView: View {
     @ObservedObject private var sessionViewModel: SessionViewModel
+    @State private var showingAccountSheet = false
 
     public init(sessionViewModel: SessionViewModel) {
         self.sessionViewModel = sessionViewModel
@@ -9,9 +10,11 @@ public struct InventoryManagerTabView: View {
 
     public var body: some View {
         TabView {
-            DashboardView()
+            DashboardView {
+                showingAccountSheet = true
+            }
                 .tabItem {
-                    Label("Dashboard", systemImage: "squareshape.split.2x2")
+                    Label("Dashboard", systemImage: "squareshape.split.2x2.fill")
                 }
 
             NavigationView {
@@ -32,17 +35,15 @@ public struct InventoryManagerTabView: View {
                 .tabItem {
                     Label("Items", systemImage: "shippingbox")
                 }
-
-            accountTab
-                .tabItem {
-                    Label("Account", systemImage: "person.crop.circle")
-                }
         }
         .tint(.luxuryPrimary)
         .toolbarBackground(.visible, for: .tabBar)
         .toolbarBackground(Color.white, for: .tabBar)
         .onAppear {
             configureTabBarAppearance()
+        }
+        .sheet(isPresented: $showingAccountSheet) {
+            accountTab
         }
     }
 

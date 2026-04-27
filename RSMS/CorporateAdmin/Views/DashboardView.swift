@@ -2,8 +2,11 @@ import SwiftUI
 
 public struct DashboardView: View {
     @StateObject private var viewModel = InventoryDashboardViewModel()
+    public var onAccountTapped: (() -> Void)? = nil
     
-    public init() {}
+    public init(onAccountTapped: (() -> Void)? = nil) {
+        self.onAccountTapped = onAccountTapped
+    }
     
     public var body: some View {
         NavigationView {
@@ -101,6 +104,16 @@ public struct DashboardView: View {
             }
             .navigationTitle("Dashboard")
             .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                if let onAccountTapped = onAccountTapped {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button(action: onAccountTapped) {
+                            Image(systemName: "person.crop.circle")
+                                .foregroundColor(CatalogTheme.primaryText)
+                        }
+                    }
+                }
+            }
             .task {
                 await viewModel.loadDashboardData()
             }
@@ -161,7 +174,7 @@ public struct DashboardView: View {
         let count = viewModel.availableItems(for: category)
         let percent = min(Double(count) / 10.0, 1.0)
         let statusColor: Color = percent > 0.5 ? .green : (percent > 0.2 ? .orange : .red)
-        let statusBadge: String = percent > 0.5 ? "Good" : (percent > 0.2 ? "Low" : "Urgent")
+        let statusBadge: String = percent > 0.5 ? "Good" : (percent > 0.2 ? "Low" : "Very Low")
         
         VStack(spacing: 8) {
             HStack {
