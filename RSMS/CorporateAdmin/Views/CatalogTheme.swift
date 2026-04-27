@@ -30,4 +30,9 @@ enum CatalogTheme {
     static let searchField = surface
     static let imageBackground = Color(hex: "#CFCFCF") // Dust grey for image placeholders
     static let subtleCategory = mutedText
+    
+    // UI Elements for Stats and Categories
+    static let statsIconBackground = primary.opacity(0.1)
+    static let statsIconColor = primary
+    static let categoryText = secondaryText
 }
