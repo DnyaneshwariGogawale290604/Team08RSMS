@@ -14,9 +14,6 @@ public struct TransfersTabView: View {
     @State private var lastASN: String? = nil
     @State private var showASNToast = false
 
-    // State for Check Stock reorder alert
-    @State private var requestForReorder: ProductRequest?
-    @State private var showReorderAlert: Bool = false
     @State private var showMainErrorAlert: Bool = false
 
     // PO detail
@@ -106,38 +103,6 @@ public struct TransfersTabView: View {
         }
         .sheet(item: $selectedPO) { po in
             PurchaseOrderDetailSheet(order: po, viewModel: viewModel)
-        }
-        .alert("Insufficient Stock", isPresented: $showReorderAlert, presenting: requestForReorder) { req in
-            Button("Cancel", role: .cancel) {}
-            Button("Create Vendor Order") {
-                Task {
-                    guard let pid = req.productId else { return }
-                    guard let vendorId = viewModel.brandVendors.first?.id else {
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                            viewModel.errorMessage = "No vendor found for your brand. Please ask a Corporate Admin to add a vendor first."
-                            showMainErrorAlert = true
-                        }
-                        return
-                    }
-                    let roq = req.product?.reorderQuantity ?? 20
-                    let ok = await viewModel.createPurchaseOrder(
-                        vendorId: vendorId,
-                        productId: pid,
-                        quantity: roq,
-                        notes: "Auto-generated due to insufficient stock for boutique request REQ-\(req.id.uuidString.prefix(4).uppercased())"
-                    )
-                    if !ok {
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                            showMainErrorAlert = true
-                        }
-                    } else {
-                        // Switch to Purchase Orders tab on success
-                        withAnimation { selectedTab = 0 }
-                    }
-                }
-            }
-        } message: { req in
-            Text("There is not enough stock in the warehouse to dispatch this order. Would you like to automatically create a Purchase Order to restock?")
         }
         .alert("Error", isPresented: $showMainErrorAlert) {
             Button("OK", role: .cancel) { viewModel.errorMessage = nil }
@@ -335,8 +300,26 @@ public struct TransfersTabView: View {
                     if let can = canShip, !can {
                         // Insufficient stock -> Show Create PO button
                         Button {
-                            requestForReorder = request
-                            showReorderAlert = true
+                            Task {
+                                guard let pid = request.productId else { return }
+                                guard let vendorId = viewModel.brandVendors.first?.id else {
+                                    viewModel.errorMessage = "No vendor found for your brand."
+                                    showMainErrorAlert = true
+                                    return
+                                }
+                                let roq = request.product?.reorderQuantity ?? 20
+                                let ok = await viewModel.createPurchaseOrder(
+                                    vendorId: vendorId,
+                                    productId: pid,
+                                    quantity: roq,
+                                    notes: "Auto-generated due to insufficient stock for boutique request REQ-\(request.id.uuidString.prefix(4).uppercased())"
+                                )
+                                if !ok {
+                                    showMainErrorAlert = true
+                                } else {
+                                    withAnimation { selectedTab = 0 }
+                                }
+                            }
                         } label: {
                             Label("Create PO", systemImage: "cart.badge.plus")
                                 .font(.caption.bold())
@@ -355,8 +338,7 @@ public struct TransfersTabView: View {
                                     stockCheckCache[pid] = ok
                                 }
                                 if !ok {
-                                    requestForReorder = request
-                                    showReorderAlert = true
+                                    // Just let the button turn into "Create PO" natively via the next render pass!
                                 }
                             }
                         } label: {

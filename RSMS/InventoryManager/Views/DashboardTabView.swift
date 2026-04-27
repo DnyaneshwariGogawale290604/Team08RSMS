@@ -22,7 +22,7 @@ public struct DashboardTabView: View {
                         // 1. Four Metric Cards
                         HStack(spacing: 12) {
                             metricCard(title: "Total SKUs", value: "\(viewModel.totalSKUs)", icon: "shippingbox", color: .blue)
-                            metricCard(title: "Urgent", value: "\(viewModel.criticalSKUs.count)", icon: "exclamationmark.triangle.fill", color: .red)
+                            metricCard(title: "Very Low", value: "\(viewModel.criticalSKUs.count)", icon: "exclamationmark.triangle.fill", color: .red)
                         }
                         .padding(.horizontal)
                         
@@ -176,7 +176,7 @@ public struct DashboardTabView: View {
         // Mocking threshold logic (assuming 10 is healthy for now)
         let percent = min(Double(count) / 10.0, 1.0)
         let statusColor: Color = percent > 0.5 ? .green : (percent > 0.2 ? .orange : .red)
-        let statusBadge: String = percent > 0.5 ? "Good" : (percent > 0.2 ? "Low" : "Urgent")
+        let statusBadge: String = percent > 0.5 ? "Good" : (percent > 0.2 ? "Low" : "Very Low")
         
         VStack(spacing: 8) {
             HStack {
