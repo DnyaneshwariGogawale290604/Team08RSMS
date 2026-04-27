@@ -378,7 +378,7 @@ public struct RepairInputView: View {
                     Toggle("Set ETA", isOn: $useETA)
                     
                     if useETA {
-                        DatePicker("Target Date", selection: $eta, displayedComponents: .date)
+                        DatePicker("Target Date", selection: $eta, in: Date()..., displayedComponents: .date)
                     }
                 }
                 
