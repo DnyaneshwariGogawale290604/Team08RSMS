@@ -20,7 +20,7 @@ public struct StoreDetailView: View {
 
     public var body: some View {
         VStack(spacing: 0) {
-            headerView
+            // headerView removed
             
             pickerView
                 .padding(.horizontal, 16)
@@ -40,23 +40,31 @@ public struct StoreDetailView: View {
             }
         }
         .background(CatalogTheme.background.ignoresSafeArea())
-        .navigationBarHidden(true)
-        .navigationBarBackButtonHidden(true)
-        .navigationTitle("")
+        .navigationTitle(storeDetails.name)
+        .toolbar {
+            if selectedTab == 0 {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Edit") {
+                        showingEditSheet = true
+                    }
+                    .foregroundColor(CatalogTheme.primaryText)
+                }
+            }
+        }
         .task {
             await loadStoreDetails()
         }
         .sheet(isPresented: $showingEditSheet) {
             StoreFormView(viewModel: viewModel, editingStore: storeDetails)
         }
-        .alert(isArchived ? "Unarchive Store" : "Archive Store", isPresented: $showingArchiveConfirmation) {
+        .alert(isArchived ? "Unarchive Store" : "Temporarily Closed", isPresented: $showingArchiveConfirmation) {
             Button("Cancel", role: .cancel) { }
             if isArchived {
-                Button("Unarchive ") {
+                Button("Unarchive") {
                     Task { await toggleArchiveStatus() }
                 }
             } else {
-                Button("Archive", role: .destructive) {
+                Button("Temporarily Close", role: .destructive) {
                     Task { await toggleArchiveStatus() }
                 }
             }
@@ -100,16 +108,20 @@ public struct StoreDetailView: View {
             
             Spacer()
             
-            HStack(spacing: 8) {
+            if selectedTab == 0 {
                 Button(action: { showingEditSheet = true }) {
-                    Image(systemName: "pencil")
-                        .font(.system(size: 14, weight: .bold))
+                    Text("Edit")
+                        .font(.system(size: 14, weight: .bold, design: .serif))
                         .foregroundColor(CatalogTheme.primary)
-                        .frame(width: 40, height: 40)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
                         .background(Color.white)
-                        .clipShape(Circle())
+                        .clipShape(Capsule())
                         .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 2)
                 }
+            } else {
+                // Invisible spacer to keep header balanced
+                Color.clear.frame(width: 40, height: 40)
             }
         }
         .padding(.horizontal, 16)
@@ -117,29 +129,13 @@ public struct StoreDetailView: View {
     }
 
     private var pickerView: some View {
-        HStack(spacing: 4) {
-            let titles = ["Overview", "Inventory", "Assignments", "Staff"]
-            ForEach(0..<titles.count, id: \.self) { index in
-                Button(action: {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                        selectedTab = index
-                    }
-                }) {
-                    Text(titles[index])
-                        .font(.system(size: 14, weight: selectedTab == index ? .semibold : .medium))
-                        .foregroundColor(selectedTab == index ? .white : CatalogTheme.secondaryText)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(
-                            selectedTab == index ? CatalogTheme.primary : Color.clear
-                        )
-                        .clipShape(Capsule())
-                }
-            }
+        Picker("Details", selection: $selectedTab) {
+            Text("Overview").tag(0)
+            Text("Inventory").tag(1)
+            Text("Assignments").tag(2)
+            Text("Staff").tag(3)
         }
-        .padding(4)
-        .background(CatalogTheme.surface.opacity(0.5))
-        .clipShape(Capsule())
+        .pickerStyle(.segmented)
     }
 
     @ViewBuilder

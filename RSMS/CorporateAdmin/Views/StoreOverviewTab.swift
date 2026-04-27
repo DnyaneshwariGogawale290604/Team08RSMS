@@ -26,7 +26,7 @@ public struct StoreOverviewTab: View {
             }
             .padding(20)
         }
-        .background(CatalogTheme.background)
+        .background(Color.clear)
     }
 
     private var storeInformationCard: some View {
@@ -68,7 +68,7 @@ public struct StoreOverviewTab: View {
                     Task { await handleTargetAction() }
                 }) {
                     Text(isEditing ? "Save" : "Edit Target")
-                        .font(.system(size: 14, weight: .bold))
+                        .font(.system(size: 14, weight: .bold, design: .serif))
                         .foregroundColor(CatalogTheme.primary)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
@@ -84,12 +84,12 @@ public struct StoreOverviewTab: View {
                         .padding(14)
                         .background(CatalogTheme.surface)
                         .cornerRadius(12)
-                        .font(.system(size: 15))
+                        .font(.system(size: 15, design: .serif))
                 } else {
                     HStack(spacing: 0) {
                         VStack(alignment: .leading, spacing: 6) {
                             Text("Sales Target")
-                                .font(.system(size: 12, weight: .medium))
+                                .font(.system(size: 12, weight: .medium, design: .serif))
                                 .foregroundColor(CatalogTheme.secondaryText)
                             Text(formattedCurrency(store.salesTarget ?? 0))
                                 .font(.system(size: 22, weight: .bold, design: .serif))
@@ -104,7 +104,7 @@ public struct StoreOverviewTab: View {
                         
                         VStack(alignment: .leading, spacing: 6) {
                             Text("Current Sales")
-                                .font(.system(size: 12, weight: .medium))
+                                .font(.system(size: 12, weight: .medium, design: .serif))
                                 .foregroundColor(CatalogTheme.secondaryText)
                             let performance = viewModel.storePerformance[store.id] ?? 0
                             Text(formattedCurrency(performance))
@@ -122,11 +122,11 @@ public struct StoreOverviewTab: View {
                     VStack(alignment: .leading, spacing: 12) {
                         HStack {
                             Text("Progress to Target")
-                                .font(.system(size: 13, weight: .medium))
+                                .font(.system(size: 13, weight: .medium, design: .serif))
                                 .foregroundColor(CatalogTheme.secondaryText)
                             Spacer()
                             Text(String(format: "%.1f%%", progress * 100))
-                                .font(.system(size: 14, weight: .bold))
+                                .font(.system(size: 14, weight: .bold, design: .serif))
                                 .foregroundColor(CatalogTheme.primary)
                         }
                         
@@ -141,7 +141,7 @@ public struct StoreOverviewTab: View {
                         }
                         
                         Text(progress >= 1.0 ? "Target Achieved! Excellent performance." : "Keep pushing to reach the monthly goal.")
-                            .font(.system(size: 12))
+                            .font(.system(size: 12, design: .serif))
                             .foregroundColor(progress >= 1.0 ? Color.green : CatalogTheme.mutedText)
                             .italic()
                     }
@@ -163,11 +163,11 @@ public struct StoreOverviewTab: View {
     private func infoRow(title: String, value: String) -> some View {
         HStack(alignment: .top, spacing: 16) {
             Text(title)
-                .font(.system(size: 14))
+                .font(.system(size: 14, design: .serif))
                 .foregroundColor(CatalogTheme.secondaryText)
             Spacer()
             Text(value)
-                .font(.system(size: 14, weight: .semibold))
+                .font(.system(size: 14, weight: .semibold, design: .serif))
                 .multilineTextAlignment(.trailing)
                 .foregroundColor(CatalogTheme.primaryText)
         }

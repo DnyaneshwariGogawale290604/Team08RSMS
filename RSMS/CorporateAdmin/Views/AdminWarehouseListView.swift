@@ -110,25 +110,22 @@ public struct AdminWarehouseCard: View {
                             .font(.system(size: 17, weight: .bold, design: .serif))
                             .foregroundColor(CatalogTheme.primaryText)
                         Text(warehouse.location)
-                            .font(.subheadline)
+                            .font(.system(size: 15, design: .serif))
                             .foregroundColor(CatalogTheme.secondaryText)
                     }
                     Spacer()
-                    HStack(spacing: 12) {
-                        statusBadge(for: warehouse.status ?? "active")
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(CatalogTheme.mutedText)
-                    }
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(CatalogTheme.mutedText)
                 }
-
+                
                 Rectangle()
                     .fill(CatalogTheme.divider)
                     .frame(height: 1)
-
+                
                 if let address = warehouse.address {
                     Label(address, systemImage: "mappin.and.ellipse")
-                        .font(.system(size: 13))
+                        .font(.system(size: 13, design: .serif))
                         .foregroundColor(CatalogTheme.secondaryText)
                         .lineLimit(1)
                 }
@@ -137,22 +134,10 @@ public struct AdminWarehouseCard: View {
             .background(Color.white)
             .clipShape(RoundedRectangle(cornerRadius: CatalogTheme.cardCornerRadius, style: .continuous))
             .shadow(color: Color.black.opacity(0.03), radius: 8, x: 0, y: 3)
+            .opacity((warehouse.status ?? "active").lowercased() == "inactive" ? 0.6 : 1.0)
+            .grayscale((warehouse.status ?? "active").lowercased() == "inactive" ? 1.0 : 0)
         }
         .buttonStyle(PlainButtonStyle())
     }
-
-    @ViewBuilder
-    private func statusBadge(for status: String) -> some View {
-        let isActive = status.lowercased() == "active"
-        let bgColor: Color = isActive ? CatalogTheme.surface : CatalogTheme.inactiveBadge
-        let fgColor: Color = isActive ? CatalogTheme.primary : CatalogTheme.inactiveBadgeText
-
-        Text(status.capitalized)
-            .font(.system(size: 10, weight: .semibold))
-            .padding(.horizontal, 10)
-            .padding(.vertical, 5)
-            .background(bgColor)
-            .foregroundColor(fgColor)
-            .clipShape(Capsule())
-    }
+    
 }

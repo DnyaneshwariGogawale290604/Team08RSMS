@@ -91,27 +91,27 @@ public struct BatchSerializationView: View {
                             }
                         }
                         
-                        Button(action: submitBatch) {
-                            Text("Validate & Ingest Batch")
-                                .font(.headline)
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(isValidationSatisfied() ? Color.green : Color.gray)
-                                .foregroundColor(.white)
-                                .cornerRadius(12)
-                        }
-                        .disabled(!isValidationSatisfied())
-                        
+                        // Removed Complete Ingestion Button
                     }
                     .padding()
                 }
             }
             .navigationTitle("Ingest Shipment")
-            .navigationBarItems(trailing: Button(action: {
-                presentationMode.wrappedValue.dismiss()
-            }) {
-                Image(systemName: "xmark")
-            })
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") {
+                        presentationMode.wrappedValue.dismiss()
+                    }
+                    .foregroundColor(CatalogTheme.primaryText)
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Complete") {
+                        submitBatch()
+                    }
+                    .foregroundColor(isValidationSatisfied() ? CatalogTheme.primaryText : Color.gray)
+                    .disabled(!isValidationSatisfied())
+                }
+            }
         }
     }
     

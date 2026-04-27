@@ -24,34 +24,12 @@ public struct StoreListView: View {
                 CatalogTheme.background.ignoresSafeArea()
                 
                 VStack(spacing: 0) {
-                    // Luxury pill segmented control
-                    HStack(spacing: 0) {
+                    Picker("Infrastructure", selection: $selectedTab) {
                         ForEach(LocationTab.allCases, id: \.self) { tab in
-                            Button(action: {
-                                withAnimation(.easeInOut(duration: 0.22)) {
-                                    selectedTab = tab
-                                }
-                            }) {
-                                Text(tab.rawValue)
-                                    .font(.system(size: 14, weight: .medium))
-                                    .foregroundColor(selectedTab == tab ? .white : CatalogTheme.deepAccent)
-                                    .frame(maxWidth: .infinity)
-                                    .frame(minHeight: 44)
-                                    .background(
-                                        Group {
-                                            if selectedTab == tab {
-                                                Capsule(style: .continuous)
-                                                    .fill(CatalogTheme.primary)
-                                                    .padding(4)
-                                            }
-                                        }
-                                    )
-                            }
-                            .buttonStyle(.plain)
+                            Text(tab.rawValue).tag(tab)
                         }
                     }
-                    .frame(maxWidth: .infinity)
-                    .background(Capsule(style: .continuous).fill(CatalogTheme.surface))
+                    .pickerStyle(.segmented)
                     .padding(.horizontal, 20)
                     .padding(.top, 16)
                     .padding(.bottom, 20)
@@ -68,19 +46,16 @@ public struct StoreListView: View {
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItemGroup(placement: .navigationBarTrailing) {
-                    Button(action: {
+                    Button {
                         if selectedTab == .stores {
                             showingAddStore = true
                         } else {
                             showingAddWarehouse = true
                         }
-                    }) {
+                    } label: {
                         Image(systemName: "plus")
                             .font(.system(size: 15, weight: .semibold))
-                            .foregroundColor(.white)
-                            .frame(width: AppTheme.toolbarButtonSize, height: AppTheme.toolbarButtonSize)
-                            .background(Circle().fill(CatalogTheme.deepAccent))
-                            .shadow(color: Color.black.opacity(0.12), radius: 4, x: 0, y: 2)
+                            .foregroundColor(CatalogTheme.primaryText)
                     }
                 }
             }

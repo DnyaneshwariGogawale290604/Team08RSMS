@@ -5,8 +5,8 @@ public struct WarehouseDetailView: View {
     @ObservedObject private var viewModel: WarehouseViewModel
     private let warehouseId: UUID
 
-    @State private var selectedTab: Int = 0
     @State private var warehouseDetails: Warehouse
+    @State private var inventoryManager: InventoryManagerRecord?
     @State private var isLoadingDetails = false
     @State private var localErrorMessage: String?
     @State private var showingEditSheet = false
@@ -20,29 +20,102 @@ public struct WarehouseDetailView: View {
 
     public var body: some View {
         VStack(spacing: 0) {
-            headerView
+            // headerView removed
             
-            pickerView
-                .padding(.horizontal, 16)
-                .padding(.top, 12)
-                .padding(.bottom, 16)
-
-            if isLoadingDetails && selectedTab == 0 {
+            if isLoadingDetails {
                 LoadingView(message: "Loading Warehouse Details...")
                     .frame(maxHeight: .infinity)
             } else {
-                tabContent
-                    .frame(maxHeight: .infinity)
+                ScrollView(showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 32) {
+                        // Title Section
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(warehouseDetails.name)
+                                .font(.system(size: 28, weight: .bold, design: .serif))
+                                .foregroundColor(CatalogTheme.primaryText)
+                            
+                            Text("\(warehouseDetails.location) • \(warehouseDetails.status?.capitalized ?? "Active")")
+                                .font(.system(size: 16, design: .serif))
+                                .foregroundColor(CatalogTheme.secondaryText)
+                            
+                            if let address = warehouseDetails.address {
+                                Text(address)
+                                    .font(.system(size: 14, design: .serif))
+                                    .foregroundColor(CatalogTheme.mutedText)
+                                    .padding(.top, 2)
+                            }
+                        }
+                        .padding(.horizontal, 24)
+                        .padding(.top, 10)
+
+                        // Basic Details Card
+                        VStack(alignment: .leading, spacing: 20) {
+                            Text("Warehouse Details")
+                                .font(.system(size: 18, weight: .bold, design: .serif))
+                                .foregroundColor(CatalogTheme.deepAccent)
+                            
+                            VStack(spacing: 0) {
+                                detailRow(label: "Location", value: warehouseDetails.location)
+                                divider
+                                detailRow(label: "Status", value: warehouseDetails.status?.capitalized ?? "Active")
+                            }
+                            .padding(16)
+                            .background(Color.white)
+                            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                            .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 4)
+                        }
+                        .padding(.horizontal, 24)
+
+                        // Inventory Manager Section
+                        VStack(alignment: .leading, spacing: 20) {
+                            Text("Inventory Manager")
+                                .font(.system(size: 18, weight: .bold, design: .serif))
+                                .foregroundColor(CatalogTheme.deepAccent)
+                            
+                            if let manager = inventoryManager {
+                                VStack(spacing: 0) {
+                                    detailRow(label: "Name", value: manager.user?.displayName ?? "Unknown")
+                                    divider
+                                    detailRow(label: "Employee ID", value: manager.user?.id.uuidString.prefix(8).uppercased() ?? "N/A")
+                                    divider
+                                    detailRow(label: "Email", value: manager.user?.email ?? "N/A")
+                                    divider
+                                    detailRow(label: "Phone", value: manager.user?.phone ?? "N/A")
+                                }
+                                .padding(16)
+                                .background(Color.white)
+                                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                                .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 4)
+                            } else {
+                                Text("No inventory manager assigned to this warehouse.")
+                                    .font(.system(size: 14, design: .serif))
+                                    .foregroundColor(CatalogTheme.secondaryText)
+                                    .padding(20)
+                                    .frame(maxWidth: .infinity)
+                                    .background(Color.white)
+                                    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                            }
+                        }
+                        .padding(.horizontal, 24)
+                    }
+                    .padding(.vertical, 24)
+                }
                 
                 archiveButton
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, 24)
                     .padding(.bottom, 12)
             }
         }
         .background(CatalogTheme.background.ignoresSafeArea())
-        .navigationBarHidden(true)
-        .navigationBarBackButtonHidden(true)
-        .navigationTitle("")
+        .navigationTitle(warehouseDetails.name)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button("Edit") {
+                    showingEditSheet = true
+                }
+                .foregroundColor(CatalogTheme.primaryText)
+            }
+        }
         .task {
             await loadWarehouseDetails()
         }
@@ -102,12 +175,13 @@ public struct WarehouseDetailView: View {
             
             HStack(spacing: 8) {
                 Button(action: { showingEditSheet = true }) {
-                    Image(systemName: "pencil")
-                        .font(.system(size: 14, weight: .bold))
+                    Text("Edit")
+                        .font(.system(size: 14, weight: .bold, design: .serif))
                         .foregroundColor(CatalogTheme.primary)
-                        .frame(width: 40, height: 40)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
                         .background(Color.white)
-                        .clipShape(Circle())
+                        .clipShape(Capsule())
                         .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 2)
                 }
             }
@@ -116,39 +190,23 @@ public struct WarehouseDetailView: View {
         .padding(.top, 10)
     }
 
-    private var pickerView: some View {
-        HStack(spacing: 4) {
-            let titles = ["Overview", "Staff"]
-            ForEach(0..<titles.count, id: \.self) { index in
-                Button(action: {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                        selectedTab = index
-                    }
-                }) {
-                    Text(titles[index])
-                        .font(.system(size: 14, weight: selectedTab == index ? .semibold : .medium))
-                        .foregroundColor(selectedTab == index ? .white : CatalogTheme.secondaryText)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(
-                            selectedTab == index ? CatalogTheme.primary : Color.clear
-                        )
-                        .clipShape(Capsule())
-                }
-            }
+    private func detailRow(label: String, value: String) -> some View {
+        HStack(alignment: .top, spacing: 16) {
+            Text(label)
+                .font(.system(size: 14, design: .serif))
+                .foregroundColor(CatalogTheme.secondaryText)
+            Spacer()
+            Text(value)
+                .font(.system(size: 14, weight: .semibold, design: .serif))
+                .multilineTextAlignment(.trailing)
+                .foregroundColor(CatalogTheme.primaryText)
         }
-        .padding(4)
-        .background(CatalogTheme.surface.opacity(0.5))
-        .clipShape(Capsule())
+        .padding(.vertical, 12)
     }
 
-    @ViewBuilder
-    private var tabContent: some View {
-        if selectedTab == 0 {
-            WarehouseOverviewTab(warehouse: warehouseDetails)
-        } else {
-            WarehouseStaffTab(warehouseId: warehouseId)
-        }
+    private var divider: some View {
+        Divider()
+            .background(CatalogTheme.divider)
     }
 
     private func loadWarehouseDetails() async {
@@ -158,6 +216,8 @@ public struct WarehouseDetailView: View {
         do {
             let service = WarehouseService.shared
             warehouseDetails = try await service.fetchWarehouse(id: warehouseId)
+            let managers = try await service.fetchInventoryManagers(forWarehouse: warehouseId)
+            inventoryManager = managers.first
             localErrorMessage = nil
         } catch {
             localErrorMessage = error.localizedDescription

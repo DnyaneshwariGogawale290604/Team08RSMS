@@ -205,16 +205,21 @@ public struct AddItemScanView: View {
             }
             .navigationTitle(scanPhase == .scanning ? "Scan Barcode" : (scanPhase == .scanned ? "Code Detected" : "Item Details"))
             .navigationBarTitleDisplayMode(.inline)
-            .navigationBarItems(
-                leading: Button("Close") {
-                    presentationMode.wrappedValue.dismiss()
-                },
-                trailing: scanCount > 0 ? AnyView(
-                    Text("\(scanCount) added")
-                        .font(.caption.bold())
-                        .foregroundColor(.green)
-                ) : AnyView(EmptyView())
-            )
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Close") {
+                        presentationMode.wrappedValue.dismiss()
+                    }
+                    .foregroundColor(CatalogTheme.primaryText)
+                }
+                if scanCount > 0 {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Text("\(scanCount) added")
+                            .font(.caption.bold())
+                            .foregroundColor(.green)
+                    }
+                }
+            }
         }
     }
     
@@ -458,9 +463,14 @@ public struct AddItemScanView: View {
                 .listRowInsets(EdgeInsets())
             }
         }
-        .navigationBarItems(trailing: Button("Back to Scan") {
-            withAnimation { scanPhase = .scanned }
-        })
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button("Back to Scan") {
+                    withAnimation { scanPhase = .scanned }
+                }
+                .foregroundColor(CatalogTheme.primaryText)
+            }
+        }
     }
     
     // MARK: - Helpers

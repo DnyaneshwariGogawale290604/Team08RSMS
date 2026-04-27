@@ -11,7 +11,6 @@ public final class AdminViewModel: ObservableObject {
     @Published public var products: [Product] = []
     @Published public var stores: [Store] = []
     @Published public var warehouses: [Warehouse] = []
-    @Published public var pendingVendorOrders: [VendorOrder] = []
     @Published public var isLoading = false
     @Published public var errorMessage: String?
     @Published public var successMessage: String?
@@ -51,7 +50,6 @@ public final class AdminViewModel: ObservableObject {
         await fetchWarehouses()
         await fetchProducts()
         await fetchStaff(for: selectedRole)
-        await fetchPendingVendorOrders()
     }
 
     public func fetchStaff(for role: StaffRoleTab) async {
@@ -192,37 +190,71 @@ public final class AdminViewModel: ObservableObject {
         }
     }
 
-    // MARK: - Vendor Orders
+    public func deleteStaffMember(_ item: StaffListItem) async -> Bool {
+        isLoading = true
+        defer { isLoading = false }
 
-    public func fetchPendingVendorOrders() async {
         do {
-            pendingVendorOrders = try await RequestService.shared.fetchPendingVendorOrdersForAdmin()
+            try await service.deleteStaffMember(userId: item.user.id, role: item.role)
+            successMessage = "Staff member deleted successfully."
+            errorMessage = nil
+            await fetchStaff(for: item.role)
+            return true
         } catch {
             errorMessage = error.localizedDescription
+            successMessage = nil
+            return false
         }
     }
 
-    public func approveVendorOrder(id: UUID) async {
+    public func deleteVendor(_ vendor: Vendor) async -> Bool {
         isLoading = true
         defer { isLoading = false }
+
         do {
-            try await RequestService.shared.approveVendorOrder(id: id)
-            await fetchPendingVendorOrders()
-            successMessage = "Vendor Order Approved."
+            try await service.deleteVendor(vendorId: vendor.id)
+            successMessage = "Vendor deleted successfully."
+            errorMessage = nil
+            await fetchStaff(for: .vendor)
+            return true
         } catch {
             errorMessage = error.localizedDescription
+            successMessage = nil
+            return false
         }
     }
-    
-    public func rejectVendorOrder(id: UUID, reason: String) async {
+
+    public func updateStaffMember(userId: UUID, name: String, email: String, phone: String, role: StaffRoleTab) async -> Bool {
         isLoading = true
         defer { isLoading = false }
+
         do {
-            try await RequestService.shared.updateVendorOrderStatus(id: id, status: "rejected")
-            await fetchPendingVendorOrders()
-            successMessage = "Vendor Order Rejected."
+            try await service.updateStaffMember(userId: userId, name: name, email: email, phone: phone)
+            successMessage = "Staff details updated successfully."
+            errorMessage = nil
+            await fetchStaff(for: role)
+            return true
         } catch {
             errorMessage = error.localizedDescription
+            successMessage = nil
+            return false
+        }
+    }
+
+    public func updateVendor(vendorId: UUID, name: String, contactInfo: String?) async -> Bool {
+        isLoading = true
+        defer { isLoading = false }
+
+        do {
+            try await service.updateVendor(vendorId: vendorId, name: name, contactInfo: contactInfo)
+            successMessage = "Vendor details updated successfully."
+            errorMessage = nil
+            await fetchStaff(for: .vendor)
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            successMessage = nil
+            return false
         }
     }
 }

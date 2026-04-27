@@ -229,6 +229,85 @@ public final class AdminService: @unchecked Sendable {
         }
     }
 
+    public func deleteStaffMember(userId: UUID, role: StaffRoleTab) async throws {
+        // 1. Delete from role table
+        let table = role == .boutiqueManager ? "boutique_managers" : "inventory_managers"
+        try await adminClient
+            .from(table)
+            .delete()
+            .eq("user_id", value: userId)
+            .execute()
+
+        // 2. Delete from users profile table
+        try await adminClient
+            .from("users")
+            .delete()
+            .eq("user_id", value: userId)
+            .execute()
+
+        // 3. Delete from Auth
+        try await adminClient.auth.admin.deleteUser(id: userId)
+    }
+
+    public func deleteVendor(vendorId: UUID) async throws {
+        // 1. Delete linked products
+        try await adminClient
+            .from("vendor_products")
+            .delete()
+            .eq("vendor_id", value: vendorId)
+            .execute()
+
+        // 2. Delete vendor
+        try await adminClient
+            .from("vendors")
+            .delete()
+            .eq("id", value: vendorId)
+            .execute()
+    }
+
+    public func updateStaffMember(userId: UUID, name: String, email: String, phone: String) async throws {
+        // 1. Update Auth
+        try await adminClient.auth.admin.updateUserById(
+            userId,
+            attributes: AdminUserAttributes(
+                email: email,
+                phone: phone,
+                userMetadata: ["name": .string(name)]
+            )
+        )
+
+        // 2. Update users table
+        struct UserUpdate: Encodable {
+            let name: String
+            let email: String
+            let phone: String
+        }
+
+        try await adminClient
+            .from("users")
+            .update(UserUpdate(name: name, email: email, phone: phone))
+            .eq("user_id", value: userId)
+            .execute()
+    }
+
+    public func updateVendor(vendorId: UUID, name: String, contactInfo: String?) async throws {
+        struct VendorUpdate: Encodable {
+            let name: String
+            let contactInfo: String?
+
+            enum CodingKeys: String, CodingKey {
+                case name
+                case contactInfo = "contact_info"
+            }
+        }
+
+        try await adminClient
+            .from("vendors")
+            .update(VendorUpdate(name: name, contactInfo: contactInfo))
+            .eq("id", value: vendorId)
+            .execute()
+    }
+
     public func fetchCurrentCorporateAdminContext() async throws -> CorporateAdminContext {
         let currentUserId = try await client.auth.session.user.id
 
@@ -379,7 +458,7 @@ public final class AdminService: @unchecked Sendable {
     }
 
     public func fetchTopPerformingStores() async throws -> [StorePerformance] {
-        let context = try await fetchCurrentCorporateAdminContext()
+        _ = try await fetchCurrentCorporateAdminContext()
         
         // 1. Fetch all stores for this brand
         let stores = try await fetchStores()

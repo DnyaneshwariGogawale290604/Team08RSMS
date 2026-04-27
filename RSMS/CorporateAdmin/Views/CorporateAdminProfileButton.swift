@@ -14,9 +14,7 @@ public struct CorporateAdminProfileButton: View {
         } label: {
             Image(systemName: "person.crop.circle.fill")
                 .font(.system(size: 17, weight: .semibold))
-                .foregroundColor(CatalogTheme.deepAccent)
-                .frame(width: AppTheme.toolbarButtonSize, height: AppTheme.toolbarButtonSize)
-                .background(Circle().fill(CatalogTheme.surface))
+                .foregroundColor(CatalogTheme.primaryText)
                 .accessibilityLabel("Account")
         }
         .sheet(isPresented: $showingAccountSheet) {

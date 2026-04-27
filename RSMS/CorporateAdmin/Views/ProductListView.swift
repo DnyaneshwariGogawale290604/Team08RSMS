@@ -27,7 +27,6 @@ public struct ProductListView: View {
 
                 ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 20) {
-                        headerSection
                         searchBar
                         statsRow
                         filtersRow
@@ -75,8 +74,8 @@ public struct ProductListView: View {
 
 
             }
-            .navigationTitle("")
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationTitle("Catalog")
+            .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItemGroup(placement: .navigationBarTrailing) {
                     Button {
@@ -84,10 +83,7 @@ public struct ProductListView: View {
                     } label: {
                         Image(systemName: "plus")
                             .font(.system(size: 15, weight: .semibold))
-                            .foregroundColor(.white)
-                            .frame(width: AppTheme.toolbarButtonSize, height: AppTheme.toolbarButtonSize)
-                            .background(Circle().fill(CatalogTheme.deepAccent))
-                            .shadow(color: Color.black.opacity(0.12), radius: 4, x: 0, y: 2)
+                            .foregroundColor(CatalogTheme.primaryText)
                     }
                 }
             }
@@ -127,7 +123,7 @@ public struct ProductListView: View {
                 .foregroundColor(CatalogTheme.primaryText)
 
             Text("Manage your product library")
-                .font(.system(size: 15, weight: .regular, design: .default))
+                .font(.system(size: 15, weight: .regular, design: .serif))
                 .foregroundColor(CatalogTheme.secondaryText)
         }
     }
@@ -149,7 +145,7 @@ public struct ProductListView: View {
         .padding(.horizontal, 14)
         .frame(height: 44)
         .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .fill(CatalogTheme.searchField)
         )
     }
@@ -208,16 +204,19 @@ public struct ProductListView: View {
     }
 
     private var filteredProducts: [Product] {
+        let base: [Product]
         switch selectedFilter {
         case .all:
-            return searchFilteredProducts
+            base = searchFilteredProducts
         case .active:
-            return searchFilteredProducts.filter { $0.isActive ?? true }
+            base = searchFilteredProducts.filter { $0.isActive ?? true }
         case .inactive:
-            return searchFilteredProducts.filter { !($0.isActive ?? true) }
+            base = searchFilteredProducts.filter { !($0.isActive ?? true) }
         case .category:
-            return searchFilteredProducts.sorted { $0.category < $1.category }
+            base = searchFilteredProducts.sorted { $0.category < $1.category }
         }
+        // Always push inactive products to the bottom
+        return base.sorted { ($0.isActive ?? true) && !($1.isActive ?? true) }
     }
 
     private var activeCount: Int {
@@ -238,12 +237,12 @@ private struct StatsCardView: View {
         VStack(alignment: .leading, spacing: 8) {
             ZStack {
                 Circle()
-                    .fill(CatalogTheme.statsIconBackground)
+                    .fill(CatalogTheme.surface)
                     .frame(width: 28, height: 28)
 
                 Image(systemName: icon)
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(CatalogTheme.statsIconColor)
+                    .foregroundColor(CatalogTheme.primary)
             }
 
             Text(value)
@@ -257,10 +256,10 @@ private struct StatsCardView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
         .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(CatalogTheme.card)
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(Color(hex: "#EFE6E6"))
         )
-        .shadow(color: Color.black.opacity(0.02), radius: 3, x: 0, y: 1)
+        .shadow(color: Color.black.opacity(0.03), radius: 4, x: 0, y: 2)
     }
 }
 
@@ -303,37 +302,57 @@ private struct ProductCardView: View {
                 .frame(maxWidth: .infinity)
                 .frame(height: 140)
                 .clipped()
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
             }
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(product.name)
-                    .font(.system(size: 15, weight: .bold, design: .serif))
+                    .font(.system(size: 15, weight: .bold))
                     .foregroundColor(CatalogTheme.primaryText)
                     .lineLimit(2)
                     .frame(height: 44, alignment: .topLeading)
 
                 Text(product.category)
                     .font(.system(size: 12, weight: .regular))
-                    .foregroundColor(CatalogTheme.categoryText)
+                    .foregroundColor(CatalogTheme.subtleCategory)
                     .lineLimit(1)
 
                 Text(formattedPrice(product.price))
-                    .font(.system(size: 15, weight: .bold))
+                    .font(.system(size: 15, weight: .bold, design: .serif))
                     .foregroundColor(CatalogTheme.deepAccent)
             }
             .padding(.horizontal, 12)
             .padding(.bottom, 12)
         }
         .frame(maxWidth: .infinity)
-        .frame(height: 220, alignment: .top)
+        .frame(height: 250, alignment: .top)
         .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .fill(CatalogTheme.card)
         )
         .grayscale(product.isActive ?? true ? 0 : 1.0)
         .opacity(product.isActive ?? true ? 1 : 0.4)
-        .shadow(color: Color.black.opacity(0.02), radius: 3, x: 0, y: 1)
+        .overlay(
+            Group {
+                if !(product.isActive ?? true) {
+                    VStack {
+                        HStack {
+                            Spacer()
+                            Text("Out of Stock")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 5)
+                                .background(Color.red)
+                                .clipShape(Capsule())
+                                .padding(12)
+                        }
+                        Spacer()
+                    }
+                }
+            }
+        )
+        .shadow(color: Color.black.opacity(0.03), radius: 4, x: 0, y: 2)
         .scaleEffect(isPressed ? 1.02 : 1)
         .animation(.easeInOut(duration: 0.25), value: isPressed)
         .onTapGesture {

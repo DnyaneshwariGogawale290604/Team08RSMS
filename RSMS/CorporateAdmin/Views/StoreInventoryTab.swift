@@ -9,6 +9,10 @@ public struct StoreInventoryTab: View {
         self._viewModel = StateObject(wrappedValue: StoreInventoryMonitorViewModel(storeId: storeId))
     }
     
+    private var availableCategories: [String] {
+        Array(Set(viewModel.allItems.map { $0.product.category })).sorted()
+    }
+    
     public var body: some View {
         ZStack {
             if viewModel.isLoading && viewModel.allItems.isEmpty {
@@ -24,26 +28,21 @@ public struct StoreInventoryTab: View {
                             StatCard(title: "Urgent", value: viewModel.criticalStockCount, color: .red)
                         }
                         
-                        // Filters
-                        VStack(spacing: 16) {
-                            HStack {
-                                Image(systemName: "magnifyingglass")
-                                    .foregroundColor(.gray)
-                                TextField("Search by product...", text: $viewModel.searchText)
-                                    .font(.system(size: 15))
-                            }
-                            .padding(12)
-                            .background(Color.white)
-                            .cornerRadius(12)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color.black.opacity(0.05), lineWidth: 1)
-                            )
-                            .shadow(color: Color.black.opacity(0.03), radius: 5, x: 0, y: 2)
-                            .onChange(of: viewModel.searchText) { _ in viewModel.applyFilters() }
-                            
-                            pickerView
+                        // Search
+                        HStack {
+                            Image(systemName: "magnifyingglass")
+                                .foregroundColor(.gray)
+                            TextField("Search by product...", text: $viewModel.searchText)
+                                .font(.system(size: 15, design: .serif))
                         }
+                        .padding(12)
+                        .background(Color.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .shadow(color: Color.black.opacity(0.03), radius: 5, x: 0, y: 2)
+                        .onChange(of: viewModel.searchText) { _ in viewModel.applyFilters() }
+                        
+                        // Category Filters
+                        categoryFilters
                         
                         // Inventory List
                         LazyVStack(spacing: 16) {
@@ -57,50 +56,45 @@ public struct StoreInventoryTab: View {
                 .refreshable { await viewModel.loadData() }
             }
         }
-        .background(Color.brandOffWhite.ignoresSafeArea())
+        .background(Color.clear)
         .task {
             await viewModel.loadData()
         }
     }
 
-    private var pickerView: some View {
-        HStack(spacing: 0) {
-            let statuses = ["All", "Low", "Critical", "Healthy"]
-            ForEach(0..<statuses.count, id: \.self) { index in
-                Button(action: {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                        switch index {
-                        case 0: viewModel.filterStatus = nil
-                        case 1: viewModel.filterStatus = .low
-                        case 2: viewModel.filterStatus = .critical
-                        case 3: viewModel.filterStatus = .healthy
-                        default: break
-                        }
+    private var categoryFilters: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                categoryChip(title: "All", isSelected: viewModel.filterCategory == nil) {
+                    viewModel.filterCategory = nil
+                    viewModel.applyFilters()
+                }
+                
+                ForEach(availableCategories, id: \.self) { category in
+                    categoryChip(title: category, isSelected: viewModel.filterCategory == category) {
+                        viewModel.filterCategory = category
                         viewModel.applyFilters()
                     }
-                }) {
-                    let isSelected = (index == 0 && viewModel.filterStatus == nil) ||
-                                    (index == 1 && viewModel.filterStatus == .low) ||
-                                    (index == 2 && viewModel.filterStatus == .critical) ||
-                                    (index == 3 && viewModel.filterStatus == .healthy)
-                    
-                    Text(statuses[index])
-                        .font(.system(size: 13, weight: isSelected ? .semibold : .medium))
-                        .foregroundColor(isSelected ? .black : .gray)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
-                        .background(isSelected ? Color.white : Color.clear)
-                        .clipShape(Capsule())
                 }
             }
         }
-        .padding(4)
-        .background(Color.black.opacity(0.05))
-        .clipShape(Capsule())
-        .overlay(
-            Capsule()
-                .stroke(Color.black.opacity(0.03), lineWidth: 1)
-        )
+    }
+    
+    private func categoryChip(title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                action()
+            }
+        }) {
+            Text(title)
+                .font(.system(size: 13, weight: isSelected ? .semibold : .medium, design: .serif))
+                .foregroundColor(isSelected ? .white : CatalogTheme.deepAccent)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(isSelected ? CatalogTheme.primary : CatalogTheme.surface)
+                .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -114,20 +108,16 @@ struct StatCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
-                .font(.system(size: 11, weight: .bold))
-                .foregroundColor(.gray)
+                .font(.system(size: 11, weight: .bold, design: .serif))
+                .foregroundColor(CatalogTheme.secondaryText)
             Text("\(value)")
-                .font(.system(size: 24, weight: .bold))
+                .font(.system(size: 24, weight: .bold, design: .serif))
                 .foregroundColor(color)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
         .background(Color.white)
-        .cornerRadius(20)
-        .overlay(
-            RoundedRectangle(cornerRadius: 20)
-                .stroke(Color.black.opacity(0.05), lineWidth: 1)
-        )
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .shadow(color: Color.black.opacity(0.03), radius: 8, x: 0, y: 4)
     }
 }
@@ -136,75 +126,26 @@ struct InventoryMonitorCard: View {
     let item: InventoryStatusItem
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(item.product.name)
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundColor(.black)
+                        .font(.system(size: 17, weight: .bold, design: .serif))
+                        .foregroundColor(CatalogTheme.primaryText)
                     Text(item.product.category)
-                        .font(.system(size: 13))
-                        .foregroundColor(.gray)
+                        .font(.system(size: 13, design: .serif))
+                        .foregroundColor(CatalogTheme.secondaryText)
                 }
                 Spacer()
                 
-                HStack(spacing: 4) {
-                    Circle()
-                        .fill(item.status.color)
-                        .frame(width: 6, height: 6)
-                    Text(item.status.rawValue)
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(item.status.color)
-                }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
-                .background(item.status.color.opacity(0.1))
-                .clipShape(Capsule())
-            }
-            
-            Divider().background(Color.gray.opacity(0.1))
-            
-            HStack(spacing: 24) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("EXPECTED")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundColor(.gray)
-                    Text("\(item.baseline)")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(.black)
-                }
-                
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("ACTUAL")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundColor(.gray)
-                    Text("\(item.current)")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(item.status == .healthy ? .green : (item.status == .critical ? .red : .black))
-                }
-                
-                Spacer()
-                
-                Button(action: {
-                    // Future integration
-                }) {
-                    Text("Restock")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(item.status == .healthy ? Color.gray : Color.black)
-                        .clipShape(Capsule())
-                }
+                Text("Qty: \(item.current)")
+                    .font(.system(size: 14, weight: .semibold, design: .serif))
+                    .foregroundColor(CatalogTheme.primaryText)
             }
         }
-        .padding(16)
+        .padding(20)
         .background(Color.white)
-        .cornerRadius(20)
-        .overlay(
-            RoundedRectangle(cornerRadius: 20)
-                .stroke(Color.black.opacity(0.05), lineWidth: 1)
-        )
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 5)
     }
 }

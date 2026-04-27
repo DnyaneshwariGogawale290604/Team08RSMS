@@ -339,7 +339,7 @@ struct SalesAssociateSalesView: View {
     // MARK: - Product request
     private var productRequestSection: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
-            SectionHeader(title: "Out of Stock?")
+            SectionHeader(title: "Inactive?")
             Button {
                 Task { await vm.fetchProducts() }
                 vm.showProductRequest = true
