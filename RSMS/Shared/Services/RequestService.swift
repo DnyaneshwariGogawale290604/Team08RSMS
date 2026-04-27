@@ -188,7 +188,7 @@ public final class RequestService: @unchecked Sendable {
             requestId: requestId,
             sourceWarehouseId: warehouseId,
             destinationStoreId: storeId,
-            status: "shipped",
+            status: "in_transit",
             asnNumber: asnNumber,
             carrier: carrier,
             trackingNumber: trackingNumber,
@@ -268,7 +268,7 @@ public final class RequestService: @unchecked Sendable {
             vendorId: vendorId,
             productId: productId,
             quantity: quantity,
-            status: "pending",
+            status: "in_transit",
             notes: notes
         )
         let result: VendorOrder = try await client

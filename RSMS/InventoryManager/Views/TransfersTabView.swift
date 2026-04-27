@@ -17,6 +17,7 @@ public struct TransfersTabView: View {
     // State for Check Stock reorder alert
     @State private var requestForReorder: ProductRequest?
     @State private var showReorderAlert: Bool = false
+    @State private var showMainErrorAlert: Bool = false
 
     // PO detail
     @State private var selectedPO: VendorOrder? = nil
@@ -110,19 +111,38 @@ public struct TransfersTabView: View {
             Button("Cancel", role: .cancel) {}
             Button("Create Vendor Order") {
                 Task {
-                    if let pid = req.productId, let vendorId = viewModel.brandVendors.first?.id {
-                        let roq = req.product?.reorderQuantity ?? 20
-                        _ = await viewModel.createPurchaseOrder(
-                            vendorId: vendorId,
-                            productId: pid,
-                            quantity: roq,
-                            notes: "Auto-generated due to insufficient stock for boutique request REQ-\(req.id.uuidString.prefix(4).uppercased())"
-                        )
+                    guard let pid = req.productId else { return }
+                    guard let vendorId = viewModel.brandVendors.first?.id else {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                            viewModel.errorMessage = "No vendor found for your brand. Please ask a Corporate Admin to add a vendor first."
+                            showMainErrorAlert = true
+                        }
+                        return
+                    }
+                    let roq = req.product?.reorderQuantity ?? 20
+                    let ok = await viewModel.createPurchaseOrder(
+                        vendorId: vendorId,
+                        productId: pid,
+                        quantity: roq,
+                        notes: "Auto-generated due to insufficient stock for boutique request REQ-\(req.id.uuidString.prefix(4).uppercased())"
+                    )
+                    if !ok {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                            showMainErrorAlert = true
+                        }
+                    } else {
+                        // Switch to Purchase Orders tab on success
+                        withAnimation { selectedTab = 0 }
                     }
                 }
             }
         } message: { req in
             Text("There is not enough stock in the warehouse to dispatch this order. Would you like to automatically create a Purchase Order to restock?")
+        }
+        .alert("Error", isPresented: $showMainErrorAlert) {
+            Button("OK", role: .cancel) { viewModel.errorMessage = nil }
+        } message: {
+            Text(viewModel.errorMessage ?? "An unknown error occurred.")
         }
     }
 
@@ -151,7 +171,7 @@ public struct TransfersTabView: View {
 
     @ViewBuilder
     private func purchaseOrderCard(_ order: VendorOrder) -> some View {
-        let statusColor = poStatusColor(order.status ?? "pending")
+        let statusColor = poStatusColor(order.status ?? "in_transit")
         ReusableCardView {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
@@ -312,26 +332,42 @@ public struct TransfersTabView: View {
 
                 // Action buttons
                 HStack(spacing: 10) {
-                    // Check Stock button
-                    Button {
-                        Task {
-                            let ok = await viewModel.checkWarehouseStock(for: request)
-                            if let pid = request.productId {
-                                stockCheckCache[pid] = ok
-                            }
-                            if !ok {
-                                requestForReorder = request
-                                showReorderAlert = true
-                            }
+                    if let can = canShip, !can {
+                        // Insufficient stock -> Show Create PO button
+                        Button {
+                            requestForReorder = request
+                            showReorderAlert = true
+                        } label: {
+                            Label("Create PO", systemImage: "cart.badge.plus")
+                                .font(.caption.bold())
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                                .background(Color.orange.opacity(0.15))
+                                .foregroundColor(.orange)
+                                .cornerRadius(8)
                         }
-                    } label: {
-                        Label("Check Stock", systemImage: "cube.box")
-                            .font(.caption.bold())
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
-                            .background(Color.appSecondaryText.opacity(0.1))
-                            .foregroundColor(.appSecondaryText)
-                            .cornerRadius(8)
+                    } else {
+                        // Check Stock button
+                        Button {
+                            Task {
+                                let ok = await viewModel.checkWarehouseStock(for: request)
+                                if let pid = request.productId {
+                                    stockCheckCache[pid] = ok
+                                }
+                                if !ok {
+                                    requestForReorder = request
+                                    showReorderAlert = true
+                                }
+                            }
+                        } label: {
+                            Label(canShip == true ? "Stock Verified" : "Check Stock", systemImage: "cube.box")
+                                .font(.caption.bold())
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                                .background(canShip == true ? Color.green.opacity(0.1) : Color.appSecondaryText.opacity(0.1))
+                                .foregroundColor(canShip == true ? .green : .appSecondaryText)
+                                .cornerRadius(8)
+                        }
                     }
 
                     Spacer()
@@ -347,10 +383,11 @@ public struct TransfersTabView: View {
                         }
                         .padding(.horizontal, 14)
                         .padding(.vertical, 8)
-                        .background(Color.appAccent)
+                        .background(canShip == false ? Color.gray.opacity(0.5) : Color.appAccent)
                         .foregroundColor(.white)
                         .cornerRadius(8)
                     }
+                    .disabled(canShip == false)
                 }
             }
         }
@@ -468,7 +505,7 @@ public struct TransfersTabView: View {
     private func poStatusColor(_ status: String) -> Color {
         switch status.lowercased() {
         case "received": return .green
-        case "pending": return .orange
+        case "pending", "in_transit": return .orange
         case "cancelled": return .red
         default: return .gray
         }
@@ -528,6 +565,7 @@ struct CreatePurchaseOrderSheet: View {
     @State private var selectedProductId: UUID? = nil
     @State private var quantityText: String = ""
     @State private var notes: String = ""
+    @State private var showErrorAlert: Bool = false
 
     private var isValid: Bool {
         selectedVendorId != nil && selectedProductId != nil && (Int(quantityText) ?? 0) > 0
@@ -615,7 +653,11 @@ struct CreatePurchaseOrderSheet: View {
                             guard let vId = selectedVendorId, let pId = selectedProductId,
                                   let qty = Int(quantityText), qty > 0 else { return }
                             let ok = await viewModel.createPurchaseOrder(vendorId: vId, productId: pId, quantity: qty, notes: notes)
-                            if ok { dismiss() }
+                            if ok { 
+                                dismiss() 
+                            } else if viewModel.errorMessage != nil {
+                                showErrorAlert = true
+                            }
                         }
                     } label: {
                         Group {
@@ -645,9 +687,17 @@ struct CreatePurchaseOrderSheet: View {
             .navigationTitle("New Purchase Order")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }.foregroundColor(.appAccent)
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") { dismiss() }
+                        .foregroundColor(.appPrimaryText)
                 }
+            }
+            .alert("Error Creating Order", isPresented: $showErrorAlert) {
+                Button("OK", role: .cancel) {
+                    viewModel.errorMessage = nil
+                }
+            } message: {
+                Text(viewModel.errorMessage ?? "An unknown error occurred.")
             }
         }
     }
@@ -798,7 +848,7 @@ struct PurchaseOrderDetailSheet: View {
     private func poStatusColor(_ status: String) -> Color {
         switch status.lowercased() {
         case "received": return .green
-        case "pending": return .orange
+        case "pending", "in_transit": return .orange
         case "cancelled": return .red
         default: return .gray
         }
