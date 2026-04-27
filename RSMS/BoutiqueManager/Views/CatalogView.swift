@@ -33,7 +33,7 @@ public struct CatalogView: View {
                     .frame(height: 44)
                     .background(
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .fill(CatalogTheme.surface)
+                            .fill(CatalogTheme.searchField)
                     )
                     .padding(.horizontal, 16)
                     .padding(.top, 8)
@@ -84,7 +84,7 @@ public struct CatalogView: View {
                     }
                 }
             }
-            .navigationTitle("Catalog")
+            .navigationTitle(Text("Catalog").font(.system(size: 34, weight: .bold, design: .serif)))
             .navigationBarTitleDisplayMode(.large)
             .toolbarColorScheme(.light, for: .navigationBar)
             .onAppear {
@@ -109,8 +109,10 @@ struct CategoryPill: View {
                 .foregroundColor(isSelected ? .white : CatalogTheme.chipInactiveText)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
-                .background(isSelected ? CatalogTheme.primary : CatalogTheme.surface)
-                .clipShape(RoundedRectangle(cornerRadius: AppTheme.buttonCornerRadius, style: .continuous))
+                .background(
+                    Capsule(style: .continuous)
+                        .fill(isSelected ? CatalogTheme.primary : CatalogTheme.surface)
+                )
         }
     }
 }
@@ -126,7 +128,7 @@ struct ProductCard: View {
         VStack(alignment: .leading, spacing: 0) {
             // Product image / icon area
             ZStack {
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .fill(CatalogTheme.imageBackground)
                     .frame(maxWidth: .infinity)
                     .frame(height: 130)
@@ -163,14 +165,14 @@ struct ProductCard: View {
             .frame(maxWidth: .infinity)
             .frame(height: 130)
             .clipped()
-            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
 
             // Product info
             VStack(alignment: .leading, spacing: 6) {
 
                 // Name
                 Text(product.name)
-                    .font(.system(size: 13, weight: .bold))
+                    .font(.system(size: 13, weight: .bold, design: .serif))
                     .foregroundColor(CatalogTheme.primaryText)
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
@@ -179,7 +181,7 @@ struct ProductCard: View {
                 if !product.category.isEmpty {
                     Text(product.category.uppercased())
                         .font(.system(size: 9, weight: .semibold))
-                        .foregroundColor(CatalogTheme.mutedText)
+                        .foregroundColor(CatalogTheme.categoryText)
                         .tracking(1.2)
                         .lineLimit(1)
                 }
@@ -213,14 +215,10 @@ struct ProductCard: View {
         .frame(maxWidth: .infinity)
         .frame(minHeight: 290, alignment: .top)
         .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(CatalogTheme.card)
         )
-        .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(CatalogTheme.divider, lineWidth: 0.8)
-        )
-        .shadow(color: Color.black.opacity(0.03), radius: 4, x: 0, y: 2)
+        .shadow(color: Color.black.opacity(0.02), radius: 3, x: 0, y: 1)
         .scaleEffect(isPressed ? 1.02 : 1)
         .animation(.easeInOut(duration: 0.25), value: isPressed)
         .onLongPressGesture(minimumDuration: 0.01, pressing: { pressing in

@@ -123,7 +123,7 @@ public struct ProductListView: View {
     private var headerSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Catalog")
-                .font(.largeTitle.weight(.bold))
+                .font(.system(size: 34, weight: .bold, design: .serif))
                 .foregroundColor(CatalogTheme.primaryText)
 
             Text("Manage your product library")
@@ -149,7 +149,7 @@ public struct ProductListView: View {
         .padding(.horizontal, 14)
         .frame(height: 44)
         .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(CatalogTheme.searchField)
         )
     }
@@ -238,12 +238,12 @@ private struct StatsCardView: View {
         VStack(alignment: .leading, spacing: 8) {
             ZStack {
                 Circle()
-                    .fill(CatalogTheme.surface)
+                    .fill(CatalogTheme.statsIconBackground)
                     .frame(width: 28, height: 28)
 
                 Image(systemName: icon)
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(CatalogTheme.primary)
+                    .foregroundColor(CatalogTheme.statsIconColor)
             }
 
             Text(value)
@@ -257,14 +257,10 @@ private struct StatsCardView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
         .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(Color(hex: "#EFE6E6"))
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(CatalogTheme.card)
         )
-        .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(CatalogTheme.divider, lineWidth: 0.8)
-        )
-        .shadow(color: Color.black.opacity(0.03), radius: 4, x: 0, y: 2)
+        .shadow(color: Color.black.opacity(0.02), radius: 3, x: 0, y: 1)
     }
 }
 
@@ -307,19 +303,19 @@ private struct ProductCardView: View {
                 .frame(maxWidth: .infinity)
                 .frame(height: 140)
                 .clipped()
-                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(product.name)
-                    .font(.system(size: 15, weight: .bold))
+                    .font(.system(size: 15, weight: .bold, design: .serif))
                     .foregroundColor(CatalogTheme.primaryText)
                     .lineLimit(2)
                     .frame(height: 44, alignment: .topLeading)
 
                 Text(product.category)
                     .font(.system(size: 12, weight: .regular))
-                    .foregroundColor(CatalogTheme.subtleCategory)
+                    .foregroundColor(CatalogTheme.categoryText)
                     .lineLimit(1)
 
                 Text(formattedPrice(product.price))
@@ -332,16 +328,12 @@ private struct ProductCardView: View {
         .frame(maxWidth: .infinity)
         .frame(height: 250, alignment: .top)
         .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(CatalogTheme.card)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(CatalogTheme.divider, lineWidth: 0.8)
         )
         .grayscale(product.isActive ?? true ? 0 : 1.0)
         .opacity(product.isActive ?? true ? 1 : 0.4)
-        .shadow(color: Color.black.opacity(0.03), radius: 4, x: 0, y: 2)
+        .shadow(color: Color.black.opacity(0.02), radius: 3, x: 0, y: 1)
         .scaleEffect(isPressed ? 1.02 : 1)
         .animation(.easeInOut(duration: 0.25), value: isPressed)
         .onTapGesture {

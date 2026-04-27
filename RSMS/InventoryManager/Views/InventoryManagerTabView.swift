@@ -3,42 +3,46 @@ import SwiftUI
 public struct InventoryManagerTabView: View {
     @ObservedObject private var sessionViewModel: SessionViewModel
     @State private var showingAccountSheet = false
+    @State private var selectedTab: Int = 0
+    @State private var prefilledSKUMagic: String? = nil
 
     public init(sessionViewModel: SessionViewModel) {
         self.sessionViewModel = sessionViewModel
     }
 
     public var body: some View {
-        TabView {
+        TabView(selection: $selectedTab) {
             DashboardView {
                 showingAccountSheet = true
             }
                 .tabItem {
-                    Label("Dashboard", systemImage: "squareshape.split.2x2.fill")
+                    Label("Dashboard", systemImage: "square.grid.2x2.fill")
                 }
+                .tag(0)
 
             NavigationView {
-                RequestsTabView()
+                RequestsTabView(selectedTab: $selectedTab, prefilledSKUMagic: $prefilledSKUMagic)
             }
             .tabItem {
                 Label("Requests", systemImage: "tray.full")
             }
+            .tag(1)
 
             NavigationView {
-                TransfersTabView(selectedTab: .constant(1), prefilledSKUMagic: .constant(nil as String?))
+                TransfersTabView(selectedTab: $selectedTab, prefilledSKUMagic: $prefilledSKUMagic)
             }
             .tabItem {
                 Label("Workflows", systemImage: "arrow.left.arrow.right")
             }
+            .tag(2)
 
             ItemsTabView(categoryFilterMagic: .constant(nil as String?))
                 .tabItem {
                     Label("Items", systemImage: "shippingbox")
                 }
+                .tag(3)
         }
-        .tint(.luxuryPrimary)
-        .toolbarBackground(.visible, for: .tabBar)
-        .toolbarBackground(Color.white, for: .tabBar)
+        .accentColor(Color(hex: "#6E5155"))
         .onAppear {
             configureTabBarAppearance()
         }

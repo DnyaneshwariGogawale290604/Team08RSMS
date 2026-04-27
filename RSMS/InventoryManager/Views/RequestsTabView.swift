@@ -13,8 +13,15 @@ public struct RequestsTabView: View {
     @State private var rejectReason: String = ""
     @State private var lastASN: String? = nil
     @State private var showASNBanner = false
+    @State private var showErrorAlert = false
 
-    public init() {}
+    @Binding var selectedTab: Int
+    @Binding var prefilledSKUMagic: String?
+
+    public init(selectedTab: Binding<Int>, prefilledSKUMagic: Binding<String?>) {
+        self._selectedTab = selectedTab
+        self._prefilledSKUMagic = prefilledSKUMagic
+    }
 
     public var body: some View {
         NavigationView {
@@ -49,6 +56,18 @@ public struct RequestsTabView: View {
             .navigationBarTitleDisplayMode(.inline)
             .task { await viewModel.loadData() }
             .refreshable { await viewModel.loadData() }
+            .onChange(of: viewModel.errorMessage) { newValue in
+                if newValue != nil {
+                    showErrorAlert = true
+                }
+            }
+            .alert("Error", isPresented: $showErrorAlert) {
+                Button("OK", role: .cancel) {
+                    viewModel.errorMessage = nil
+                }
+            } message: {
+                Text(viewModel.errorMessage ?? "An unknown error occurred.")
+            }
             .sheet(item: $requestPendingShipment) { req in
                 ShipmentDetailsSheet(request: req) { asn in
                     lastASN = asn
@@ -244,12 +263,9 @@ public struct RequestsTabView: View {
                             .cornerRadius(10)
                     }
 
-                    // Accept button
+                    // Accept always — stock check happens in Pick Lists
                     Button {
                         Task {
-                            let hasSufficientStock = await viewModel.checkWarehouseStock(for: request)
-                            stockCheckResults[request.id] = hasSufficientStock
-                            // Wait a moment for UI to reflect stock check if desired, but proceed to accept
                             await viewModel.acceptRequest(request: request)
                         }
                     } label: {
@@ -262,10 +278,11 @@ public struct RequestsTabView: View {
                             .cornerRadius(10)
                     }
                 }
-                
-                Text("Accepting moves this to Workflows → Pick Lists")
+
+                Text("Accepted orders move to Workflows → Pick Lists for stock check & dispatch")
                     .font(.caption2)
                     .foregroundColor(Color(UIColor.tertiaryLabel))
+                    .multilineTextAlignment(.center)
             }
         }
     }
@@ -289,8 +306,8 @@ public struct RequestsTabView: View {
                                     .font(.system(.subheadline, design: .monospaced).bold())
                                     .foregroundColor(.appPrimaryText)
                                 Spacer()
-                                let sc: Color = order.status == "received" ? .green : (order.status == "in_transit" ? .orange : .gray)
-                                Text(order.status == "in_transit" ? "In Transit" : (order.status?.capitalized ?? "Unknown"))
+                                let sc: Color = order.status == "delivered" ? Color(hex: "#6E5155") : (order.status == "in_transit" ? .orange : .gray)
+                                Text(order.status == "in_transit" ? "In Transit" : (order.status == "delivered" ? "Delivered" : (order.status?.capitalized ?? "Unknown")))
                                     .font(.caption.bold())
                                     .padding(.horizontal, 10)
                                     .padding(.vertical, 4)
@@ -313,6 +330,23 @@ public struct RequestsTabView: View {
                                 Text("\(order.quantity ?? 0) units").font(.caption)
                             }
                             .foregroundColor(.appSecondaryText)
+                            
+                            if order.status == "in_transit" {
+                                Button {
+                                    Task {
+                                        await viewModel.markPOReceived(order: order)
+                                    }
+                                } label: {
+                                    Text("Receive (Generate GRN)")
+                                        .font(.subheadline.bold())
+                                        .foregroundColor(.white)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 10)
+                                        .background(Color.green)
+                                        .cornerRadius(8)
+                                }
+                                .padding(.top, 4)
+                            }
                         }
                     }
                     .listRowInsets(EdgeInsets())
