@@ -912,12 +912,7 @@ private struct StaffDetailSheet: View {
                             dismiss()
                         }
                     }
-                    .font(.system(size: 16, weight: .medium, design: .serif))
-                    .foregroundColor(CatalogTheme.deepAccent)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(CatalogTheme.surface)
-                    .clipShape(Capsule())
+                    .foregroundColor(CatalogTheme.primaryText)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(isEditing ? "Save" : "Edit") {
@@ -936,12 +931,7 @@ private struct StaffDetailSheet: View {
                             isEditing = true
                         }
                     }
-                    .font(.system(size: 16, weight: .bold, design: .serif))
-                    .foregroundColor(CatalogTheme.primary)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(CatalogTheme.surface)
-                    .clipShape(Capsule())
+                    .foregroundColor(CatalogTheme.primaryText)
                 }
             }
         }
@@ -1076,12 +1066,7 @@ private struct VendorDetailSheet: View {
                             dismiss()
                         }
                     }
-                    .font(.system(size: 16, weight: .medium, design: .serif))
-                    .foregroundColor(CatalogTheme.deepAccent)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(CatalogTheme.surface)
-                    .clipShape(Capsule())
+                    .foregroundColor(CatalogTheme.primaryText)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(isEditing ? "Save" : "Edit") {
@@ -1098,12 +1083,7 @@ private struct VendorDetailSheet: View {
                             isEditing = true
                         }
                     }
-                    .font(.system(size: 16, weight: .bold, design: .serif))
-                    .foregroundColor(CatalogTheme.primary)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(CatalogTheme.surface)
-                    .clipShape(Capsule())
+                    .foregroundColor(CatalogTheme.primaryText)
                 }
             }
         }

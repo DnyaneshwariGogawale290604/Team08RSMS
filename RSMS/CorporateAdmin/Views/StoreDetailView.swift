@@ -41,6 +41,7 @@ public struct StoreDetailView: View {
         }
         .background(CatalogTheme.background.ignoresSafeArea())
         .navigationTitle(storeDetails.name)
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if selectedTab == 0 {
                 ToolbarItem(placement: .navigationBarTrailing) {

@@ -1,19 +1,12 @@
 import SwiftUI
 
 public struct ProductListView: View {
-    private enum CatalogFilter: String, CaseIterable {
-        case all = "All"
-        case active = "Active"
-        case inactive = "Inactive"
-        case category = "Category"
-    }
-
     @ObservedObject private var sessionViewModel: SessionViewModel
     @StateObject private var viewModel = ProductViewModel()
     @State private var showingAddProduct = false
     @State private var selectedProduct: Product?
     @State private var searchText = ""
-    @State private var selectedFilter: CatalogFilter = .all
+    @State private var selectedFilter: String = "All"
 
     public init(sessionViewModel: SessionViewModel) {
         self.sessionViewModel = sessionViewModel
@@ -172,12 +165,21 @@ public struct ProductListView: View {
         }
     }
 
+    private var availableCategories: [String] {
+        let cats = Set(viewModel.products.map { $0.category }).filter { !$0.isEmpty }
+        return Array(cats).sorted()
+    }
+    
+    private var allFilters: [String] {
+        ["All", "Active", "Inactive"] + availableCategories
+    }
+
     private var filtersRow: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                ForEach(CatalogFilter.allCases, id: \.self) { filter in
+                ForEach(allFilters, id: \.self) { filter in
                     FilterChipView(
-                        title: filter.rawValue,
+                        title: filter,
                         isSelected: selectedFilter == filter
                     ) {
                         withAnimation(.easeInOut(duration: 0.2)) {
@@ -206,14 +208,14 @@ public struct ProductListView: View {
     private var filteredProducts: [Product] {
         let base: [Product]
         switch selectedFilter {
-        case .all:
+        case "All":
             base = searchFilteredProducts
-        case .active:
+        case "Active":
             base = searchFilteredProducts.filter { $0.isActive ?? true }
-        case .inactive:
+        case "Inactive":
             base = searchFilteredProducts.filter { !($0.isActive ?? true) }
-        case .category:
-            base = searchFilteredProducts.sorted { $0.category < $1.category }
+        default:
+            base = searchFilteredProducts.filter { $0.category == selectedFilter }
         }
         // Always push inactive products to the bottom
         return base.sorted { ($0.isActive ?? true) && !($1.isActive ?? true) }
@@ -338,7 +340,7 @@ private struct ProductCardView: View {
                     VStack {
                         HStack {
                             Spacer()
-                            Text("Out of Stock")
+                            Text("Inactive")
                                 .font(.system(size: 11, weight: .bold))
                                 .foregroundColor(.white)
                                 .padding(.horizontal, 10)
