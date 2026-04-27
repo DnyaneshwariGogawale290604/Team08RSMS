@@ -713,6 +713,16 @@ struct ProductPickerSheet: View {
                     if vm.products.isEmpty {
                         EmptyStateView(icon: "tag.slash", title: "No products", message: "Try a different search.")
                     } else {
+                        if let diagnostic = vm.recommendationDiagnosticMessage,
+                           vm.recommendedProducts.isEmpty,
+                           !vm.cartItems.isEmpty {
+                            Text(diagnostic)
+                                .font(BrandFont.body(12))
+                                .foregroundStyle(Color.brandWarmGrey)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, Spacing.md)
+                                .padding(.bottom, Spacing.sm)
+                        }
                         ScrollView(showsIndicators: false) {
                             VStack(spacing: Spacing.md) { ForEach(vm.products) { productCard($0) } }
                                 .padding(.horizontal, Spacing.md).padding(.bottom, Spacing.xl)

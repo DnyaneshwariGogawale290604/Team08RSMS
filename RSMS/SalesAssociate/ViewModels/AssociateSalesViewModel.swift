@@ -18,6 +18,7 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
     // MARK: Cart
     @Published var cartItems: [CartItem] = []
     @Published var recommendedProducts: [Product] = []
+    @Published var recommendationDiagnosticMessage: String?
 
     // MARK: Products
     @Published var products: [Product] = []
@@ -177,19 +178,23 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
                 }
             } else {
                 recommendedProducts = []
+                recommendationDiagnosticMessage = nil
             }
+        } catch is CancellationError {
+            // Pull-to-refresh cancellation from SwiftUI; keep current state.
         } catch {
             errorMessage = "Could not load products."
         }
     }
 
     private func fetchRecommendations(from catalog: [Product]) async {
-        let recs = await GenerativeRecommendationService.shared.getRecommendations(
+        let result = await GenerativeRecommendationService.shared.getRecommendationsResult(
             cartItems: cartItems.map { $0.product },
             availableCatalog: catalog
         )
         await MainActor.run {
-            self.recommendedProducts = recs
+            self.recommendedProducts = result.products
+            self.recommendationDiagnosticMessage = result.diagnosticMessage
         }
     }
 
@@ -349,8 +354,7 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
     }
 
     private func fetchBrandId() async throws -> String {
-        let session = try await SupabaseManager.shared.client.auth.session
-        let authId = session.user.id.uuidString
+        let authId = try await resolveUserId().uuidString
 
         // Sales Associates don't have brand_id in users — resolve via store
         struct SARow: Decodable { let store_id: UUID }
@@ -415,8 +419,7 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
                     let amount_paid: Double
                 }
 
-                let session = try await SupabaseManager.shared.client.auth.session
-                let authId = session.user.id.uuidString
+                let authId = try await resolveUserId().uuidString
                 let change = cashTendered - order.totalAmount
                 let payload = CashInsert(
                     brand_id: brandId,
@@ -441,6 +444,16 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
                     .eq("order_id", value: order.id.uuidString)
                     .execute()
 
+                struct OrderPaymentUpdate: Encodable {
+                    let payment_status: String
+                    let amount_paid: Double
+                }
+                try? await SupabaseManager.shared.client
+                    .from("sales_orders")
+                    .update(OrderPaymentUpdate(payment_status: "paid", amount_paid: order.totalAmount))
+                    .eq("order_id", value: order.id.uuidString)
+                    .execute()
+
 
                 paymentCompleted = true
                 isLoading = false
@@ -453,8 +466,8 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
                 createOrderReq.httpMethod = "POST"
                 createOrderReq.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-                let session = try await SupabaseManager.shared.client.auth.session
-                createOrderReq.setValue("Bearer \(session.accessToken)", forHTTPHeaderField: "Authorization")
+                let accessToken = try await resolveAccessToken()
+                createOrderReq.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
 
                 let createOrderBody: [String: Any] = [
                     "sales_order_id": order.id.uuidString,
@@ -490,7 +503,7 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
                     var sessionReq = URLRequest(url: createSessionUrl)
                     sessionReq.httpMethod = "POST"
                     sessionReq.setValue("application/json", forHTTPHeaderField: "Content-Type")
-                    sessionReq.setValue("Bearer \(session.accessToken)", forHTTPHeaderField: "Authorization")
+                    sessionReq.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
 
                     let sessionBody: [String: Any] = ["payment_order_id": paymentOrderIdStr]
                     sessionReq.httpBody = try JSONSerialization.data(withJSONObject: sessionBody)
@@ -518,6 +531,9 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
             }
         } catch {
             isLoading = false
+            if error is CancellationError {
+                return
+            }
             errorMessage = error.localizedDescription
         }
     }
@@ -533,8 +549,8 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
             req.httpMethod = "POST"
             req.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-            let session = try await SupabaseManager.shared.client.auth.session
-            req.setValue("Bearer \(session.accessToken)", forHTTPHeaderField: "Authorization")
+            let accessToken = try await resolveAccessToken()
+            req.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
 
             let body: [String: Any] = [
                 "payment_order_id": paymentOrderId,
@@ -563,6 +579,16 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
                     .update(OrderStatusUpdate(status: "completed"))
                     .eq("order_id", value: order.id.uuidString)
                     .execute()
+
+                struct OrderPaymentUpdate: Encodable {
+                    let payment_status: String
+                    let amount_paid: Double
+                }
+                try? await SupabaseManager.shared.client
+                    .from("sales_orders")
+                    .update(OrderPaymentUpdate(payment_status: "paid", amount_paid: order.totalAmount))
+                    .eq("order_id", value: order.id.uuidString)
+                    .execute()
             }
 
             paymentCompleted = true
@@ -571,6 +597,9 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
             showReceipt = true
         } catch {
             isLoading = false
+            if error is CancellationError {
+                return
+            }
             errorMessage = error.localizedDescription
         }
     }
@@ -620,6 +649,16 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
                             .update(OrderStatusUpdate(status: "completed"))
                             .eq("order_id", value: order.id.uuidString)
                             .execute()
+
+                        struct OrderPaymentUpdate: Encodable {
+                            let payment_status: String
+                            let amount_paid: Double
+                        }
+                        try? await SupabaseManager.shared.client
+                            .from("sales_orders")
+                            .update(OrderPaymentUpdate(payment_status: "paid", amount_paid: order.totalAmount))
+                            .eq("order_id", value: order.id.uuidString)
+                            .execute()
                     }
                     await MainActor.run {
                         self.paymentCompleted = true
@@ -666,6 +705,25 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
             print("Failed to submit rating: \(error)")
             errorMessage = "Failed to submit rating."
         }
+    }
+
+    private func resolveUserId() async throws -> UUID {
+        let auth = SupabaseManager.shared.client.auth
+        if let session = try? await auth.session {
+            return session.user.id
+        }
+        return try await auth.user().id
+    }
+
+    private func resolveAccessToken() async throws -> String {
+        if let session = try? await SupabaseManager.shared.client.auth.session {
+            return session.accessToken
+        }
+        throw NSError(
+            domain: "PaymentError",
+            code: 401,
+            userInfo: [NSLocalizedDescriptionKey: "Session expired. Please sign in again."]
+        )
     }
 }
 

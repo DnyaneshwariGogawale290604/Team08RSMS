@@ -2,55 +2,140 @@ import SwiftUI
 import Combine
 
 struct SalesAssociateOrdersView: View {
+    private enum OrderStatusFilter: String, CaseIterable {
+        case all = "All"
+        case pending = "Pending"
+        case completed = "Completed"
+        case cancelled = "Cancelled"
+    }
+
     @StateObject private var viewModel = SalesAssociateViewModel()
     @EnvironmentObject var orderStore: SharedOrderStore
     @State private var selectedOrder: PlacedOrder? = nil
     @State private var selectedRemoteOrder: SAOrder? = nil
     @State private var showNewSale = false
+    @State private var searchText = ""
+    @State private var selectedStatusFilter: OrderStatusFilter = .all
+
+    fileprivate static func normalizeStatus(_ rawStatus: String?) -> String {
+        let raw = (rawStatus ?? "pending").trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if raw.isEmpty { return "pending" }
+
+        switch raw {
+        case "complete", "completed":
+            return "completed"
+        case "cancelled", "canceled":
+            return "cancelled"
+        case "pending":
+            return "pending"
+        default:
+            return raw
+        }
+    }
+
+    private var filteredLocalOrders: [PlacedOrder] {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+
+        return orderStore.orders.reversed().filter { placed in
+            let normalizedStatus = Self.normalizeStatus(placed.status)
+            let statusMatches = selectedStatusFilter == .all || normalizedStatus == selectedStatusFilter.rawValue.lowercased()
+
+            let matchesSearch: Bool
+            if query.isEmpty {
+                matchesSearch = true
+            } else {
+                matchesSearch =
+                    placed.customer.name.lowercased().contains(query) ||
+                    placed.orderNumber.lowercased().contains(query)
+            }
+
+            return statusMatches && matchesSearch
+        }
+    }
+
+    private var filteredRemoteOrders: [SAOrder] {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let localIds = Set(orderStore.orders.map { $0.id.uuidString.lowercased() })
+
+        return viewModel.recentOrders
+            .filter { !localIds.contains($0.id.uuidString.lowercased()) }
+            .filter { order in
+                let normalizedStatus = Self.normalizeStatus(order.status)
+                let statusMatches = selectedStatusFilter == .all || normalizedStatus == selectedStatusFilter.rawValue.lowercased()
+
+                let matchesSearch: Bool
+                if query.isEmpty {
+                    matchesSearch = true
+                } else {
+                    matchesSearch =
+                        (order.customerName ?? "").lowercased().contains(query) ||
+                        order.id.uuidString.lowercased().contains(query)
+                }
+
+                return statusMatches && matchesSearch
+            }
+    }
+
+    private var hasAnyOrders: Bool {
+        !(orderStore.orders.isEmpty && viewModel.recentOrders.isEmpty)
+    }
+
+    private var hasVisibleOrders: Bool {
+        !(filteredLocalOrders.isEmpty && filteredRemoteOrders.isEmpty)
+    }
 
     var body: some View {
         NavigationStack {
             ZStack {
                 Color.brandOffWhite.ignoresSafeArea()
 
-                if viewModel.isLoading && orderStore.orders.isEmpty && viewModel.recentOrders.isEmpty {
+                if viewModel.isLoading && !hasAnyOrders {
                     LoadingView(message: "Loading orders...")
-                } else if orderStore.orders.isEmpty && viewModel.recentOrders.isEmpty {
+                } else if !hasAnyOrders {
                     EmptyStateView(icon: "shippingbox", title: "No orders", message: "Your completed and pending orders will appear here.")
                 } else {
-                    ScrollView(showsIndicators: false) {
-                        VStack(spacing: 10) {
-                            // 1. Session Local Orders (full PlacedOrder data)
-                            ForEach(orderStore.orders.reversed()) { placed in
-                                Button {
-                                    selectedOrder = placed
-                                } label: {
-                                    orderRow(number: placed.orderNumber,
-                                             clientName: placed.customer.name,
-                                             amount: placed.totalAmount,
-                                             status: placed.status)
-                                }
-                                .buttonStyle(.plain)
-                            }
+                    VStack(spacing: 0) {
+                        ordersControls
 
-                            // 2. Remote Orders from Supabase (de-duplicated)
-                            let localIds = Set(orderStore.orders.map { $0.id.uuidString.lowercased() })
-                            ForEach(viewModel.recentOrders.filter { !localIds.contains($0.id.uuidString.lowercased()) }) { order in
-                                Button {
-                                    selectedRemoteOrder = order
-                                } label: {
-                                    orderRow(number: String(order.id.uuidString.prefix(8).uppercased()),
-                                             clientName: order.customerName ?? "–",
-                                             amount: order.totalAmount,
-                                             status: order.status ?? "–")
+                        if hasVisibleOrders {
+                            ScrollView(showsIndicators: false) {
+                                VStack(spacing: 10) {
+                                    ForEach(filteredLocalOrders) { placed in
+                                        Button {
+                                            selectedOrder = placed
+                                        } label: {
+                                            orderRow(number: placed.orderNumber,
+                                                     clientName: placed.customer.name,
+                                                     amount: placed.totalAmount,
+                                                     status: placed.status)
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+
+                                    ForEach(filteredRemoteOrders) { order in
+                                        Button {
+                                            selectedRemoteOrder = order
+                                        } label: {
+                                            orderRow(number: String(order.id.uuidString.prefix(8).uppercased()),
+                                                     clientName: order.customerName ?? "–",
+                                                     amount: order.totalAmount,
+                                                     status: order.status ?? "pending")
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
                                 }
-                                .buttonStyle(.plain)
+                                .padding(16)
                             }
+                            .refreshable {
+                                await viewModel.refresh()
+                            }
+                        } else {
+                            EmptyStateView(
+                                icon: "line.3.horizontal.decrease.circle",
+                                title: "No matching orders",
+                                message: "Try a different search term or status filter."
+                            )
                         }
-                        .padding(16)
-                    }
-                    .refreshable {
-                        await viewModel.refresh()
                     }
                 }
             }
@@ -61,7 +146,7 @@ struct SalesAssociateOrdersView: View {
             }
             // Sheet for remote orders (summary view)
             .sheet(item: $selectedRemoteOrder) { order in
-                SAOrderDetailSheet(order: order)
+                SAOrderDetailSheet(order: order, viewModel: viewModel)
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -93,9 +178,65 @@ struct SalesAssociateOrdersView: View {
         }
     }
 
-    @ViewBuilder
+    private var ordersControls: some View {
+        VStack(spacing: 12) {
+            HStack(spacing: 10) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(Color.brandWarmGrey)
+                    .font(.system(size: 14))
+                TextField("Search by client name or order ID...", text: $searchText)
+                    .font(.system(size: 14))
+                    .autocorrectionDisabled()
+            }
+            .padding(14)
+            .background(Color.brandLinen)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.brandPebble, lineWidth: 0.5))
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(OrderStatusFilter.allCases, id: \.self) { filter in
+                        statusFilterChip(filter)
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 16)
+    }
+
+    private func statusFilterChip(_ filter: OrderStatusFilter) -> some View {
+        Button {
+            selectedStatusFilter = filter
+        } label: {
+            Text(filter.rawValue)
+                .font(.system(size: 13, weight: .medium))
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .background(selectedStatusFilter == filter ? Color.brandWarmBlack : Color.brandLinen)
+                .foregroundStyle(selectedStatusFilter == filter ? Color.brandOffWhite : Color.brandWarmBlack)
+                .clipShape(Capsule())
+                .overlay(Capsule().stroke(Color.brandPebble, lineWidth: 0.5))
+        }
+        .buttonStyle(.plain)
+    }
+
     private func orderRow(number: String, clientName: String, amount: Double, status: String) -> some View {
-        HStack {
+        let normalizedStatus = Self.normalizeStatus(status)
+        let statusPresentation: (text: String, color: Color) = {
+            switch normalizedStatus {
+            case "completed":
+                return ("Completed", Color.brandWarmBlack)
+            case "cancelled":
+                return ("Cancelled", Color.brandWarmGrey)
+            case "pending":
+                return ("Pending", Color(hex: "#C8913A"))
+            default:
+                return (normalizedStatus.capitalized, Color.brandWarmGrey)
+            }
+        }()
+
+        return HStack {
             VStack(alignment: .leading, spacing: 4) {
                 Text(clientName)
                     .font(.system(size: 12, weight: .semibold, design: .monospaced))
@@ -109,9 +250,9 @@ struct SalesAssociateOrdersView: View {
                 Text(currency(amount))
                     .font(BrandFont.body(14, weight: .semibold))
                     .foregroundStyle(Color.brandWarmBlack)
-                Text(status.capitalized)
+                Text(statusPresentation.text)
                     .font(BrandFont.body(11))
-                    .foregroundStyle(Color(hex: "#C8913A"))
+                    .foregroundStyle(statusPresentation.color)
             }
         }
         .padding(14)
@@ -206,7 +347,18 @@ struct StandaloneReceiptSheet: View {
 // SAOrder only carries order-level data (no line items), so we show what's available.
 struct SAOrderDetailSheet: View {
     let order: SAOrder
+    @ObservedObject var viewModel: SalesAssociateViewModel
     @Environment(\.dismiss) var dismiss
+    @State private var isCompleting = false
+    @State private var showConfirm = false
+
+    private var normalizedStatus: String {
+        SalesAssociateOrdersView.normalizeStatus(order.status)
+    }
+
+    private var canComplete: Bool {
+        normalizedStatus == "pending"
+    }
 
     var body: some View {
         NavigationStack {
@@ -219,7 +371,7 @@ struct SAOrderDetailSheet: View {
                             Circle()
                                 .fill(Color(hex: "#C8913A"))
                                 .frame(width: 6, height: 6)
-                            Text((order.status ?? "–").capitalized)
+                            Text(normalizedStatus.capitalized)
                                 .font(BrandFont.body(12, weight: .medium))
                                 .foregroundStyle(Color(hex: "#C8913A"))
                         }
@@ -244,6 +396,34 @@ struct SAOrderDetailSheet: View {
                         .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.brandPebble, lineWidth: 0.5))
                         .padding(.horizontal, 16)
 
+                        if canComplete {
+                            Button {
+                                showConfirm = true
+                            } label: {
+                                HStack(spacing: 8) {
+                                    if isCompleting {
+                                        ProgressView()
+                                            .tint(Color.brandOffWhite)
+                                            .scaleEffect(0.9)
+                                    } else {
+                                        Image(systemName: "checkmark.circle")
+                                            .font(.system(size: 14, weight: .semibold))
+                                    }
+
+                                    Text(isCompleting ? "Completing..." : "Mark as Completed")
+                                        .font(BrandFont.body(14, weight: .semibold))
+                                }
+                                .foregroundStyle(Color.brandOffWhite)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 13)
+                                .background(Color.brandWarmBlack)
+                                .clipShape(RoundedRectangle(cornerRadius: 14))
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(isCompleting)
+                            .padding(.horizontal, 16)
+                        }
+
                         Spacer()
                     }
                 }
@@ -261,6 +441,21 @@ struct SAOrderDetailSheet: View {
                         .foregroundStyle(Color.brandWarmBlack)
                         .font(.system(size: 14, weight: .semibold))
                 }
+            }
+            .alert("Complete Order", isPresented: $showConfirm) {
+                Button("Cancel", role: .cancel) {}
+                Button("Complete", role: .none) {
+                    Task {
+                        isCompleting = true
+                        await viewModel.completeOrder(orderId: order.id)
+                        isCompleting = false
+                        if viewModel.errorMessage == nil {
+                            dismiss()
+                        }
+                    }
+                }
+            } message: {
+                Text("Mark this order as completed?")
             }
         }
     }

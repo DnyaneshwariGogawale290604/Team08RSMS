@@ -73,6 +73,8 @@ final class AppointmentsViewModel: ObservableObject {
                 .value
             customers = try await cTask
             catalog   = try await pTask
+        } catch is CancellationError {
+            // SwiftUI cancelled task; do not show error.
         } catch {
             print("[AppointmentsVM] fetchCustomersAndCatalog failed: \(error)")
         }
@@ -148,6 +150,8 @@ final class AppointmentsViewModel: ObservableObject {
 
             successMessage = "Appointment booked!"
             await fetchAppointments()
+        } catch is CancellationError {
+            // Task cancelled by UI lifecycle; do not show error.
         } catch {
             errorMessage = "Failed to create appointment: \(error.localizedDescription)"
         }
@@ -173,6 +177,8 @@ final class AppointmentsViewModel: ObservableObject {
                     appointments[idx].status = status
                 }
             }
+        } catch is CancellationError {
+            // Task cancelled by UI lifecycle; do not show error.
         } catch {
             errorMessage = "Failed to update appointment."
         }
@@ -197,6 +203,8 @@ final class AppointmentsViewModel: ObservableObject {
             
             // 3. Remove from local state
             appointments.removeAll { $0.id == id }
+        } catch is CancellationError {
+            // Task cancelled by UI lifecycle; do not show error.
         } catch {
             print("[deleteAppointment] Error: \(error)")
             errorMessage = "Failed to delete appointment."

@@ -39,10 +39,29 @@ final class SalesAssociateViewModel: ObservableObject {
                 return
             }
 
+            let scopedStoreIds: [String]
+            do {
+                scopedStoreIds = try await resolveCurrentAssociateBrandStoreIds(userId: userId)
+            } catch is CancellationError {
+                return
+            } catch {
+                errorMessage = "Unable to resolve order scope for your brand."
+                return
+            }
+
+            if scopedStoreIds.isEmpty {
+                recentOrders = []
+                todayOrderCount = 0
+                todaySalesAmount = 0
+                errorMessage = nil
+                return
+            }
+
             async let ordersTask: [SAOrder] = client
                 .from("sales_orders")
                 .select("order_id,total_amount,status,created_at,customers(name)")
                 .eq("sales_associate_id", value: userId.uuidString)  // ← must be String
+                .in("store_id", values: scopedStoreIds)
                 .order("created_at", ascending: false)
                 .limit(20)
                 .execute()
@@ -52,6 +71,7 @@ final class SalesAssociateViewModel: ObservableObject {
                 .from("sales_orders")
                 .select("order_id,rating_value")
                 .eq("sales_associate_id", value: userId.uuidString)  // ← must be String
+                .in("store_id", values: scopedStoreIds)
                 .execute()
                 .value
 
@@ -153,10 +173,79 @@ final class SalesAssociateViewModel: ObservableObject {
         }
     }
 
+    func completeOrder(orderId: UUID) async {
+        struct OrderStatusUpdate: Encodable { let status: String }
+
+        do {
+            try await client
+                .from("sales_orders")
+                .update(OrderStatusUpdate(status: "completed"))
+                .eq("order_id", value: orderId.uuidString)
+                .execute()
+
+            if let index = recentOrders.firstIndex(where: { $0.id == orderId }) {
+                let current = recentOrders[index]
+                recentOrders[index] = SAOrder(
+                    id: current.id,
+                    totalAmount: current.totalAmount,
+                    status: "completed",
+                    createdAt: current.createdAt,
+                    customerName: current.customerName
+                )
+            }
+
+            errorMessage = nil
+        } catch is CancellationError {
+            // Task cancelled by UI lifecycle; do nothing.
+        } catch {
+            errorMessage = "Failed to complete order: \(error.localizedDescription)"
+        }
+    }
+
     private static func todayPrefix() -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
         formatter.locale = Locale(identifier: "en_US_POSIX")
         return formatter.string(from: Date())
+    }
+
+    private func resolveCurrentAssociateBrandStoreIds(userId: UUID) async throws -> [String] {
+        struct SAStoreRow: Decodable { let store_id: UUID }
+        struct StoreBrandRow: Decodable { let brand_id: UUID }
+        struct BrandStoreRow: Decodable { let store_id: UUID }
+
+        let saRows: [SAStoreRow] = try await client
+            .from("sales_associates")
+            .select("store_id")
+            .eq("user_id", value: userId.uuidString)
+            .limit(1)
+            .execute()
+            .value
+
+        guard let associateStoreId = saRows.first?.store_id else {
+            return []
+        }
+
+        let storeRows: [StoreBrandRow] = try await client
+            .from("stores")
+            .select("brand_id")
+            .eq("store_id", value: associateStoreId.uuidString)
+            .limit(1)
+            .execute()
+            .value
+
+        guard let brandId = storeRows.first?.brand_id else {
+            return [associateStoreId.uuidString]
+        }
+
+        let brandStores: [BrandStoreRow] = try await client
+            .from("stores")
+            .select("store_id")
+            .eq("brand_id", value: brandId.uuidString)
+            .execute()
+            .value
+
+        let ids = brandStores.map { $0.store_id.uuidString }
+        return ids.isEmpty ? [associateStoreId.uuidString] : ids
     }
 }

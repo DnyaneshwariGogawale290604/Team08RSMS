@@ -193,6 +193,7 @@ struct ClientProfileView: View {
     // AI Recommendations state
     @State private var recommendedProducts: [Product] = []
     @State private var isFetchingRecommendations = false
+    @State private var recommendationDiagnosticMessage: String?
     
     @Environment(\.dismiss) var dismiss
     @EnvironmentObject var orderStore: SharedOrderStore
@@ -355,15 +356,17 @@ struct ClientProfileView: View {
                     .kerning(1.2)
                     .foregroundStyle(Color.brandWarmGrey)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 16)
 
             if isFetchingRecommendations {
                 ProgressView()
                     .frame(maxWidth: .infinity, minHeight: 120)
             } else if recommendedProducts.isEmpty {
-                Text("No recommendations available right now.")
+                Text(recommendationDiagnosticMessage ?? "No recommendations available right now.")
                     .font(.system(size: 13))
                     .foregroundStyle(Color.brandWarmGrey)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 16)
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -462,12 +465,14 @@ struct ClientProfileView: View {
             let fetched: [SAOrder] = try await SupabaseManager.shared.client
                 .from("sales_orders")
                 .select("order_id,total_amount,status,created_at,customers(name)")
-                .eq("customer_id", value: customer.id)
+                .eq("customer_id", value: customer.id.uuidString)
                 .order("created_at", ascending: false)
                 .limit(20)
                 .execute()
                 .value
             self.orders = fetched
+        } catch is CancellationError {
+            // Pull-to-refresh cancellation from SwiftUI — do nothing.
         } catch {
             print("Failed to fetch client orders: \(error)")
         }
@@ -523,12 +528,15 @@ struct ClientProfileView: View {
             )
             
             // 4. Call your Generative Service
-            self.recommendedProducts = await GenerativeRecommendationService.shared.getRecommendations(
-                cartItems: [clientContextProduct], 
+            let result = await GenerativeRecommendationService.shared.getRecommendationsResult(
+                cartItems: [clientContextProduct],
                 availableCatalog: catalog
             )
+            self.recommendedProducts = result.products
+            self.recommendationDiagnosticMessage = result.diagnosticMessage
         } catch {
             print("Failed to fetch AI recommendations for profile: \(error)")
+            recommendationDiagnosticMessage = "Unable to load AI recommendations right now."
         }
     }
 }
