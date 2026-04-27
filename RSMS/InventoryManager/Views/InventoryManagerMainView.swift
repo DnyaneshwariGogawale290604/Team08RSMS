@@ -32,7 +32,7 @@ public struct InventoryManagerMainView: View {
                 }
                 .tag(2)
             
-            RequestsTabView()
+            RequestsTabView(selectedTab: $selectedTab, prefilledSKUMagic: $prefilledSKUMagic)
                 .tabItem {
                     Image(systemName: "bell.badge.fill")
                     Text("Requests")

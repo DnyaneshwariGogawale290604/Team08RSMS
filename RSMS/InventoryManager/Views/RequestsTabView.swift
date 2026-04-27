@@ -15,7 +15,13 @@ public struct RequestsTabView: View {
     @State private var showASNBanner = false
     @State private var showErrorAlert = false
 
-    public init() {}
+    @Binding var selectedTab: Int
+    @Binding var prefilledSKUMagic: String?
+
+    public init(selectedTab: Binding<Int>, prefilledSKUMagic: Binding<String?>) {
+        self._selectedTab = selectedTab
+        self._prefilledSKUMagic = prefilledSKUMagic
+    }
 
     public var body: some View {
         NavigationView {
@@ -257,22 +263,37 @@ public struct RequestsTabView: View {
                             .cornerRadius(10)
                     }
 
-                    // Accept button
-                    Button {
-                        Task {
-                            let hasSufficientStock = await viewModel.checkWarehouseStock(for: request)
-                            stockCheckResults[request.id] = hasSufficientStock
-                            // Wait a moment for UI to reflect stock check if desired, but proceed to accept
-                            await viewModel.acceptRequest(request: request)
+                    // Accept button or Create PO button
+                    if canShip == false {
+                        Button {
+                            prefilledSKUMagic = request.product?.id.uuidString
+                            selectedTab = 2 // Move to Workflows tab
+                        } label: {
+                            Text("Create Purchase Order")
+                                .font(.subheadline.bold())
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(Color.orange)
+                                .cornerRadius(10)
                         }
-                    } label: {
-                        Text("Accept Order")
-                            .font(.subheadline.bold())
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
-                            .background(Color.green)
-                            .cornerRadius(10)
+                    } else {
+                        Button {
+                            Task {
+                                let hasSufficientStock = await viewModel.checkWarehouseStock(for: request)
+                                stockCheckResults[request.id] = hasSufficientStock
+                                // Wait a moment for UI to reflect stock check if desired, but proceed to accept
+                                await viewModel.acceptRequest(request: request)
+                            }
+                        } label: {
+                            Text("Accept Order")
+                                .font(.subheadline.bold())
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(Color.green)
+                                .cornerRadius(10)
+                        }
                     }
                 }
                 
@@ -326,6 +347,23 @@ public struct RequestsTabView: View {
                                 Text("\(order.quantity ?? 0) units").font(.caption)
                             }
                             .foregroundColor(.appSecondaryText)
+                            
+                            if order.status == "in_transit" {
+                                Button {
+                                    Task {
+                                        await viewModel.markPOReceived(order: order)
+                                    }
+                                } label: {
+                                    Text("Receive (Generate GRN)")
+                                        .font(.subheadline.bold())
+                                        .foregroundColor(.white)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 10)
+                                        .background(Color.green)
+                                        .cornerRadius(8)
+                                }
+                                .padding(.top, 4)
+                            }
                         }
                     }
                     .listRowInsets(EdgeInsets())
