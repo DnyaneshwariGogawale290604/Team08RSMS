@@ -14,7 +14,7 @@ public struct InventoryManagerTabView: View {
                 showingAccountSheet = true
             }
                 .tabItem {
-                    Label("Dashboard", systemImage: "squareshape.split.2x2.fill")
+                    Label("Dashboard", systemImage: "square.grid.2x2.fill")
                 }
 
             NavigationView {

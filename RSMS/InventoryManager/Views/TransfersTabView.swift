@@ -15,6 +15,7 @@ public struct TransfersTabView: View {
     @State private var showASNToast = false
 
     @State private var showMainErrorAlert: Bool = false
+    @State private var poPrefilledProductId: UUID? = nil
 
     // PO detail
     @State private var selectedPO: VendorOrder? = nil
@@ -90,12 +91,14 @@ public struct TransfersTabView: View {
         .task { await viewModel.loadData() }
         .refreshable { await viewModel.loadData() }
         .sheet(isPresented: $showingCreatePO) {
-            CreatePurchaseOrderSheet(viewModel: viewModel)
+            CreatePurchaseOrderSheet(viewModel: viewModel, prefilledProductId: poPrefilledProductId)
         }
         .sheet(item: $pickListForDispatch) { req in
             ShipmentDetailsSheet(request: req) { asn in
                 lastASN = asn
                 withAnimation(.spring()) { showASNToast = true }
+                // Move to Shipments Out tab once ASN is generated
+                withAnimation { selectedSection = 2 }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
                     withAnimation { showASNToast = false }
                 }
@@ -298,28 +301,12 @@ public struct TransfersTabView: View {
                 // Action buttons
                 HStack(spacing: 10) {
                     if let can = canShip, !can {
-                        // Insufficient stock -> Show Create PO button
+                        // Insufficient stock -> Open Create PO sheet (same as '+' FAB)
                         Button {
-                            Task {
-                                guard let pid = request.productId else { return }
-                                guard let vendorId = viewModel.brandVendors.first?.id else {
-                                    viewModel.errorMessage = "No vendor found for your brand."
-                                    showMainErrorAlert = true
-                                    return
-                                }
-                                let roq = request.product?.reorderQuantity ?? 20
-                                let ok = await viewModel.createPurchaseOrder(
-                                    vendorId: vendorId,
-                                    productId: pid,
-                                    quantity: roq,
-                                    notes: "Auto-generated due to insufficient stock for boutique request REQ-\(request.id.uuidString.prefix(4).uppercased())"
-                                )
-                                if !ok {
-                                    showMainErrorAlert = true
-                                } else {
-                                    withAnimation { selectedTab = 0 }
-                                }
-                            }
+                            poPrefilledProductId = request.productId
+                            selectedTab = 1          // switch to Workflows tab
+                            selectedSection = 0      // jump to Purchase Orders section
+                            showingCreatePO = true   // open the sheet
                         } label: {
                             Label("Create PO", systemImage: "cart.badge.plus")
                                 .font(.caption.bold())
@@ -542,6 +529,7 @@ public struct TransfersTabView: View {
 struct CreatePurchaseOrderSheet: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject var viewModel: TransfersViewModel
+    var prefilledProductId: UUID? = nil
 
     @State private var selectedVendorId: UUID? = nil
     @State private var selectedProductId: UUID? = nil
@@ -668,6 +656,10 @@ struct CreatePurchaseOrderSheet: View {
             .background(Color.appBackground.ignoresSafeArea())
             .navigationTitle("New Purchase Order")
             .navigationBarTitleDisplayMode(.inline)
+            .onAppear {
+                if let pid = prefilledProductId { selectedProductId = pid }
+                if selectedVendorId == nil { selectedVendorId = viewModel.brandVendors.first?.id }
+            }
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") { dismiss() }

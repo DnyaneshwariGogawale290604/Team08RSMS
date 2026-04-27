@@ -45,8 +45,12 @@ public final class TransfersViewModel: ObservableObject {
             async let productFetch  = fetchBrandProducts()
 
             pendingRequests = try await pendingFetch
-            pickLists       = try await pickFetch
-            shipmentsOut    = try await shipFetch
+            let allPickLists = try await pickFetch
+            let allShipments = try await shipFetch
+            
+            let shippedRequestIds = Set(allShipments.map { $0.requestId })
+            pickLists       = allPickLists.filter { !shippedRequestIds.contains($0.id) }
+            shipmentsOut    = allShipments
             vendorOrders    = try await poFetch
             brandVendors    = try await vendorFetch
             brandProducts   = await productFetch
