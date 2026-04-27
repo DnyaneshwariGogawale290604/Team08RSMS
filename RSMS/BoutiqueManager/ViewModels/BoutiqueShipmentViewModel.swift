@@ -9,23 +9,38 @@ public final class BoutiqueShipmentViewModel: ObservableObject {
     @Published public var isLoading = false
     @Published public var errorMessage: String? = nil
     @Published public var lastGeneratedGRN: String? = nil
+    private var isReloading = false
 
     public init() {}
 
     // MARK: - Load
 
     public func loadAll() async {
+        guard !isReloading else { return }
+        isReloading = true
         isLoading = true
-        defer { isLoading = false }
+        defer {
+            isReloading = false
+            isLoading = false
+        }
+
         do {
-            async let shipmentsFetch = RequestService.shared.fetchShipmentsForCurrentBoutiqueStore()
-            async let grnsFetch = RequestService.shared.fetchGRNsForCurrentBoutiqueStore()
-            async let requestsFetch = RequestService.shared.fetchRequestsForCurrentBoutiqueStore()
-            
-            incomingShipments = try await shipmentsFetch
-            receivedGRNs = try await grnsFetch
-            allRequests = try await requestsFetch
             errorMessage = nil
+
+            // Keep shipment-tab reloads stable by avoiding overlapping parallel
+            // Supabase reads for the same boutique session.
+            let requests = try await RequestService.shared.fetchRequestsForCurrentBoutiqueStore()
+            let shipments = try await RequestService.shared.fetchShipmentsForCurrentBoutiqueStore()
+            let grns = try await RequestService.shared.fetchGRNsForCurrentBoutiqueStore()
+
+            allRequests = requests
+            incomingShipments = shipments
+            receivedGRNs = grns
+            errorMessage = nil
+        } catch is CancellationError {
+            // SwiftUI may cancel the in-flight load when the tab refreshes or
+            // the view lifecycle changes. Keep the current data and suppress
+            // the transient cancellation from surfacing as an error state.
         } catch {
             errorMessage = error.localizedDescription
             print("BoutiqueShipmentViewModel.loadAll error: \(error)")

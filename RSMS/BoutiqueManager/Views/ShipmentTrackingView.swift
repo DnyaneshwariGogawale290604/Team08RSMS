@@ -57,10 +57,8 @@ public struct ShipmentTrackingView: View {
             }
             .navigationTitle("Shipments")
             .toolbarColorScheme(.light, for: .navigationBar)
-            .onAppear {
-                Task {
-                    await viewModel.loadAll()
-                }
+            .task {
+                await viewModel.loadAll()
             }
             .refreshable { await viewModel.loadAll() }
             .sheet(item: $shipmentForGRN) { shipment in

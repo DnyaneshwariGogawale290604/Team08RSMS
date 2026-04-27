@@ -14,6 +14,7 @@ public struct RequestsTabView: View {
     @State private var lastASN: String? = nil
     @State private var showASNBanner = false
     @State private var showErrorAlert = false
+    @State private var selectedVendorOrder: VendorOrder? = nil
 
     @Binding var selectedTab: Int
     @Binding var prefilledSKUMagic: String?
@@ -56,6 +57,9 @@ public struct RequestsTabView: View {
             .navigationBarTitleDisplayMode(.inline)
             .task { await viewModel.loadData() }
             .refreshable { await viewModel.loadData() }
+            .onReceive(NotificationCenter.default.publisher(for: .inventoryManagerDataDidChange)) { _ in
+                Task { await viewModel.loadData() }
+            }
             .onChange(of: viewModel.errorMessage) { newValue in
                 if newValue != nil {
                     showErrorAlert = true
@@ -76,6 +80,16 @@ public struct RequestsTabView: View {
                         withAnimation { showASNBanner = false }
                     }
                 }
+            }
+            .sheet(item: $selectedVendorOrder) { order in
+                VendorGRNFormSheet(vendorOrder: order) { grn in
+                    lastASN = grn
+                    withAnimation { showASNBanner = true }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
+                        withAnimation { showASNBanner = false }
+                    }
+                }
+                .environmentObject(viewModel)
             }
             .alert("Reject Request", isPresented: $showRejectAlert) {
                 TextField("Reason (optional)", text: $rejectReason)
@@ -236,6 +250,7 @@ public struct RequestsTabView: View {
                     .foregroundColor(.white)
                     .cornerRadius(10)
             }
+            .buttonStyle(.plain)
 
         case "shipped":
             HStack(spacing: 4) {
@@ -262,6 +277,7 @@ public struct RequestsTabView: View {
                             .background(Color.red.opacity(0.1))
                             .cornerRadius(10)
                     }
+                    .buttonStyle(.plain)
 
                     // Accept always — stock check happens in Pick Lists
                     Button {
@@ -277,6 +293,7 @@ public struct RequestsTabView: View {
                             .background(Color.green)
                             .cornerRadius(10)
                     }
+                    .buttonStyle(.plain)
                 }
 
                 Text("Accepted orders move to Workflows → Pick Lists for stock check & dispatch")
@@ -333,9 +350,7 @@ public struct RequestsTabView: View {
                             
                             if order.status == "in_transit" {
                                 Button {
-                                    Task {
-                                        await viewModel.markPOReceived(order: order)
-                                    }
+                                    selectedVendorOrder = order
                                 } label: {
                                     Text("Receive (Generate GRN)")
                                         .font(.subheadline.bold())
@@ -346,6 +361,7 @@ public struct RequestsTabView: View {
                                         .cornerRadius(8)
                                 }
                                 .padding(.top, 4)
+                                .buttonStyle(.plain)
                             }
                         }
                     }

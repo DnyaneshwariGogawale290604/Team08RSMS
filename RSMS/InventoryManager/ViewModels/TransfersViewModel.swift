@@ -5,6 +5,10 @@ import Supabase
 import PostgREST
 import Auth
 
+extension Notification.Name {
+    static let inventoryManagerDataDidChange = Notification.Name("InventoryManagerDataDidChange")
+}
+
 @MainActor
 public final class TransfersViewModel: ObservableObject {
     // MARK: - Published state
@@ -54,6 +58,7 @@ public final class TransfersViewModel: ObservableObject {
             vendorOrders    = try await poFetch
             brandVendors    = try await vendorFetch
             brandProducts   = await productFetch
+            stockAvailability = [:]
             errorMessage    = nil
         } catch {
             errorMessage = error.localizedDescription
@@ -94,6 +99,7 @@ public final class TransfersViewModel: ObservableObject {
         do {
             try await RequestService.shared.updateRequestStatus(id: request.id, status: "approved")
             await loadData()
+            NotificationCenter.default.post(name: .inventoryManagerDataDidChange, object: nil)
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -131,6 +137,7 @@ public final class TransfersViewModel: ObservableObject {
                 }
             }
             await loadData()
+            NotificationCenter.default.post(name: .inventoryManagerDataDidChange, object: nil)
             return asn
         } catch {
             errorMessage = error.localizedDescription
@@ -150,6 +157,7 @@ public final class TransfersViewModel: ObservableObject {
                 rejectReason: reason
             )
             await loadData()
+            NotificationCenter.default.post(name: .inventoryManagerDataDidChange, object: nil)
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -169,6 +177,7 @@ public final class TransfersViewModel: ObservableObject {
                 notes: notes
             )
             await loadData()
+            NotificationCenter.default.post(name: .inventoryManagerDataDidChange, object: nil)
             return true
         } catch {
             errorMessage = error.localizedDescription
@@ -176,17 +185,37 @@ public final class TransfersViewModel: ObservableObject {
         }
     }
 
-    public func markPOReceived(order: VendorOrder) async {
+    public func receiveVendorOrder(
+        order: VendorOrder,
+        quantityReceived: Int,
+        condition: GoodsReceivedNote.GRNCondition,
+        notes: String
+    ) async -> String? {
         isLoading = true
         defer { isLoading = false }
         do {
-            try await RequestService.shared.updateVendorOrderStatus(id: order.id, status: "received")
-            if let warehouseId = try? await resolveWarehouseId(), let productId = order.productId, let qty = order.quantity {
-                try await WarehouseService.shared.incrementStock(warehouseId: warehouseId, productId: productId, by: qty)
+            let grn = try await RequestService.shared.createVendorGRN(
+                vendorOrderId: order.id,
+                quantityReceived: quantityReceived,
+                condition: condition,
+                notes: notes
+            )
+            
+            if let warehouseId = try? await resolveWarehouseId(), let productId = order.productId, quantityReceived > 0 {
+                try await WarehouseService.shared.incrementStock(warehouseId: warehouseId, productId: productId, by: quantityReceived)
+                if let current = stockAvailability[productId] {
+                    stockAvailability[productId] = current + quantityReceived
+                } else {
+                    _ = await checkWarehouseStock(for: ProductRequest(id: UUID(), productId: productId, storeId: UUID(), requestedQuantity: 0, status: "pending", requestDate: Date()))
+                }
             }
+            
             await loadData()
+            NotificationCenter.default.post(name: .inventoryManagerDataDidChange, object: nil)
+            return grn
         } catch {
             errorMessage = error.localizedDescription
+            return nil
         }
     }
 

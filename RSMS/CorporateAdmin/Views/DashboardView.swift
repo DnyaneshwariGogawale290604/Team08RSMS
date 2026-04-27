@@ -24,36 +24,13 @@ public struct DashboardView: View {
                             
                             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
                                 statCard(title: "Available", value: "\(viewModel.availableCount)", icon: "checkmark.circle.fill", color: .green)
-                                statCard(title: "Reserved", value: "\(viewModel.reservedCount)", icon: "lock.fill", color: .orange)
                                 statCard(title: "In Transit", value: "\(viewModel.inTransitCount)", icon: "box.truck.fill", color: .blue)
-                                statCard(title: "Sold", value: "\(viewModel.soldCount)", icon: "cart.fill", color: .gray)
+                                statCard(title: "Pending Req", value: "\(viewModel.pendingRequests.count)", icon: "clock.fill", color: .orange)
+                                statCard(title: "Active POs", value: "\(viewModel.activePurchaseOrderCount)", icon: "shippingbox.circle.fill", color: .blue)
                             }
                             .padding(.horizontal)
                         }
                         .padding(.top, 16)
-                        
-                        // Recent Transfers
-                        VStack(alignment: .leading, spacing: 10) {
-                            HStack {
-                                Text("Recent Transfers")
-                                    .font(.headline)
-                                    .foregroundColor(CatalogTheme.primaryText)
-                                Spacer()
-                                NavigationLink("View All", destination: TransfersTabView(selectedTab: .constant(1), prefilledSKUMagic: .constant(nil as String?)))
-                                    .font(.subheadline)
-                                    .foregroundColor(.appAccent)
-                            }
-                            .padding(.horizontal)
-                            
-                            if viewModel.recentActivity.isEmpty {
-                                EmptyStateView(icon: "arrow.left.arrow.right", title: "No Transfers", message: "No active transfers running.")
-                            } else {
-                                ForEach(viewModel.recentActivity.prefix(3), id: \.id) { shipment in
-                                    transferRow(for: shipment)
-                                        .padding(.horizontal)
-                                }
-                            }
-                        }
                         
                         // Items Stock Levels
                         VStack(alignment: .leading, spacing: 10) {
@@ -67,34 +44,6 @@ public struct DashboardView: View {
                             }
                         }
                         
-                        // Low Stock Alerts
-                        let criticals = viewModel.criticalSKUs
-                        if !criticals.isEmpty {
-                            VStack(alignment: .leading, spacing: 12) {
-                                HStack(spacing: 6) {
-                                    Image(systemName: "exclamationmark.triangle.fill")
-                                    Text("LOW STOCK ALERTS")
-                                    Spacer()
-                                    Text("\(criticals.count) items")
-                                }
-                                .font(.caption.bold())
-                                .foregroundColor(Color(red: 0.6, green: 0.45, blue: 0.45))
-                                .padding(.horizontal, 16)
-                                .padding(.top, 16)
-                                
-                                VStack(spacing: 12) {
-                                    ForEach(criticals, id: \.id) { product in
-                                        let items = viewModel.storeInventory.filter { $0.productId == product.id }
-                                        let qty = items.reduce(0) { $0 + $1.quantity }
-                                        alertCard(product: product, quantity: qty)
-                                    }
-                                }
-                                .padding(.bottom, 16)
-                            }
-                            .background(Color(red: 0.97, green: 0.94, blue: 0.93))
-                            .cornerRadius(20)
-                            .padding(.horizontal)
-                        }
                     }
                     .padding(.bottom, 20)
                 }
@@ -146,35 +95,14 @@ public struct DashboardView: View {
     }
 
     @ViewBuilder
-    private func transferRow(for shipment: Shipment) -> some View {
-        ReusableCardView {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text(shipment.request?.product?.name ?? "Order ID: \(shipment.id.uuidString.prefix(6))")
-                        .font(.subheadline.bold())
-                        .foregroundColor(CatalogTheme.primaryText)
-                    Spacer()
-                    Text(shipment.status.capitalized)
-                        .font(.caption2.bold())
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 4)
-                        .background(Color.appAccent.opacity(0.16))
-                        .foregroundColor(.appAccent)
-                        .cornerRadius(6)
-                }
-                Text("To: Store")
-                    .font(.caption)
-                    .foregroundColor(CatalogTheme.secondaryText)
-            }
-        }
-    }
-    
-    @ViewBuilder
     private func categoryCard(for category: String) -> some View {
         let count = viewModel.availableItems(for: category)
-        let percent = min(Double(count) / 10.0, 1.0)
-        let statusColor: Color = percent > 0.5 ? .green : (percent > 0.2 ? .orange : .red)
-        let statusBadge: String = percent > 0.5 ? "Good" : (percent > 0.2 ? "Low" : "Very Low")
+        let categoryProducts = viewModel.products
+            .filter { ($0.category.isEmpty ? "General" : $0.category) == category }
+        let categoryTarget = max(categoryProducts.reduce(0) { $0 + max($1.reorderPoint ?? 5, 1) }, 1)
+        let percent = min(Double(count) / Double(categoryTarget), 1.0)
+        let statusColor: Color = percent >= 1.0 ? .green : (percent >= 0.5 ? .orange : .red)
+        let statusBadge: String = percent >= 1.0 ? "Good" : (percent >= 0.5 ? "Low" : "Very Low")
         
         // Check if any product in this category has an active vendor order
         let categoryProductIds = viewModel.products
@@ -216,7 +144,9 @@ public struct DashboardView: View {
             HStack {
                 Text("\(count) items available").font(.caption2).foregroundColor(CatalogTheme.secondaryText)
                 Spacer()
-                Image(systemName: "chevron.right").font(.caption2).foregroundColor(CatalogTheme.secondaryText)
+                Text("Target \(categoryTarget)")
+                    .font(.caption2)
+                    .foregroundColor(CatalogTheme.secondaryText)
             }
         }
         .padding()
@@ -226,45 +156,4 @@ public struct DashboardView: View {
         .padding(.horizontal)
     }
 
-    @ViewBuilder
-    private func alertCard(product: Product, quantity: Int) -> some View {
-        HStack(spacing: 16) {
-            // Icon
-            ZStack {
-                Circle()
-                    .fill(Color(red: 0.88, green: 0.8, blue: 0.78))
-                    .frame(width: 44, height: 44)
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundColor(Color(red: 0.4, green: 0.3, blue: 0.3))
-                    .font(.subheadline)
-            }
-            
-            // Text
-            VStack(alignment: .leading, spacing: 4) {
-                Text(product.name)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundColor(Color.black.opacity(0.85))
-                Text(product.category.isEmpty ? "General" : product.category)
-                    .font(.caption)
-                    .foregroundColor(Color.black.opacity(0.5))
-            }
-            
-            Spacer()
-            
-            // Quantity
-            VStack(alignment: .trailing, spacing: 2) {
-                Text("\(quantity)")
-                    .font(.headline.weight(.heavy))
-                    .foregroundColor(Color(red: 0.4, green: 0.2, blue: 0.2))
-                Text("left")
-                    .font(.caption2)
-                    .foregroundColor(Color.black.opacity(0.5))
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(Color.white)
-        .cornerRadius(16)
-        .padding(.horizontal, 16)
-    }
 }

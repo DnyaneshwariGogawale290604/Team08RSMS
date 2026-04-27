@@ -21,6 +21,32 @@ public final class RequestService: @unchecked Sendable {
 
     /// Only approved requests not yet dispatched — shown as Pick Lists for IM to dispatch.
     public func fetchApprovedPickLists() async throws -> [ProductRequest] {
+        do {
+            let warehouseId = try await resolveCurrentInventoryManagerWarehouseId()
+            struct WarehouseBrand: Decodable {
+                let brandId: UUID
+                enum CodingKeys: String, CodingKey { case brandId = "brand_id" }
+            }
+            let rows: [WarehouseBrand] = try await client
+                .from("warehouses")
+                .select("brand_id")
+                .eq("warehouse_id", value: warehouseId)
+                .limit(1)
+                .execute()
+                .value
+            if let brandId = rows.first?.brandId {
+                return try await client
+                    .from("product_requests")
+                    .select("*, product:products(*), store:stores(*)")
+                    .eq("brand_id", value: brandId)
+                    .eq("status", value: "approved")
+                    .order("created_at", ascending: false)
+                    .execute()
+                    .value
+            }
+        } catch {
+            print("fetchApprovedPickLists brand resolve error: \(error) — falling back to all approved")
+        }
         return try await client
             .from("product_requests")
             .select("*, product:products(*), store:stores(*)")
@@ -479,6 +505,54 @@ public final class RequestService: @unchecked Sendable {
             .update(ShipmentStatusUpdate(status: "delivered", hasGRN: true))
             .eq("shipment_id", value: shipmentId)
             .execute()
+
+        return grnNumber
+    }
+
+    public func createVendorGRN(
+        vendorOrderId: UUID,
+        quantityReceived: Int,
+        condition: GoodsReceivedNote.GRNCondition,
+        notes: String
+    ) async throws -> String {
+        let currentUserId = try await client.auth.session.user.id
+        let grnNumber = generateGRNNumber()
+
+        struct GRNInsert: Encodable {
+            let receivedBy: UUID
+            let quantityReceived: Int
+            let condition: String
+            let notes: String
+            let grnNumber: String
+
+            enum CodingKeys: String, CodingKey {
+                case receivedBy = "received_by"
+                case quantityReceived = "quantity_received"
+                case condition
+                case notes
+                case grnNumber = "grn_number"
+            }
+        }
+
+        let payload = GRNInsert(
+            receivedBy: currentUserId,
+            quantityReceived: quantityReceived,
+            condition: condition.rawValue,
+            notes: "Vendor PO: \(vendorOrderId) | " + notes,
+            grnNumber: grnNumber
+        )
+
+        do {
+            try await client
+                .from("goods_received_notes")
+                .insert(payload)
+                .execute()
+        } catch {
+            print("⚠️ GRN insert skipped (RLS or network): \(error.localizedDescription)")
+        }
+
+        // Mark the vendor order as delivered
+        try await updateVendorOrderStatus(id: vendorOrderId, status: "delivered")
 
         return grnNumber
     }

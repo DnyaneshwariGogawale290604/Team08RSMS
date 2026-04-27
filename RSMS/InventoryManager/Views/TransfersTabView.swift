@@ -10,7 +10,6 @@ public struct TransfersTabView: View {
 
     // Pick list dispatch
     @State private var pickListForDispatch: ProductRequest? = nil
-    @State private var stockCheckCache: [UUID: Bool] = [:]
     @State private var lastASN: String? = nil
     @State private var showASNToast = false
 
@@ -90,6 +89,9 @@ public struct TransfersTabView: View {
         }
         .task { await viewModel.loadData() }
         .refreshable { await viewModel.loadData() }
+        .onReceive(NotificationCenter.default.publisher(for: .inventoryManagerDataDidChange)) { _ in
+            Task { await viewModel.loadData() }
+        }
         .sheet(isPresented: $showingCreatePO) {
             CreatePurchaseOrderSheet(viewModel: viewModel, prefilledProductId: poPrefilledProductId)
         }
@@ -99,6 +101,7 @@ public struct TransfersTabView: View {
                 withAnimation(.spring()) { showASNToast = true }
                 // Move to Shipments Out tab once ASN is generated
                 withAnimation { selectedSection = 2 }
+                Task { await viewModel.loadData() }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
                     withAnimation { showASNToast = false }
                 }
@@ -232,7 +235,10 @@ public struct TransfersTabView: View {
     @ViewBuilder
     private func pickListCard(_ request: ProductRequest) -> some View {
         let stockQty = request.productId.flatMap { viewModel.stockAvailability[$0] }
-        let canShip = request.productId.flatMap { stockCheckCache[$0] }
+        let canShip: Bool? = {
+            guard let qty = stockQty else { return nil }
+            return qty >= request.requestedQuantity
+        }()
 
         ReusableCardView {
             VStack(alignment: .leading, spacing: 10) {
@@ -329,13 +335,7 @@ public struct TransfersTabView: View {
                         // Check Stock button
                         Button {
                             Task {
-                                let ok = await viewModel.checkWarehouseStock(for: request)
-                                if let pid = request.productId {
-                                    stockCheckCache[pid] = ok
-                                }
-                                if !ok {
-                                    // Just let the button turn into "Create PO" natively via the next render pass!
-                                }
+                                await viewModel.checkWarehouseStock(for: request)
                             }
                         } label: {
                             Label(canShip == true ? "Stock Verified" : "Check Stock", systemImage: "cube.box")
@@ -371,9 +371,8 @@ public struct TransfersTabView: View {
         }
         .task {
             // Auto check stock when this card appears so we immediately know if we can fulfill
-            if let pid = request.productId, stockCheckCache[pid] == nil {
-                let ok = await viewModel.checkWarehouseStock(for: request)
-                stockCheckCache[pid] = ok
+            if let pid = request.productId, viewModel.stockAvailability[pid] == nil {
+                await viewModel.checkWarehouseStock(for: request)
             }
         }
     }
@@ -717,6 +716,8 @@ struct PurchaseOrderDetailSheet: View {
     @Environment(\.dismiss) private var dismiss
     let order: VendorOrder
     @ObservedObject var viewModel: TransfersViewModel
+    
+    @State private var showGRNForm = false
 
     var body: some View {
         NavigationView {
@@ -788,16 +789,13 @@ struct PurchaseOrderDetailSheet: View {
                     }
 
                     // Mark Received button
-                    if order.status?.lowercased() == "pending" {
+                    if order.status?.lowercased() == "pending" || order.status?.lowercased() == "in_transit" {
                         Button {
-                            Task {
-                                await viewModel.markPOReceived(order: order)
-                                dismiss()
-                            }
+                            showGRNForm = true
                         } label: {
                             HStack(spacing: 8) {
-                                Image(systemName: "checkmark.circle.fill")
-                                Text("Mark as Received")
+                                Image(systemName: "checkmark.seal.fill")
+                                Text("Receive (Generate GRN)")
                                     .font(.system(size: 16, weight: .semibold))
                             }
                             .foregroundColor(.white)
@@ -809,6 +807,12 @@ struct PurchaseOrderDetailSheet: View {
                     }
                 }
                 .padding(20)
+            }
+            .sheet(isPresented: $showGRNForm) {
+                VendorGRNFormSheet(vendorOrder: order) { _ in
+                    dismiss()
+                }
+                .environmentObject(viewModel)
             }
             .background(Color.appBackground.ignoresSafeArea())
             .navigationTitle("Purchase Order")

@@ -22,24 +22,18 @@ public struct DashboardTabView: View {
                         // 1. Four Metric Cards
                         HStack(spacing: 12) {
                             metricCard(title: "Total SKUs", value: "\(viewModel.totalSKUs)", icon: "shippingbox", color: .blue)
-                            metricCard(title: "Very Low", value: "\(viewModel.criticalSKUs.count)", icon: "exclamationmark.triangle.fill", color: .red)
+                            metricCard(title: "Available", value: "\(viewModel.availableCount)", icon: "checkmark.circle.fill", color: .green)
                         }
                         .padding(.horizontal)
                         
                         HStack(spacing: 12) {
                             metricCard(title: "Pending Req", value: "\(viewModel.pendingRequests.count)", icon: "clock.fill", color: .orange)
-                            metricCard(title: "Stock Health", value: "\(viewModel.stockHealthPercentage)%", icon: "heart.text.square.fill", color: .green)
+                            metricCard(title: "Active POs", value: "\(viewModel.activePurchaseOrderCount)", icon: "shippingbox.circle.fill", color: .blue)
                         }
                         .padding(.horizontal)
-
-                        // 2. Alerts Section
-                        alertsSection()
                         
-                        // 3. Category Stock Cards
+                        // 2. Category Stock Cards
                         categoriesSection()
-                        
-                        // 4. Recent Activity
-                        activitySection()
                     }
                     .padding(.vertical)
                 }
@@ -84,70 +78,6 @@ public struct DashboardTabView: View {
     }
 
     @ViewBuilder
-    private func alertsSection() -> some View {
-        let criticals = viewModel.criticalSKUs
-        let pending = viewModel.pendingRequests
-        
-        if !criticals.isEmpty || !pending.isEmpty {
-            VStack(alignment: .leading, spacing: 10) {
-                Text("Alerts")
-                    .font(.headline)
-                    .foregroundColor(.appPrimaryText)
-                    .padding(.horizontal)
-                
-                ForEach(criticals, id: \.id) { product in
-                    alertCard(
-                        icon: "xmark.octagon.fill",
-                        color: .red,
-                        title: "Urgent Stock: \(product.name)",
-                        message: "Quantity fell below reorder threshold.",
-                        action: {
-                            prefilledSKUMagic = product.sku ?? product.name
-                            selectedTab = 1
-                        },
-                        buttonText: "Place Vendor Order"
-                    )
-                }
-                
-                ForEach(pending, id: \.id) { request in
-                    alertCard(icon: "exclamationmark.warning.fill", color: .orange, title: "Pending Approval", message: "Boutique request for \(request.product?.name ?? "a product") requires review.", action: nil, buttonText: "")
-                }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func alertCard(icon: String, color: Color, title: String, message: String, action: (() -> Void)?, buttonText: String) -> some View {
-        VStack(spacing: 12) {
-            HStack(alignment: .top) {
-                Image(systemName: icon).foregroundColor(color).font(.title3)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(title).font(.subheadline.bold()).foregroundColor(.appPrimaryText)
-                    Text(message).font(.caption).foregroundColor(.appSecondaryText)
-                }
-                Spacer()
-            }
-            if let action = action {
-                Button(action: action) {
-                    Text(buttonText)
-                        .font(.caption.bold())
-                        .foregroundColor(.white)
-                        .padding(.vertical, 8)
-                        .padding(.horizontal, 16)
-                        .background(color)
-                        .cornerRadius(8)
-                }
-                .frame(maxWidth: .infinity, alignment: .trailing)
-            }
-        }
-        .padding()
-        .background(color.opacity(0.1))
-        .cornerRadius(12)
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(color.opacity(0.3), lineWidth: 1))
-        .padding(.horizontal)
-    }
-
-    @ViewBuilder
     private func categoriesSection() -> some View {
         let categories = viewModel.categories
         
@@ -172,11 +102,12 @@ public struct DashboardTabView: View {
     @ViewBuilder
     private func categoryCard(for category: String) -> some View {
         let count = viewModel.availableItems(for: category)
-        
-        // Mocking threshold logic (assuming 10 is healthy for now)
-        let percent = min(Double(count) / 10.0, 1.0)
-        let statusColor: Color = percent > 0.5 ? .green : (percent > 0.2 ? .orange : .red)
-        let statusBadge: String = percent > 0.5 ? "Good" : (percent > 0.2 ? "Low" : "Very Low")
+        let categoryProducts = viewModel.products
+            .filter { ($0.category.isEmpty ? "General" : $0.category) == category }
+        let categoryTarget = max(categoryProducts.reduce(0) { $0 + max($1.reorderPoint ?? 5, 1) }, 1)
+        let percent = min(Double(count) / Double(categoryTarget), 1.0)
+        let statusColor: Color = percent >= 1.0 ? .green : (percent >= 0.5 ? .orange : .red)
+        let statusBadge: String = percent >= 1.0 ? "Good" : (percent >= 0.5 ? "Low" : "Very Low")
         
         VStack(spacing: 8) {
             HStack {
@@ -203,7 +134,9 @@ public struct DashboardTabView: View {
             HStack {
                 Text("\(count) items available").font(.caption2).foregroundColor(.appSecondaryText)
                 Spacer()
-                Image(systemName: "chevron.right").font(.caption2).foregroundColor(.appSecondaryText)
+                Text("Target \(categoryTarget)")
+                    .font(.caption2)
+                    .foregroundColor(.appSecondaryText)
             }
         }
         .padding()
@@ -213,63 +146,4 @@ public struct DashboardTabView: View {
         .padding(.horizontal)
     }
 
-    @ViewBuilder
-    private func activitySection() -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Recent Activity")
-                .font(.headline)
-                .foregroundColor(.appPrimaryText)
-                .padding(.horizontal)
-            
-            VStack(spacing: 0) {
-                if viewModel.recentActivity.isEmpty {
-                    Text("No recent activity.")
-                        .font(.caption)
-                        .foregroundColor(.appSecondaryText)
-                        .padding()
-                } else {
-                    ForEach(viewModel.recentActivity.prefix(5), id: \.id) { activity in
-                        HStack(spacing: 12) {
-                            let statusColor: Color = {
-                                let s = activity.status.lowercased()
-                                if s.contains("transit") || s.contains("dispatch") { return .blue }
-                                if s.contains("pending") { return .orange }
-                                if s.contains("reject") { return .red }
-                                return .green
-                            }()
-                            
-                            Circle()
-                                .fill(statusColor)
-                                .frame(width: 8, height: 8)
-                            
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(activity.request?.product?.name ?? "Shipment")
-                                    .font(.subheadline.bold())
-                                    .foregroundColor(.appPrimaryText)
-                                Text("Status: \(activity.status.capitalized) • ID: \(activity.id.uuidString.prefix(6))")
-                                    .font(.caption)
-                                    .foregroundColor(.appSecondaryText)
-                            }
-                            Spacer()
-                            if let date = activity.createdAt {
-                                Text(date, style: .date)
-                                    .font(.caption2)
-                                    .foregroundColor(.appSecondaryText)
-                            }
-                        }
-                        .padding(.vertical, 8)
-                        
-                        if activity.id != viewModel.recentActivity.prefix(5).last?.id {
-                            Divider().background(Color.appBorder)
-                        }
-                    }
-                }
-            }
-            .padding()
-            .background(Color.appCard)
-            .cornerRadius(12)
-            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.appBorder, lineWidth: 1))
-            .padding(.horizontal)
-        }
-    }
 }
