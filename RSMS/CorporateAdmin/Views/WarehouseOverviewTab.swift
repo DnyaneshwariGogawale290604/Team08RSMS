@@ -61,7 +61,7 @@ struct WarehouseOverviewTab: View {
             }
             .padding(.vertical, 24)
         }
-        .background(CatalogTheme.background.ignoresSafeArea())
+        .background(Color.clear)
     }
 
     private func infoRow(label: String, value: String) -> some View {

@@ -188,34 +188,27 @@ public struct AddFolderView: View {
                             .transition(.move(edge: .bottom).combined(with: .opacity))
                         }
                         
-                        // Submit Button
-                        Button(action: createFolder) {
-                            HStack {
-                                Image(systemName: "folder.badge.plus")
-                                Text("Create Batch & Add Items")
-                            }
-                            .font(.headline)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(folderName.isEmpty ? Color.gray : Color.appAccent)
-                            .foregroundColor(.white)
-                            .cornerRadius(14)
-                        }
-                        .disabled(folderName.isEmpty)
-                        .padding(.horizontal)
-                        .padding(.bottom, 30)
+                        // Removed Submit Button Section
                     }
                 }
             }
             .navigationTitle("Add Folder")
             .navigationBarTitleDisplayMode(.inline)
-            .navigationBarItems(
-                leading: Button(action: {
-                    presentationMode.wrappedValue.dismiss()
-                }) {
-                    Image(systemName: "xmark")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") {
+                        presentationMode.wrappedValue.dismiss()
+                    }
+                    .foregroundColor(CatalogTheme.primaryText)
                 }
-            )
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Create") {
+                        createFolder()
+                    }
+                    .foregroundColor(!folderName.isEmpty ? CatalogTheme.primaryText : Color.gray)
+                    .disabled(folderName.isEmpty)
+                }
+            }
         }
     }
     

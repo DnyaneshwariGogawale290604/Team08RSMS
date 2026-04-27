@@ -60,7 +60,6 @@ public struct StoreFormView: View {
 
                 ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 28) {
-                        headerView
                         storeDetailsSection
                         addressSection
                         inventorySection
@@ -70,7 +69,21 @@ public struct StoreFormView: View {
                     .padding(.bottom, 36)
                 }
             }
-            .navigationBarHidden(true)
+            .navigationTitle(editingStore == nil ? "Add Store" : "Edit Store")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") { dismiss() }
+                        .foregroundColor(CatalogTheme.primaryText)
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Save") {
+                        Task { await saveStore() }
+                    }
+                    .foregroundColor(canSave ? CatalogTheme.primaryText : Color.gray)
+                    .disabled(!canSave)
+                }
+            }
             .sheet(isPresented: $showingProductPicker) {
                 StoreProductPickerSheet(
                     products: remainingProducts,
@@ -89,38 +102,7 @@ public struct StoreFormView: View {
         }
     }
 
-    private var headerView: some View {
-        HStack {
-            Button("Cancel") { dismiss() }
-                .font(.system(size: 14, weight: .medium))
-                .foregroundColor(CatalogTheme.deepAccent)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(CatalogTheme.surface)
-                .clipShape(Capsule())
-            
-            Spacer()
-            
-            Text(editingStore == nil ? "Add Store" : "Edit Store")
-                .font(.system(size: 17, weight: .bold, design: .serif))
-                .foregroundColor(CatalogTheme.primaryText)
-            
-            Spacer()
-            
-            Button("Save") {
-                Task { await saveStore() }
-            }
-            .font(.system(size: 14, weight: .semibold))
-            .foregroundColor(.white)
-            .padding(.horizontal, 20)
-            .padding(.vertical, 8)
-            .background(canSave ? CatalogTheme.deepAccent : CatalogTheme.inactiveBadge)
-            .clipShape(Capsule())
-            .disabled(!canSave)
-        }
-        .padding(.horizontal, 16)
-        .padding(.top, 10)
-    }
+    // Removed headerView
 
     private var storeDetailsSection: some View {
         VStack(alignment: .leading, spacing: 14) {

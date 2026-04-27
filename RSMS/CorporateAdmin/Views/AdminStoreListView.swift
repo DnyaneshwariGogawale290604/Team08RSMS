@@ -58,7 +58,7 @@ public struct AdminStoreListView: View {
                                 // Archived Section
                                 if !archivedStores.isEmpty && selectedFilter == .all {
                                     VStack(alignment: .leading, spacing: 16) {
-                                        Text("Archived Stores")
+                                        Text("Temporarily Unavailable Stores")
                                             .font(.system(size: 18, weight: .bold, design: .serif))
                                             .foregroundColor(CatalogTheme.secondaryText)
                                             .padding(.horizontal, 4)
@@ -69,7 +69,6 @@ public struct AdminStoreListView: View {
                                                 store: store,
                                                 onArchive: { storePendingArchive = store }
                                             )
-                                            .opacity(0.7)
                                         }
                                     }
                                     .padding(.top, 10)
@@ -141,32 +140,29 @@ public struct AdminStoreCard: View {
                             .font(.system(size: 17, weight: .bold, design: .serif))
                             .foregroundColor(CatalogTheme.primaryText)
                         Text(store.location)
-                            .font(.subheadline)
+                            .font(.system(size: 15, design: .serif))
                             .foregroundColor(CatalogTheme.secondaryText)
                     }
                     Spacer()
-                    HStack(spacing: 12) {
-                        statusBadge(for: store.status ?? "active")
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(CatalogTheme.mutedText)
-                    }
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(CatalogTheme.mutedText)
                 }
-
+                
                 Rectangle()
                     .fill(CatalogTheme.divider)
                     .frame(height: 1)
-
+                
                 // Sales metrics
                 HStack(alignment: .center) {
                     let performance = viewModel.storePerformance[store.id] ?? 0.0
                     
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Sales Performance")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.system(size: 12, weight: .medium, design: .serif))
                             .foregroundColor(CatalogTheme.mutedText)
                         Text(String(format: "₹%.2f", performance))
-                            .font(.system(size: 16, weight: .bold))
+                            .font(.system(size: 16, weight: .bold, design: .serif))
                             .foregroundColor(CatalogTheme.primary)
                     }
                     
@@ -176,10 +172,10 @@ public struct AdminStoreCard: View {
                         let progress = min(1.0, performance / target)
                         VStack(alignment: .trailing, spacing: 4) {
                             Text("Achievement")
-                                .font(.system(size: 12, weight: .medium))
+                                .font(.system(size: 12, weight: .medium, design: .serif))
                                 .foregroundColor(CatalogTheme.mutedText)
                             Text(String(format: "%.1f%%", progress * 100))
-                                .font(.system(size: 14, weight: .bold))
+                                .font(.system(size: 14, weight: .bold, design: .serif))
                                 .foregroundColor(CatalogTheme.deepAccent)
                         }
                     }
@@ -192,25 +188,11 @@ public struct AdminStoreCard: View {
         }
         .buttonStyle(PlainButtonStyle())
     }
-
+    
     private var salesTargetText: String {
         guard let target = store.salesTarget else { return "₹0.00" }
         return String(format: "₹%.2f", target)
     }
     
-    @ViewBuilder
-    private func statusBadge(for status: String) -> some View {
-        let isActive = status.lowercased() == "active"
-        let isMaintenance = status.lowercased().contains("maintenance")
-        let bgColor: Color = isActive ? CatalogTheme.surface : Color(hex: "#F0E0E0")
-        let fgColor: Color = isActive ? CatalogTheme.primary : CatalogTheme.deepAccent
-
-        Text(status.replacingOccurrences(of: "_", with: " ").capitalized)
-            .font(.system(size: 10, weight: .semibold))
-            .padding(.horizontal, 10)
-            .padding(.vertical, 5)
-            .background(bgColor)
-            .foregroundColor(fgColor)
-            .clipShape(Capsule())
-    }
+    
 }

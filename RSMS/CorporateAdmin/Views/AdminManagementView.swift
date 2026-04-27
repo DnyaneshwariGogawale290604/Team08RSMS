@@ -7,6 +7,8 @@ public struct AdminManagementView: View {
     @State private var selectedVendorForProducts: Vendor?
     @State private var showingError = false
     @State private var showingSuccess = false
+    @State private var selectedStaff: StaffListItem?
+    @State private var selectedVendor: Vendor?
 
     public init(sessionViewModel: SessionViewModel) {
         self.sessionViewModel = sessionViewModel
@@ -62,10 +64,7 @@ public struct AdminManagementView: View {
                     } label: {
                         Image(systemName: "plus")
                             .font(.system(size: 15, weight: .semibold))
-                            .foregroundColor(.white)
-                            .frame(width: AppTheme.toolbarButtonSize, height: AppTheme.toolbarButtonSize)
-                            .background(Circle().fill(CatalogTheme.deepAccent))
-                            .shadow(color: Color.black.opacity(0.12), radius: 4, x: 0, y: 2)
+                            .foregroundColor(CatalogTheme.primaryText)
                     }
                 }
             }
@@ -81,6 +80,12 @@ public struct AdminManagementView: View {
             }
             .sheet(item: $selectedVendorForProducts) { vendor in
                 VendorProductsSheet(viewModel: viewModel, vendor: vendor)
+            }
+            .sheet(item: $selectedStaff) { item in
+                StaffDetailSheet(viewModel: viewModel, item: item)
+            }
+            .sheet(item: $selectedVendor) { vendor in
+                VendorDetailSheet(viewModel: viewModel, vendor: vendor)
             }
             .onChange(of: viewModel.errorMessage) { newValue in
                 showingError = newValue != nil
@@ -110,39 +115,18 @@ public struct AdminManagementView: View {
     }
 
     private var rolePicker: some View {
-        let roles = StaffRoleTab.allCases
-        return HStack(spacing: 4) {
-            ForEach(roles, id: \.self) { role in
-                Button(action: {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                        viewModel.selectedRole = role
-                    }
-                    Task { await viewModel.fetchStaff(for: role) }
-                }) {
-                    Text(role.rawValue)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(viewModel.selectedRole == role ? .white : CatalogTheme.deepAccent)
-                        .padding(.vertical, 10)
-                        .frame(maxWidth: .infinity)
-                        .background(
-                            ZStack {
-                                if viewModel.selectedRole == role {
-                                    Capsule()
-                                        .fill(CatalogTheme.primary)
-                                        .matchedGeometryEffect(id: "activeTab", in: tabNamespace)
-                                }
-                            }
-                        )
-                }
-                .buttonStyle(.plain)
+        Picker("Role", selection: $viewModel.selectedRole) {
+            ForEach(StaffRoleTab.allCases, id: \.self) { role in
+                Text(role.rawValue).tag(role)
             }
         }
-        .padding(4)
-        .background(CatalogTheme.surface)
-        .clipShape(Capsule())
+        .pickerStyle(.segmented)
         .padding(.horizontal, 20)
         .padding(.top, 16)
         .padding(.bottom, 20)
+        .onChange(of: viewModel.selectedRole) { newRole in
+            Task { await viewModel.fetchStaff(for: newRole) }
+        }
     }
 
     @Namespace private var tabNamespace
@@ -150,125 +134,93 @@ public struct AdminManagementView: View {
 
     @ViewBuilder
     private func staffCard(for item: StaffListItem) -> some View {
-        HStack(alignment: .top, spacing: 14) {
-            // Avatar
-            ZStack {
-                Circle()
-                    .fill(CatalogTheme.surface)
-                    .frame(width: 46, height: 46)
-                Text(String(item.user.displayName.prefix(1)).uppercased())
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(CatalogTheme.primary)
-            }
-
-            VStack(alignment: .leading, spacing: 6) {
-                Text(item.user.displayName)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(CatalogTheme.primaryText)
-
-                Text("ID: \(item.user.id.uuidString.prefix(8).uppercased())")
-                    .font(.caption)
-                    .foregroundColor(CatalogTheme.mutedText)
-                    .lineLimit(1)
-
-                if let phone = item.user.phone, !phone.isEmpty {
-                    Label(phone, systemImage: "phone")
-                        .font(.subheadline)
-                        .foregroundColor(CatalogTheme.secondaryText)
-                        .labelStyle(TintedLabelStyle(tint: CatalogTheme.primary))
+        Button(action: { selectedStaff = item }) {
+            HStack(alignment: .center, spacing: 14) {
+                // Avatar
+                ZStack {
+                    Circle()
+                        .fill(CatalogTheme.surface)
+                        .frame(width: 46, height: 46)
+                    Text(String(item.user.displayName.prefix(1)).uppercased())
+                        .font(.system(size: 18, weight: .bold, design: .serif))
+                        .foregroundColor(CatalogTheme.primary)
                 }
 
-                if let email = item.user.email, !email.isEmpty {
-                    Label(email, systemImage: "envelope")
-                        .font(.subheadline)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(item.user.displayName)
+                        .font(.system(size: 16, weight: .bold, design: .serif))
+                        .foregroundColor(CatalogTheme.primaryText)
+
+                    Text("\(item.role.assignmentLabel): \(item.assignmentName)")
+                        .font(.system(size: 14, design: .serif))
                         .foregroundColor(CatalogTheme.secondaryText)
-                        .labelStyle(TintedLabelStyle(tint: CatalogTheme.primary))
                 }
-
-                Label("\(item.role.assignmentLabel): \(item.assignmentName)", systemImage: "building.2")
-                    .font(.subheadline)
-                    .foregroundColor(CatalogTheme.secondaryText)
-                    .labelStyle(TintedLabelStyle(tint: CatalogTheme.primary))
-
-                Text(item.assignmentDetail)
-                    .font(.caption)
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(CatalogTheme.mutedText)
             }
-            Spacer()
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(Color.white)
+            )
+            .shadow(color: Color.black.opacity(0.03), radius: 6, x: 0, y: 2)
         }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color.white)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(CatalogTheme.divider, lineWidth: 0.8)
-        )
-        .shadow(color: Color.black.opacity(0.03), radius: 6, x: 0, y: 2)
+        .buttonStyle(.plain)
     }
 
     @ViewBuilder
     private func vendorCard(for vendor: Vendor) -> some View {
-        HStack(alignment: .top, spacing: 14) {
-            // Avatar
-            ZStack {
-                Circle()
-                    .fill(CatalogTheme.surface)
-                    .frame(width: 46, height: 46)
-                Text(String(vendor.name.prefix(1)).uppercased())
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(CatalogTheme.primary)
-            }
-
-            VStack(alignment: .leading, spacing: 6) {
-                Text(vendor.name)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(CatalogTheme.primaryText)
-
-                Text("ID: \(vendor.id.uuidString.prefix(8).uppercased())")
-                    .font(.caption)
-                    .foregroundColor(CatalogTheme.mutedText)
-                    .lineLimit(1)
-
-                if let contact = vendor.contactInfo, !contact.isEmpty {
-                    Label(contact, systemImage: "phone.badge.plus")
-                        .font(.subheadline)
-                        .foregroundColor(CatalogTheme.secondaryText)
-                        .labelStyle(TintedLabelStyle(tint: CatalogTheme.primary))
+        Button(action: { selectedVendor = vendor }) {
+            HStack(alignment: .center, spacing: 14) {
+                // Avatar
+                ZStack {
+                    Circle()
+                        .fill(CatalogTheme.surface)
+                        .frame(width: 46, height: 46)
+                    Text(String(vendor.name.prefix(1)).uppercased())
+                        .font(.system(size: 18, weight: .bold, design: .serif))
+                        .foregroundColor(CatalogTheme.primary)
                 }
 
-                let count = viewModel.vendorProductIdsByVendor[vendor.id]?.count ?? 0
-                Label("\(count) products linked", systemImage: "shippingbox")
-                    .font(.subheadline)
-                    .foregroundColor(CatalogTheme.secondaryText)
-                    .labelStyle(TintedLabelStyle(tint: CatalogTheme.primary))
-            }
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(vendor.name)
+                        .font(.system(size: 16, weight: .bold, design: .serif))
+                        .foregroundColor(CatalogTheme.primaryText)
 
-            Spacer()
+                    let count = viewModel.vendorProductIdsByVendor[vendor.id]?.count ?? 0
+                    Text("\(count) products linked")
+                        .font(.system(size: 14, design: .serif))
+                        .foregroundColor(CatalogTheme.secondaryText)
+                }
 
-            Button("Manage Products") {
-                selectedVendorForProducts = vendor
+                Spacer()
+
+                Button("Manage") {
+                    selectedVendorForProducts = vendor
+                }
+                .font(.system(size: 12, weight: .semibold, design: .serif))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(CatalogTheme.surface)
+                .foregroundColor(CatalogTheme.deepAccent)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(CatalogTheme.mutedText)
             }
-            .font(.caption.weight(.semibold))
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(CatalogTheme.surface)
-            .foregroundColor(CatalogTheme.deepAccent)
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(Color.white)
+            )
+            .shadow(color: Color.black.opacity(0.03), radius: 6, x: 0, y: 2)
         }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color.white)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(CatalogTheme.divider, lineWidth: 0.8)
-        )
-        .shadow(color: Color.black.opacity(0.03), radius: 6, x: 0, y: 2)
+        .buttonStyle(.plain)
     }
 
 
@@ -289,55 +241,57 @@ private struct VendorCreationSheet: View {
     var body: some View {
         NavigationView {
             ScrollView(showsIndicators: false) {
-                VStack(spacing: 18) {
-                    // Vendor Details card
-                    VStack(spacing: 0) {
-                        sheetFieldRow(label: "Vendor Name") {
-                            TextField("Enter vendor name", text: $name)
-                                .multilineTextAlignment(.trailing)
-                                .foregroundColor(CatalogTheme.primaryText)
-                        }
-                        sheetDivider
-                        sheetFieldRow(label: "Contact Info") {
-                            TextField("Phone / email", text: $contactInfo)
-                                .multilineTextAlignment(.trailing)
-                                .foregroundColor(CatalogTheme.primaryText)
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 4)
-                    .background(Color.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .stroke(CatalogTheme.divider, lineWidth: 0.8))
+                VStack(alignment: .leading, spacing: 28) {
+                    // Vendor Details Section
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Basic Info")
+                            .font(.system(size: 16, weight: .bold, design: .serif))
+                            .foregroundColor(CatalogTheme.deepAccent)
+                            .padding(.leading, 4)
 
-                    // Assign Products card
-                    VStack(alignment: .leading, spacing: 0) {
-                        Text("Assign Products")
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundColor(CatalogTheme.secondaryText)
-                            .padding(.horizontal, 16)
-                            .padding(.top, 14)
-                            .padding(.bottom, 10)
-
-                        ForEach(Array(viewModel.products.enumerated()), id: \.element.id) { index, product in
-                            VStack(spacing: 0) {
-                                if index > 0 { sheetDivider.padding(.horizontal, 16) }
-                                MultipleSelectionRow(
-                                    title: product.name,
-                                    subtitle: product.sku ?? product.category,
-                                    isSelected: selectedProductIds.contains(product.id)
-                                ) { toggleProduct(product.id) }
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 4)
+                        VStack(spacing: 0) {
+                            sheetFieldRow(label: "Vendor Name") {
+                                TextField("Enter vendor name", text: $name)
+                                    .multilineTextAlignment(.trailing)
+                                    .foregroundColor(CatalogTheme.primaryText)
+                            }
+                            sheetDivider
+                            sheetFieldRow(label: "Contact Info") {
+                                TextField("Phone / email", text: $contactInfo)
+                                    .multilineTextAlignment(.trailing)
+                                    .foregroundColor(CatalogTheme.primaryText)
                             }
                         }
-                        .padding(.bottom, 8)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 4)
+                        .background(Color.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
                     }
-                    .background(Color.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .stroke(CatalogTheme.divider, lineWidth: 0.8))
+
+                    // Linked Products Section
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Linked Products")
+                            .font(.system(size: 16, weight: .bold, design: .serif))
+                            .foregroundColor(CatalogTheme.deepAccent)
+                            .padding(.leading, 4)
+
+                        VStack(alignment: .leading, spacing: 0) {
+                            ForEach(Array(viewModel.products.enumerated()), id: \.element.id) { index, product in
+                                VStack(spacing: 0) {
+                                    if index > 0 { sheetDivider.padding(.horizontal, 16) }
+                                    MultipleSelectionRow(
+                                        title: product.name,
+                                        subtitle: product.sku ?? product.category,
+                                        isSelected: selectedProductIds.contains(product.id)
+                                    ) { toggleProduct(product.id) }
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 4)
+                                }
+                            }
+                        }
+                        .background(Color.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                    }
 
                     // Save button
                     Button(action: {
@@ -351,35 +305,34 @@ private struct VendorCreationSheet: View {
                                 ProgressView().tint(.white)
                             } else {
                                 Text("Create Vendor")
-                                    .font(.system(size: 16, weight: .semibold))
+                                    .font(.system(size: 16, weight: .semibold, design: .serif))
                                     .foregroundColor(.white)
                             }
                         }
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
+                        .frame(height: 54)
+                        .background(canSave ? CatalogTheme.deepAccent : CatalogTheme.surface)
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     }
-                    .background(
-                        RoundedRectangle(cornerRadius: 50, style: .continuous)
-                            .fill(canSave ? CatalogTheme.deepAccent : CatalogTheme.surface)
-                    )
-                    .foregroundColor(canSave ? .white : CatalogTheme.mutedText)
                     .disabled(!canSave)
+                    .padding(.top, 10)
                 }
                 .padding(20)
             }
             .background(CatalogTheme.background.ignoresSafeArea())
-            .navigationTitle("Create Vendor")
+            .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text("Add Vendor")
+                        .font(.system(size: 17, weight: .bold, design: .serif))
+                        .foregroundColor(CatalogTheme.primaryText)
+                }
                 ToolbarItem(placement: .cancellationAction) {
                     Button(action: { dismiss() }) {
                         Text("Cancel")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(CatalogTheme.deepAccent)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(CatalogTheme.surface)
-                            .clipShape(Capsule())
+                            .font(.system(size: 14, weight: .medium, design: .serif))
+                            .foregroundColor(CatalogTheme.primaryText)
                     }
                 }
             }
@@ -414,7 +367,7 @@ private struct VendorProductsSheet: View {
                                 .foregroundColor(CatalogTheme.secondaryText)
                             Spacer()
                             Text(vendor.name)
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(.system(size: 15, weight: .semibold, design: .serif))
                                 .foregroundColor(CatalogTheme.primaryText)
                         }
                         .padding(.horizontal, 16)
@@ -437,8 +390,7 @@ private struct VendorProductsSheet: View {
                     }
                     .background(Color.white)
                     .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .stroke(CatalogTheme.divider, lineWidth: 0.8))
+                    .shadow(color: Color.black.opacity(0.03), radius: 6, x: 0, y: 2)
 
                     // Products list card
                     VStack(alignment: .leading, spacing: 0) {
@@ -465,8 +417,7 @@ private struct VendorProductsSheet: View {
                     }
                     .background(Color.white)
                     .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .stroke(CatalogTheme.divider, lineWidth: 0.8))
+                    .shadow(color: Color.black.opacity(0.03), radius: 6, x: 0, y: 2)
 
                     // Save button
                     Button(action: {
@@ -480,23 +431,21 @@ private struct VendorProductsSheet: View {
                                 ProgressView().tint(.white)
                             } else {
                                 Text("Save Products")
-                                    .font(.system(size: 16, weight: .semibold))
+                                    .font(.system(size: 16, weight: .semibold, design: .serif))
                                     .foregroundColor(.white)
                             }
                         }
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
+                        .frame(height: 54)
+                        .background(CatalogTheme.deepAccent)
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     }
-                    .background(
-                        RoundedRectangle(cornerRadius: 50, style: .continuous)
-                            .fill(viewModel.isLoading ? CatalogTheme.surface : CatalogTheme.deepAccent)
-                    )
-                    .disabled(viewModel.isLoading)
+                    .padding(.top, 10)
                 }
                 .padding(20)
             }
             .background(CatalogTheme.background.ignoresSafeArea())
-            .navigationTitle("Manage Products")
+            .navigationTitle("Manage")
             .navigationBarTitleDisplayMode(.inline)
             .onAppear {
                 selectedProductIds = viewModel.vendorProductIdsByVendor[vendor.id] ?? []
@@ -505,12 +454,8 @@ private struct VendorProductsSheet: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(action: { dismiss() }) {
                         Text("Cancel")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(CatalogTheme.deepAccent)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(CatalogTheme.surface)
-                            .clipShape(Capsule())
+                            .font(.system(size: 14, weight: .medium, design: .serif))
+                            .foregroundColor(CatalogTheme.primaryText)
                     }
                 }
             }
@@ -575,7 +520,7 @@ private struct StaffCreationSheet: View {
                 VStack(alignment: .leading, spacing: 28) {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Staff Information")
-                            .font(.system(size: 16, weight: .bold))
+                            .font(.system(size: 16, weight: .bold, design: .serif))
                             .foregroundColor(CatalogTheme.deepAccent)
                             .padding(.leading, 4)
                         
@@ -588,18 +533,15 @@ private struct StaffCreationSheet: View {
                                 ProgressView().tint(.white)
                             } else {
                                 Text(role == .boutiqueManager ? "Create Boutique Manager" : "Create Inventory Manager")
-                                    .font(.system(size: 16, weight: .semibold))
+                                    .font(.system(size: 16, weight: .semibold, design: .serif))
                                     .foregroundColor(.white)
                             }
                         }
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
+                        .frame(height: 54)
+                        .background(isFormValid && !viewModel.isLoading ? CatalogTheme.deepAccent : CatalogTheme.surface)
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     }
-                    .background(
-                        RoundedRectangle(cornerRadius: 20, style: .continuous)
-                            .fill(isFormValid && !viewModel.isLoading ? CatalogTheme.deepAccent : CatalogTheme.surface)
-                    )
-                    .foregroundColor(isFormValid && !viewModel.isLoading ? .white : CatalogTheme.mutedText)
                     .disabled(!isFormValid || viewModel.isLoading)
                 }
                 .padding(20)
@@ -616,12 +558,8 @@ private struct StaffCreationSheet: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(action: { dismiss() }) {
                         Text("Cancel")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(CatalogTheme.deepAccent)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(CatalogTheme.surface)
-                            .clipShape(Capsule())
+                            .font(.system(size: 14, weight: .medium, design: .serif))
+                            .foregroundColor(CatalogTheme.primaryText)
                     }
                 }
             }
@@ -695,8 +633,6 @@ private struct StaffCreationSheet: View {
         .padding(.vertical, 4)
         .background(Color.white)
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous)
-            .stroke(CatalogTheme.divider, lineWidth: 0.8))
     }
 
     private var assignmentPickerRow: some View {
@@ -861,3 +797,345 @@ private func sheetFieldRow<Content: View>(label: String, @ViewBuilder content: (
     }
     .padding(.vertical, 14)
 }
+
+// MARK: - Detail Sheets
+
+private struct StaffDetailSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @ObservedObject var viewModel: AdminViewModel
+    let item: StaffListItem
+
+    @State private var isEditing = false
+    @State private var editedName: String = ""
+    @State private var editedEmail: String = ""
+    @State private var editedPhone: String = ""
+
+    init(viewModel: AdminViewModel, item: StaffListItem) {
+        self.viewModel = viewModel
+        self.item = item
+        self._editedName = State(initialValue: item.user.displayName)
+        self._editedEmail = State(initialValue: item.user.email ?? "")
+        self._editedPhone = State(initialValue: item.user.phone ?? "")
+    }
+
+    var body: some View {
+        NavigationView {
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 32) {
+                    // Header Avatar Section
+                    VStack(spacing: 16) {
+                        ZStack {
+                            Circle()
+                                .fill(CatalogTheme.surface)
+                                .frame(width: 100, height: 100)
+                            Text(String(editedName.prefix(1)).uppercased())
+                                .font(.system(size: 40, weight: .bold, design: .serif))
+                                .foregroundColor(CatalogTheme.primary)
+                        }
+
+                        VStack(spacing: 6) {
+                            if isEditing {
+                                TextField("Name", text: $editedName)
+                                    .font(.system(size: 24, weight: .bold, design: .serif))
+                                    .multilineTextAlignment(.center)
+                                    .foregroundColor(CatalogTheme.primaryText)
+                            } else {
+                                Text(item.user.displayName)
+                                    .font(.system(size: 24, weight: .bold, design: .serif))
+                                    .foregroundColor(CatalogTheme.primaryText)
+                            }
+                            
+                            Text(item.role.rawValue)
+                                .font(.system(size: 16, design: .serif))
+                                .foregroundColor(CatalogTheme.secondaryText)
+                        }
+                    }
+                    .padding(.top, 20)
+
+                    // Details Card
+                    VStack(spacing: 0) {
+                        detailRow(icon: "number", label: "Employee ID", value: item.user.id.uuidString.prefix(8).uppercased(), isEditable: false)
+                        sheetDivider.padding(.leading, 44)
+                        
+                        detailRow(icon: "envelope.fill", label: "Email", value: editedEmail, isEditable: isEditing, textBinding: $editedEmail)
+                        sheetDivider.padding(.leading, 44)
+                        
+                        detailRow(icon: "phone.fill", label: "Phone", value: editedPhone, isEditable: isEditing, textBinding: $editedPhone)
+                        sheetDivider.padding(.leading, 44)
+                        
+                        detailRow(icon: "building.2.fill", label: item.role.assignmentLabel, value: item.assignmentName, isEditable: false)
+                        sheetDivider.padding(.leading, 44)
+                        
+                        detailRow(icon: "mappin.and.ellipse", label: "Location", value: item.assignmentDetail, isEditable: false)
+                    }
+                    .background(Color.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                    .padding(.horizontal, 20)
+
+                    if isEditing {
+                        Button(action: {
+                            Task {
+                                let success = await viewModel.deleteStaffMember(item)
+                                if success { dismiss() }
+                            }
+                        }) {
+                            HStack {
+                                Image(systemName: "trash.fill")
+                                Text("Delete User")
+                                    .fontWeight(.bold)
+                            }
+                            .font(.system(size: 16, design: .serif))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 54)
+                            .background(Color.red.opacity(0.8))
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.top, 10)
+                    }
+                }
+                .padding(.bottom, 40)
+            }
+            .background(CatalogTheme.background.ignoresSafeArea())
+            .navigationTitle("Staff Details")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(isEditing ? "Cancel" : "Close") {
+                        if isEditing {
+                            editedName = item.user.displayName
+                            editedEmail = item.user.email ?? ""
+                            editedPhone = item.user.phone ?? ""
+                            isEditing = false
+                        } else {
+                            dismiss()
+                        }
+                    }
+                    .font(.system(size: 16, weight: .medium, design: .serif))
+                    .foregroundColor(CatalogTheme.deepAccent)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(CatalogTheme.surface)
+                    .clipShape(Capsule())
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(isEditing ? "Save" : "Edit") {
+                        if isEditing {
+                            Task {
+                                let success = await viewModel.updateStaffMember(
+                                    userId: item.user.id,
+                                    name: editedName,
+                                    email: editedEmail,
+                                    phone: editedPhone,
+                                    role: item.role
+                                )
+                                if success { isEditing = false }
+                            }
+                        } else {
+                            isEditing = true
+                        }
+                    }
+                    .font(.system(size: 16, weight: .bold, design: .serif))
+                    .foregroundColor(CatalogTheme.primary)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(CatalogTheme.surface)
+                    .clipShape(Capsule())
+                }
+            }
+        }
+    }
+
+    private func detailRow(icon: String, label: String, value: String, isEditable: Bool, textBinding: Binding<String>? = nil) -> some View {
+        HStack(spacing: 16) {
+            Image(systemName: icon)
+                .font(.system(size: 18))
+                .foregroundColor(CatalogTheme.primary)
+                .frame(width: 28)
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text(label)
+                    .font(.system(size: 13, weight: .medium, design: .serif))
+                    .foregroundColor(CatalogTheme.secondaryText)
+                
+                if isEditable, let binding = textBinding {
+                    TextField(label, text: binding)
+                        .font(.system(size: 15, design: .serif))
+                        .foregroundColor(CatalogTheme.primaryText)
+                } else {
+                    Text(value)
+                        .font(.system(size: 15, design: .serif))
+                        .foregroundColor(CatalogTheme.primaryText)
+                }
+            }
+            Spacer()
+        }
+        .padding(.vertical, 16)
+        .padding(.horizontal, 20)
+    }
+}
+
+private struct VendorDetailSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @ObservedObject var viewModel: AdminViewModel
+    let vendor: Vendor
+
+    @State private var isEditing = false
+    @State private var editedName: String = ""
+    @State private var editedContact: String = ""
+
+    init(viewModel: AdminViewModel, vendor: Vendor) {
+        self.viewModel = viewModel
+        self.vendor = vendor
+        self._editedName = State(initialValue: vendor.name)
+        self._editedContact = State(initialValue: vendor.contactInfo ?? "")
+    }
+
+    var body: some View {
+        NavigationView {
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 32) {
+                    // Header Avatar
+                    VStack(spacing: 16) {
+                        ZStack {
+                            Circle()
+                                .fill(CatalogTheme.surface)
+                                .frame(width: 100, height: 100)
+                            Text(String(editedName.prefix(1)).uppercased())
+                                .font(.system(size: 40, weight: .bold, design: .serif))
+                                .foregroundColor(CatalogTheme.primary)
+                        }
+
+                        VStack(spacing: 6) {
+                            if isEditing {
+                                TextField("Vendor Name", text: $editedName)
+                                    .font(.system(size: 24, weight: .bold, design: .serif))
+                                    .multilineTextAlignment(.center)
+                                    .foregroundColor(CatalogTheme.primaryText)
+                            } else {
+                                Text(vendor.name)
+                                    .font(.system(size: 24, weight: .bold, design: .serif))
+                                    .foregroundColor(CatalogTheme.primaryText)
+                                    .multilineTextAlignment(.center)
+                            }
+                        }
+                    }
+                    .padding(.top, 20)
+
+                    VStack(spacing: 0) {
+                        vendorDetailRow(icon: "number", label: "Vendor ID", value: vendor.id.uuidString.prefix(8).uppercased(), isEditable: false)
+                        sheetDivider.padding(.leading, 44)
+                        
+                        vendorDetailRow(icon: "phone.fill", label: "Contact Info", value: editedContact, isEditable: isEditing, textBinding: $editedContact)
+                        sheetDivider.padding(.leading, 44)
+                        
+                        let count = viewModel.vendorProductIdsByVendor[vendor.id]?.count ?? 0
+                        vendorDetailRow(icon: "shippingbox.fill", label: "Linked Products", value: "\(count) products", isEditable: false)
+                    }
+                    .background(Color.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                    .padding(.horizontal, 20)
+
+                    if isEditing {
+                        Button(action: {
+                            Task {
+                                let success = await viewModel.deleteVendor(vendor)
+                                if success { dismiss() }
+                            }
+                        }) {
+                            HStack {
+                                Image(systemName: "trash.fill")
+                                Text("Delete Vendor")
+                                    .fontWeight(.bold)
+                            }
+                            .font(.system(size: 16, design: .serif))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 54)
+                            .background(Color.red.opacity(0.8))
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.top, 10)
+                    }
+                }
+                .padding(.bottom, 40)
+            }
+            .background(CatalogTheme.background.ignoresSafeArea())
+            .navigationTitle("Vendor Details")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(isEditing ? "Cancel" : "Close") {
+                        if isEditing {
+                            editedName = vendor.name
+                            editedContact = vendor.contactInfo ?? ""
+                            isEditing = false
+                        } else {
+                            dismiss()
+                        }
+                    }
+                    .font(.system(size: 16, weight: .medium, design: .serif))
+                    .foregroundColor(CatalogTheme.deepAccent)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(CatalogTheme.surface)
+                    .clipShape(Capsule())
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(isEditing ? "Save" : "Edit") {
+                        if isEditing {
+                            Task {
+                                let success = await viewModel.updateVendor(
+                                    vendorId: vendor.id,
+                                    name: editedName,
+                                    contactInfo: editedContact
+                                )
+                                if success { isEditing = false }
+                            }
+                        } else {
+                            isEditing = true
+                        }
+                    }
+                    .font(.system(size: 16, weight: .bold, design: .serif))
+                    .foregroundColor(CatalogTheme.primary)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(CatalogTheme.surface)
+                    .clipShape(Capsule())
+                }
+            }
+        }
+    }
+
+    private func vendorDetailRow(icon: String, label: String, value: String, isEditable: Bool, textBinding: Binding<String>? = nil) -> some View {
+        HStack(spacing: 16) {
+            Image(systemName: icon)
+                .font(.system(size: 18))
+                .foregroundColor(CatalogTheme.primary)
+                .frame(width: 28)
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text(label)
+                    .font(.system(size: 13, weight: .medium, design: .serif))
+                    .foregroundColor(CatalogTheme.secondaryText)
+                
+                if isEditable, let binding = textBinding {
+                    TextField(label, text: binding)
+                        .font(.system(size: 15, design: .serif))
+                        .foregroundColor(CatalogTheme.primaryText)
+                } else {
+                    Text(value)
+                        .font(.system(size: 15, design: .serif))
+                        .foregroundColor(CatalogTheme.primaryText)
+                }
+            }
+            Spacer()
+        }
+        .padding(.vertical, 16)
+        .padding(.horizontal, 20)
+    }
+}
+
+

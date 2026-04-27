@@ -44,7 +44,7 @@ struct WarehouseStaffTab: View {
                 }
             }
         }
-        .background(Color.brandOffWhite.ignoresSafeArea())
+        .background(Color.clear)
         .task {
             await viewModel.fetchStaff()
         }

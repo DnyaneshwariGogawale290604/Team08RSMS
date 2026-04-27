@@ -25,34 +25,10 @@ public struct StoreProductsTab: View {
                         title: "No products assigned to this store yet",
                         message: "Add products from the global catalog to manage inventory baselines here."
                     )
-                    
-                    Button(action: { showingAddModal = true }) {
-                        Text("+ Add Products to Store")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(.white)
-                            .padding()
-                            .frame(maxWidth: .infinity)
-                            .background(Color.black)
-                            .clipShape(Capsule())
-                    }
-                    .padding(.horizontal, 32)
                 }
             } else {
                 ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 20) {
-                        Button(action: { showingAddModal = true }) {
-                            HStack {
-                                Image(systemName: "plus")
-                                Text("Add Products")
-                            }
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 10)
-                            .background(Color.black)
-                            .clipShape(Capsule())
-                        }
-                        
                         LazyVStack(spacing: 16) {
                             ForEach($viewModel.assignedProducts) { $item in
                                 StoreAssignedProductCard(
@@ -73,7 +49,21 @@ public struct StoreProductsTab: View {
                 .refreshable { await viewModel.loadData() }
             }
         }
-        .background(Color.brandOffWhite.ignoresSafeArea())
+        .overlay(alignment: .bottomTrailing) {
+            if !viewModel.isLoading {
+                Button(action: { showingAddModal = true }) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 24, weight: .bold))
+                        .foregroundColor(.white)
+                        .frame(width: 60, height: 60)
+                        .background(CatalogTheme.deepAccent)
+                        .clipShape(Circle())
+                        .shadow(color: CatalogTheme.deepAccent.opacity(0.3), radius: 10, x: 0, y: 5)
+                }
+                .padding(.trailing, 24)
+                .padding(.bottom, 24)
+            }
+        }
         .task {
             await viewModel.loadData()
         }
@@ -105,11 +95,11 @@ struct StoreAssignedProductCard: View {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(item.product.name)
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundColor(.black)
+                        .font(.system(size: 17, weight: .bold, design: .serif))
+                        .foregroundColor(CatalogTheme.primaryText)
                     Text(item.product.category)
-                        .font(.system(size: 13))
-                        .foregroundColor(.gray)
+                        .font(.system(size: 13, design: .serif))
+                        .foregroundColor(CatalogTheme.secondaryText)
                 }
                 Spacer()
                 
@@ -134,15 +124,15 @@ struct StoreAssignedProductCard: View {
                     if isEditing {
                         TextField("Qty", text: $editingQuantity)
                             .keyboardType(.numberPad)
-                            .font(.system(size: 16, weight: .medium))
+                            .font(.system(size: 16, weight: .medium, design: .serif))
                             .padding(8)
-                            .background(Color(.systemGray6))
+                            .background(CatalogTheme.surface)
                             .cornerRadius(8)
                             .frame(width: 80)
                     } else {
                         Text("\(item.baseline.baselineQuantity)")
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundColor(.black)
+                            .font(.system(size: 18, weight: .bold, design: .serif))
+                            .foregroundColor(CatalogTheme.primaryText)
                     }
                 }
                 
@@ -159,22 +149,18 @@ struct StoreAssignedProductCard: View {
                     isEditing.toggle()
                 }) {
                     Text(isEditing ? "Save" : "Edit")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.white)
+                        .font(.system(size: 14, weight: .semibold, design: .serif))
+                        .foregroundColor(isEditing ? .green : CatalogTheme.primary)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
-                        .background(isEditing ? Color.green : Color.black)
+                        .background(CatalogTheme.surface)
                         .clipShape(Capsule())
                 }
             }
         }
-        .padding(16)
+        .padding(20)
         .background(Color.white)
-        .cornerRadius(20)
-        .overlay(
-            RoundedRectangle(cornerRadius: 20)
-                .stroke(Color.black.opacity(0.05), lineWidth: 1)
-        )
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 5)
     }
 }

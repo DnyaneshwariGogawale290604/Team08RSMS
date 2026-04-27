@@ -43,11 +43,11 @@ public extension Color {
 
 public enum BrandFont {
     public static func display(_ size: CGFloat, weight: Font.Weight = .semibold) -> Font {
-        .system(size: size, weight: weight, design: .default)
+        .system(size: size, weight: weight, design: .serif)
     }
 
     public static func body(_ size: CGFloat, weight: Font.Weight = .regular) -> Font {
-        .system(size: size, weight: weight, design: .default)
+        .system(size: size, weight: weight, design: .serif)
     }
 }
 

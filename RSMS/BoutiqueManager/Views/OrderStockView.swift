@@ -29,28 +29,26 @@ public struct OrderStockView: View {
                         .keyboardType(.numberPad)
                 }
                 
-                Section {
-                    Button(action: placeOrder) {
-                        if inventoryVM.isLoading {
-                            ProgressView()
-                        } else {
-                            Text("Place Order")
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 12)
-                                .appPrimaryButtonChrome(enabled: selectedInventoryId != nil && !quantityToOrderStr.isEmpty)
-                        }
-                    }
-                    .disabled(selectedInventoryId == nil || quantityToOrderStr.isEmpty || inventoryVM.isLoading)
-                }
+                // Removed Place Order Section
             }
             .scrollContentBackground(.hidden)
             .background(Color.appBackground.ignoresSafeArea())
             .navigationTitle("Order Stock")
-            .navigationBarItems(leading: Button(action: {
-                presentationMode.wrappedValue.dismiss()
-            }) {
-                Image(systemName: "xmark")
-            })
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") {
+                        presentationMode.wrappedValue.dismiss()
+                    }
+                    .foregroundColor(CatalogTheme.primaryText)
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Order") {
+                        placeOrder()
+                    }
+                    .foregroundColor((selectedInventoryId != nil && !quantityToOrderStr.isEmpty) ? CatalogTheme.primaryText : Color.gray)
+                    .disabled(selectedInventoryId == nil || quantityToOrderStr.isEmpty)
+                }
+            }
             .tint(.appAccent)
         }
     }

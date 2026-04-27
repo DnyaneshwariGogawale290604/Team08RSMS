@@ -266,20 +266,21 @@ struct CreatePOView: View {
                 }
             }
             .navigationTitle("Create Purchase Order")
-            .navigationBarItems(
-                leading: Button(action: {
-                    prefilledSKU = nil
-                    presentationMode.wrappedValue.dismiss()
-                }) {
-                    Image(systemName: "xmark")
-                },
-                trailing: Button(action: {
-                    submitOrder()
-                }) {
-                    Image(systemName: "arrow.down")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") {
+                        prefilledSKU = nil
+                        presentationMode.wrappedValue.dismiss()
+                    }
+                    .foregroundColor(CatalogTheme.primaryText)
                 }
-                .font(.headline)
-            )
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Order") {
+                        submitOrder()
+                    }
+                    .foregroundColor(CatalogTheme.primaryText)
+                }
+            }
             .onAppear {
                 if let prefill = prefilledSKU, availableProducts.contains(prefill) {
                     self.sku = prefill

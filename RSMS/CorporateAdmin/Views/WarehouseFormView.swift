@@ -33,10 +33,8 @@ public struct WarehouseFormView: View {
                 CatalogTheme.background.ignoresSafeArea()
                 
                 ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 28) {
-                        headerView
-                        
-                        VStack(alignment: .leading, spacing: 14) {
+                        VStack(alignment: .leading, spacing: 28) {
+                            VStack(alignment: .leading, spacing: 14) {
                             Text("Warehouse Information")
                                 .font(.system(size: 16, weight: .bold))
                                 .foregroundColor(CatalogTheme.deepAccent)
@@ -84,7 +82,21 @@ public struct WarehouseFormView: View {
                     .padding(.top, 10)
                 }
             }
-            .navigationBarHidden(true)
+            .navigationTitle(editingWarehouse == nil ? "Add Warehouse" : "Edit Warehouse")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") { dismiss() }
+                        .foregroundColor(CatalogTheme.primaryText)
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Save") {
+                        Task { await saveWarehouse() }
+                    }
+                    .foregroundColor(canSave ? CatalogTheme.primaryText : Color.gray)
+                    .disabled(!canSave)
+                }
+            }
             .alert("Error", isPresented: $showingErrorAlert) {
                 Button("OK", role: .cancel) { }
             } message: {
@@ -93,37 +105,7 @@ public struct WarehouseFormView: View {
         }
     }
     
-    private var headerView: some View {
-        HStack {
-            Button("Cancel") { dismiss() }
-                .font(.system(size: 14, weight: .medium))
-                .foregroundColor(CatalogTheme.deepAccent)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(CatalogTheme.surface)
-                .clipShape(Capsule())
-            
-            Spacer()
-            
-            Text(editingWarehouse == nil ? "Add Warehouse" : "Edit Warehouse")
-                .font(.system(size: 17, weight: .bold, design: .serif))
-                .foregroundColor(CatalogTheme.primaryText)
-            
-            Spacer()
-            
-            Button("Save") {
-                Task { await saveWarehouse() }
-            }
-            .font(.system(size: 14, weight: .semibold))
-            .foregroundColor(.white)
-            .padding(.horizontal, 20)
-            .padding(.vertical, 8)
-            .background(canSave ? CatalogTheme.deepAccent : CatalogTheme.inactiveBadge)
-            .clipShape(Capsule())
-            .disabled(!canSave)
-        }
-        .padding(.top, 10)
-    }
+    // Removed headerView
     
     @ViewBuilder
     private func whiteCard<Content: View>(@ViewBuilder content: () -> Content) -> some View {

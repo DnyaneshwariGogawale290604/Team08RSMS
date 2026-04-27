@@ -110,9 +110,14 @@ public struct RFIDScannerView: View {
                 .padding(.top)
             }
             .navigationTitle("Audit Scanner")
-            .navigationBarItems(trailing: Button("Done") {
-                presentationMode.wrappedValue.dismiss()
-            })
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") {
+                        presentationMode.wrappedValue.dismiss()
+                    }
+                    .foregroundColor(CatalogTheme.primaryText)
+                }
+            }
         }
     }
     

@@ -36,7 +36,7 @@ public struct StaffFormView: View {
                         .keyboardType(.emailAddress)
                         .autocapitalization(.none)
                         .disableAutocorrection(true)
-                    TextField("Phone (Optional)", text: $phone)
+                    TextField("Phone Number", text: $phone)
                         .keyboardType(.phonePad)
                 }
 
@@ -120,28 +120,24 @@ public struct StaffFormView: View {
                     }
                 }
 
-                // MARK: Save Button
-                Section {
-                    Button(action: save) {
-                        if isLoading {
-                            ProgressView()
-                                .frame(maxWidth: .infinity)
-                        } else {
-                            Text(userToEdit == nil ? "Hire Staff" : "Update Details")
-                                .frame(maxWidth: .infinity)
-                                .foregroundColor(Theme.beige)
-                        }
-                    }
-                    .disabled(isLoading || !canSave)
-                    .listRowBackground(canSave ? Theme.textPrimary : Theme.border)
-                }
+                // Removed Save Button Section
             }
             .navigationTitle(userToEdit == nil ? "Add Staff" : "Edit Staff")
-            .navigationBarItems(leading: Button(action: {
-                presentationMode.wrappedValue.dismiss()
-            }) {
-                Image(systemName: "xmark")
-            })
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") {
+                        presentationMode.wrappedValue.dismiss()
+                    }
+                    .foregroundColor(CatalogTheme.primaryText)
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(userToEdit == nil ? "Hire" : "Save") {
+                        save()
+                    }
+                    .foregroundColor(canSave ? CatalogTheme.primaryText : Color.gray)
+                    .disabled(!canSave)
+                }
+            }
             .onAppear {
                 if let u = userToEdit {
                     name = u.name ?? ""

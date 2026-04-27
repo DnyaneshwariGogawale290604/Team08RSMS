@@ -45,6 +45,7 @@ public final class StoreInventoryMonitorViewModel: ObservableObject {
     
     @Published public var searchText: String = ""
     @Published public var filterStatus: StockStatus? = nil
+    @Published public var filterCategory: String? = nil
     
     @Published public var isLoading = false
     @Published public var errorMessage: String?
@@ -102,6 +103,10 @@ public final class StoreInventoryMonitorViewModel: ObservableObject {
         
         if let status = filterStatus {
             results = results.filter { $0.status == status }
+        }
+        
+        if let category = filterCategory {
+            results = results.filter { $0.product.category == category }
         }
         
         // Sort alphabetically or smartly

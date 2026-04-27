@@ -39,9 +39,9 @@ struct AdminDashboardView: View {
                                     RoundedRectangle(cornerRadius: 18, style: .continuous)
                                         .fill(Color.white)
                                 )
-                                .overlay(
+                                .background(
                                     RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                        .stroke(CatalogTheme.divider, lineWidth: 0.8)
+                                        .fill(Color.white)
                                 )
                         }
                         
@@ -56,7 +56,7 @@ struct AdminDashboardView: View {
                         if !pendingVendorOrders.isEmpty {
                             VStack(alignment: .leading, spacing: 12) {
                                 Text("Action Required: Pending Approvals")
-                                    .font(.system(.headline, design: .serif).weight(.bold))
+                                    .font(.system(size: 20, weight: .bold, design: .serif))
                                     .foregroundColor(CatalogTheme.primaryText)
                                 
                                 ForEach(pendingVendorOrders) { demand in
@@ -117,7 +117,7 @@ struct AdminDashboardView: View {
                 }
 
                 Text("Gross Sales vs Target")
-                    .font(.system(.headline, design: .serif).weight(.bold))
+                    .font(.system(size: 18, weight: .bold, design: .serif))
                     .foregroundColor(CatalogTheme.primaryText)
 
                 Spacer()
@@ -203,10 +203,6 @@ struct AdminDashboardView: View {
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .fill(Color.white)
         )
-        .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(CatalogTheme.divider, lineWidth: 0.8)
-        )
         .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 3)
     }
 
@@ -254,7 +250,7 @@ struct AdminDashboardView: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Sales by Category")
-                        .font(.system(.headline, design: .serif).weight(.bold))
+                        .font(.system(size: 18, weight: .bold, design: .serif))
                         .foregroundColor(CatalogTheme.primaryText)
                     Text("Revenue distribution across categories")
                         .font(.caption)
@@ -340,10 +336,6 @@ struct AdminDashboardView: View {
         .background(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .fill(Color.white)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(CatalogTheme.divider, lineWidth: 0.8)
         )
         .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 3)
     }
@@ -469,10 +461,6 @@ struct AdminDashboardView: View {
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .fill(Color.white)
         )
-        .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(CatalogTheme.divider, lineWidth: 0.8)
-        )
         .shadow(color: Color.black.opacity(0.02), radius: 4, x: 0, y: 2)
     }
     
@@ -510,10 +498,6 @@ struct AdminDashboardView: View {
         .background(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .fill(Color.white)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(CatalogTheme.primary.opacity(0.35), lineWidth: 1)
         )
         .shadow(color: Color.black.opacity(0.03), radius: 6, x: 0, y: 2)
     }

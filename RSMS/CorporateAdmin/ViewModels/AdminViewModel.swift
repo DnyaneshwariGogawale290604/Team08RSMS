@@ -189,4 +189,72 @@ public final class AdminViewModel: ObservableObject {
             return false
         }
     }
+
+    public func deleteStaffMember(_ item: StaffListItem) async -> Bool {
+        isLoading = true
+        defer { isLoading = false }
+
+        do {
+            try await service.deleteStaffMember(userId: item.user.id, role: item.role)
+            successMessage = "Staff member deleted successfully."
+            errorMessage = nil
+            await fetchStaff(for: item.role)
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            successMessage = nil
+            return false
+        }
+    }
+
+    public func deleteVendor(_ vendor: Vendor) async -> Bool {
+        isLoading = true
+        defer { isLoading = false }
+
+        do {
+            try await service.deleteVendor(vendorId: vendor.id)
+            successMessage = "Vendor deleted successfully."
+            errorMessage = nil
+            await fetchStaff(for: .vendor)
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            successMessage = nil
+            return false
+        }
+    }
+
+    public func updateStaffMember(userId: UUID, name: String, email: String, phone: String, role: StaffRoleTab) async -> Bool {
+        isLoading = true
+        defer { isLoading = false }
+
+        do {
+            try await service.updateStaffMember(userId: userId, name: name, email: email, phone: phone)
+            successMessage = "Staff details updated successfully."
+            errorMessage = nil
+            await fetchStaff(for: role)
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            successMessage = nil
+            return false
+        }
+    }
+
+    public func updateVendor(vendorId: UUID, name: String, contactInfo: String?) async -> Bool {
+        isLoading = true
+        defer { isLoading = false }
+
+        do {
+            try await service.updateVendor(vendorId: vendorId, name: name, contactInfo: contactInfo)
+            successMessage = "Vendor details updated successfully."
+            errorMessage = nil
+            await fetchStaff(for: .vendor)
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            successMessage = nil
+            return false
+        }
+    }
 }

@@ -1,8 +1,8 @@
 import Foundation
 
 public enum StaffRoleTab: String, CaseIterable, Sendable {
-    case boutiqueManager = "Boutique Manager"
-    case inventoryManager = "Inventory Manager"
+    case boutiqueManager = "Boutique"
+    case inventoryManager = "Inventory"
     case vendor = "Vendor"
 
     public var assignmentLabel: String {

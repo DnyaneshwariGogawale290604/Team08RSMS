@@ -276,34 +276,24 @@ public struct AddItemManualView: View {
                         }
                     }
                 }
-                
-                Section {
-                    Button(action: saveItem) {
-                        HStack {
-                            Image(systemName: "plus.circle.fill")
-                            Text("Save Item")
-                        }
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .foregroundColor(canSave ? .white : .gray)
-                        .padding()
-                        .background(canSave ? Color.appAccent : Color.appBorder)
-                        .cornerRadius(12)
-                    }
-                    .disabled(!canSave)
-                    .listRowBackground(Color.clear)
-                    .listRowInsets(EdgeInsets())
-                }
             }
             .navigationTitle("Add Manual Item")
             .navigationBarTitleDisplayMode(.inline)
-            .navigationBarItems(
-                leading: Button(action: {
-                    presentationMode.wrappedValue.dismiss()
-                }) {
-                    Image(systemName: "xmark")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") {
+                        presentationMode.wrappedValue.dismiss()
+                    }
+                    .foregroundColor(CatalogTheme.primaryText)
                 }
-            )
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Add") {
+                        saveItem()
+                    }
+                    .foregroundColor(canSave ? CatalogTheme.primaryText : Color.gray)
+                    .disabled(!canSave)
+                }
+            }
         }
     }
     
