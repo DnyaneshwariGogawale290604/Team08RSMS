@@ -131,7 +131,7 @@ public final class InventoryDashboardViewModel: ObservableObject {
     
     /// Product IDs that have an active in_transit vendor order placed for them
     public var orderedProductIds: Set<UUID> {
-        let active = vendorOrders.filter { $0.status.lowercased() == "in_transit" }
+        let active = vendorOrders.filter { ($0.status ?? "").lowercased() == "in_transit" }
         return Set(active.compactMap { $0.productId })
     }
 }
