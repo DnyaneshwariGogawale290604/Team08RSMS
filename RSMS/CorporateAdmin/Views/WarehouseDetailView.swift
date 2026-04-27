@@ -28,25 +28,6 @@ public struct WarehouseDetailView: View {
             } else {
                 ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 32) {
-                        // Title Section
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text(warehouseDetails.name)
-                                .font(.system(size: 28, weight: .bold, design: .serif))
-                                .foregroundColor(CatalogTheme.primaryText)
-                            
-                            Text("\(warehouseDetails.location) • \(warehouseDetails.status?.capitalized ?? "Active")")
-                                .font(.system(size: 16, design: .serif))
-                                .foregroundColor(CatalogTheme.secondaryText)
-                            
-                            if let address = warehouseDetails.address {
-                                Text(address)
-                                    .font(.system(size: 14, design: .serif))
-                                    .foregroundColor(CatalogTheme.mutedText)
-                                    .padding(.top, 2)
-                            }
-                        }
-                        .padding(.horizontal, 24)
-                        .padding(.top, 10)
 
                         // Basic Details Card
                         VStack(alignment: .leading, spacing: 20) {
@@ -108,6 +89,7 @@ public struct WarehouseDetailView: View {
         }
         .background(CatalogTheme.background.ignoresSafeArea())
         .navigationTitle(warehouseDetails.name)
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button("Edit") {
