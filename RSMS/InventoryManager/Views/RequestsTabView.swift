@@ -49,6 +49,18 @@ public struct RequestsTabView: View {
             .navigationBarTitleDisplayMode(.inline)
             .task { await viewModel.loadData() }
             .refreshable { await viewModel.loadData() }
+            .onChange(of: viewModel.errorMessage) { newValue in
+                if newValue != nil {
+                    showErrorAlert = true
+                }
+            }
+            .alert("Error", isPresented: $showErrorAlert) {
+                Button("OK", role: .cancel) {
+                    viewModel.errorMessage = nil
+                }
+            } message: {
+                Text(viewModel.errorMessage ?? "An unknown error occurred.")
+            }
             .sheet(item: $requestPendingShipment) { req in
                 ShipmentDetailsSheet(request: req) { asn in
                     lastASN = asn

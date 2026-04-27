@@ -105,11 +105,16 @@ public final class RequestService: @unchecked Sendable {
             }
         }
         let payload = StatusUpdate(status: status, rejectReason: rejectReason)
-        try await client
-            .from("product_requests")
-            .update(payload)
-            .eq("request_id", value: id)
-            .execute()
+        do {
+            try await client
+                .from("product_requests")
+                .update(payload)
+                .eq("request_id", value: id)
+                .execute()
+        } catch {
+            print("updateRequestStatus ERROR: \(error)")
+            throw error
+        }
     }
 
 
