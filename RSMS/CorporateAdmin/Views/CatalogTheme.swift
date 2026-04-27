@@ -11,9 +11,18 @@ enum CatalogTheme {
     static let mutedText = Color(hex: "#9A8A8A")
     static let divider = Color.black.opacity(0.08)
     
+    // Additional requested colors
+    static let categoryText = Color(hex: "#8C7A7A")
+    static let subtext = Color(hex: "#B5A5A5")
+    static let statsIconBackground = surface
+    static let statsIconColor = primary
+    
     static let error = Color(hex: "#A07070")
     static let card = Color.white
     static let chipInactiveText = Color(hex: "#4A2E32")
+    
+    static let activeBadge = primary
+    static let activeBadgeText = Color.white
     static let inactiveBadge = Color(hex: "#D8C6C6")
     static let inactiveBadgeText = Color(hex: "#6B5B5B")
     
@@ -28,6 +37,5 @@ enum CatalogTheme {
     
     // Additional Semantic Colors
     static let searchField = surface
-    static let imageBackground = Color(hex: "#F0E9E9")
-    static let subtleCategory = secondaryText.opacity(0.8)
+    static let imageBackground = surface
 }

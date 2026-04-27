@@ -42,7 +42,7 @@ public struct ItemsTabView: View {
                     }
                     .padding()
                     .background(Color.appCard)
-                    .cornerRadius(10)
+                    .cornerRadius(20)
                     .padding()
                     
                     // Filter Segmented Control
@@ -220,7 +220,7 @@ public struct ItemsListFilteredView: View {
     
     private func statusColor(for status: ItemStatus) -> Color {
         switch status {
-        case .available: return .green
+        case .available: return .black // or CatalogTheme.primary, let's use appPrimaryText
         case .reserved: return .orange
         case .underRepair: return .red
         case .inTransit: return .blue
