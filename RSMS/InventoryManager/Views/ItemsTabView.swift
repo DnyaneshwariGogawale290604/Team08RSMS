@@ -507,15 +507,17 @@ public struct RepairTicketDetailView: View {
     private func updateStatus(to newStatus: RepairStatus) {
         guard var ticket = item.activeTicket else { return }
         
+        // Capture ticket ID BEFORE we nil it out — needed for DB finalization
+        let ticketId = ticket.id
+        
         ticket.status = newStatus
         ticket.updatedAt = Date()
         
         var updatedItem = item
         
-        // Completion logic
         if newStatus == .completed {
             updatedItem.status = .available
-            updatedItem.activeTicket = nil // Optional: keep history, but item is available
+            updatedItem.activeTicket = nil
         } else if newStatus == .scrapped {
             updatedItem.status = .scrapped
             updatedItem.activeTicket = nil
@@ -523,16 +525,29 @@ public struct RepairTicketDetailView: View {
             updatedItem.activeTicket = ticket
         }
         
+        // --- SYNCHRONOUS local state update first ---
+        if let index = viewModel.inventoryItems.firstIndex(where: { $0.id == updatedItem.id }) {
+            viewModel.inventoryItems[index] = updatedItem
+        }
+        self.item = updatedItem
+        
+        if newStatus == .completed || newStatus == .scrapped {
+            presentationMode.wrappedValue.dismiss()
+        }
+        
+        // --- Async Supabase persist ---
         Task {
-            do {
-                try await DataService.shared.updateInventoryItem(item: updatedItem)
-                await viewModel.loadDashboardData()
-                self.item = updatedItem
-                if newStatus == .completed || newStatus == .scrapped {
-                    presentationMode.wrappedValue.dismiss()
-                }
-            } catch {
-                print("Failed to update ticket: \(error)")
+            if newStatus == .completed || newStatus == .scrapped {
+                // Use dedicated method that updates repair_tickets + inventory_items
+                try? await DataService.shared.finalizeRepairTicket(
+                    ticketId: ticketId,
+                    newStatus: newStatus,
+                    itemId: updatedItem.id,
+                    itemStatus: updatedItem.status
+                )
+            } else {
+                // Mid-workflow update: upsert ticket + update item status
+                try? await DataService.shared.updateInventoryItem(item: updatedItem)
             }
         }
     }
