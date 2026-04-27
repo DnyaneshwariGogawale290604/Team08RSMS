@@ -491,6 +491,7 @@ struct ClientProfileView: View {
             let catalog: [Product] = try await SupabaseManager.shared.client
                 .from("products")
                 .select()
+                .eq("brand_id", value: customer.brandId?.uuidString ?? "")
                 .eq("is_active", value: true)
                 .execute()
                 .value

@@ -86,6 +86,7 @@ final class SalesAssociateViewModel: ObservableObject {
             async let catalogTask: [Product] = client
                 .from("products")
                 .select("product_id,name,brand_id,category,price,sku,making_price,image_url,is_active")
+                .eq("brand_id", value: try await resolveBrandId(userId: userId))
                 .limit(50)
                 .execute()
                 .value
@@ -142,9 +143,12 @@ final class SalesAssociateViewModel: ObservableObject {
         defer { isLoading = false }
 
         do {
+            let userId = try await resolveUserId()
+            let brandId = try await resolveBrandId(userId: userId)
             let fetched: [Customer] = try await client
                 .from("customers")
                 .select("*")
+                .eq("brand_id", value: brandId)
                 .order("created_at", ascending: false)
                 .execute()
                 .value
@@ -162,7 +166,12 @@ final class SalesAssociateViewModel: ObservableObject {
 
     func fetchCatalog(search: String = "") async {
         do {
-            var query = client.from("products").select("product_id,name,brand_id,category,price,sku,making_price,image_url,is_active")
+            let userId = try await resolveUserId()
+            let brandId = try await resolveBrandId(userId: userId)
+            var query = client.from("products")
+                .select("product_id,name,brand_id,category,price,sku,making_price,image_url,is_active")
+                .eq("brand_id", value: brandId)
+            
             if !search.isEmpty {
                 query = query.ilike("name", value: "%\(search)%")
             }
@@ -252,5 +261,53 @@ final class SalesAssociateViewModel: ObservableObject {
     private func resolveUserId() async throws -> UUID {
         if let session = try? await client.auth.session { return session.user.id }
         return try await client.auth.user().id
+    }
+
+    private func resolveBrandId(userId: UUID) async throws -> String {
+        print("[resolveBrandId] Resolving for user: \(userId)")
+
+        // 1. Check users table first (like Admin/Inventory)
+        struct UserRow: Decodable { let brand_id: UUID? }
+        let userRows: [UserRow] = (try? await client
+            .from("users")
+            .select("brand_id")
+            .eq("user_id", value: userId.uuidString)
+            .limit(1)
+            .execute()
+            .value) ?? []
+
+        if let bId = userRows.first?.brand_id {
+            print("[resolveBrandId] Resolved via users table: \(bId)")
+            return bId.uuidString
+        }
+
+        // 2. Fallback: resolve via store
+        print("[resolveBrandId] No brand_id in users, falling back to store resolution")
+        struct SAStoreRow: Decodable { let store_id: UUID }
+        struct StoreBrandRow: Decodable { let brand_id: UUID }
+
+        let saRows: [SAStoreRow] = try await client
+            .from("sales_associates")
+            .select("store_id")
+            .eq("user_id", value: userId.uuidString)
+            .limit(1)
+            .execute()
+            .value
+
+        guard let storeId = saRows.first?.store_id else {
+            throw NSError(domain: "SA", code: 0, userInfo: [NSLocalizedDescriptionKey: "No associate record"])
+        }
+
+        let storeRows: [StoreBrandRow] = try await client
+            .from("stores")
+            .select("brand_id")
+            .eq("store_id", value: storeId.uuidString)
+            .limit(1)
+            .execute()
+            .value
+
+        let brandId = storeRows.first?.brand_id.uuidString ?? ""
+        print("[resolveBrandId] Resolved via store fallback: \(brandId)")
+        return brandId
     }
 }

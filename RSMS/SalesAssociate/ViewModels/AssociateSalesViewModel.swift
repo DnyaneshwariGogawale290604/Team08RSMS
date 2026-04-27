@@ -114,9 +114,11 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
     // MARK: - Fetch Customers
     func fetchCustomers(search: String = "") async {
         do {
+            let brandId = try await fetchBrandId()
             let all: [Customer] = try await client
                 .from("customers")
                 .select()
+                .eq("brand_id", value: brandId)
                 .order("name")
                 .execute()
                 .value
@@ -151,8 +153,21 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
                 let nationality: String?
                 let notes: String?
                 let customer_category: String
+                let brand_id: String
             }
-            let payload = CustomerInsert(name: name, phone: phone.isEmpty ? nil : phone, email: email.isEmpty ? nil : email, gender: gender?.isEmpty == false ? gender : nil, date_of_birth: dateOfBirth?.isEmpty == false ? dateOfBirth : nil, address: address?.isEmpty == false ? address : nil, nationality: nationality?.isEmpty == false ? nationality : nil, notes: notes?.isEmpty == false ? notes : nil, customer_category: category)
+            let brandId = try await fetchBrandId()
+            let payload = CustomerInsert(
+                name: name,
+                phone: phone.isEmpty ? nil : phone,
+                email: email.isEmpty ? nil : email,
+                gender: gender?.isEmpty == false ? gender : nil,
+                date_of_birth: dateOfBirth?.isEmpty == false ? dateOfBirth : nil,
+                address: address?.isEmpty == false ? address : nil,
+                nationality: nationality?.isEmpty == false ? nationality : nil,
+                notes: notes?.isEmpty == false ? notes : nil,
+                customer_category: category,
+                brand_id: brandId
+            )
 
             let newCustomer: Customer = try await client
                 .from("customers")
@@ -169,16 +184,18 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
         } catch {
             errorMessage = "Could not create customer."
             isLoading = false
-            return false
         }
+    return false
     }
 
     // MARK: - Fetch Products
     func fetchProducts(search: String = "") async {
         do {
+            let brandId = try await fetchBrandId()
             let all: [Product] = try await client
                 .from("products")
                 .select()
+                .eq("brand_id", value: brandId)
                 .order("name")
                 .execute()
                 .value
@@ -375,8 +392,25 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
 
     func fetchBrandId() async throws -> String {
         let authId = (try await resolveUserId()).uuidString
+        print("[fetchBrandId] Resolving for user: \(authId)")
 
-        // Sales Associates don't have brand_id in users — resolve via store
+        // 1. Check users table first (like Admin/Inventory)
+        struct UserRow: Decodable { let brand_id: UUID? }
+        let userRows: [UserRow] = (try? await SupabaseManager.shared.client
+            .from("users")
+            .select("brand_id")
+            .eq("user_id", value: authId)
+            .limit(1)
+            .execute()
+            .value) ?? []
+
+        if let bId = userRows.first?.brand_id {
+            print("[fetchBrandId] Resolved via users table: \(bId)")
+            return bId.uuidString
+        }
+
+        // 2. Fallback: resolve via store
+        print("[fetchBrandId] No brand_id in users, falling back to store resolution")
         struct SARow: Decodable { let store_id: UUID }
         let saRows: [SARow] = try await SupabaseManager.shared.client
             .from("sales_associates")
@@ -404,6 +438,7 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
             throw NSError(domain: "PaymentError", code: 0,
                 userInfo: [NSLocalizedDescriptionKey: "Brand not found for this store"])
         }
+        print("[fetchBrandId] Resolved via store: \(brandId)")
         return brandId.uuidString
     }
 
@@ -1514,8 +1549,14 @@ extension AssociateSalesViewModel: RazorpayPaymentCompletionProtocolWithData {
             }
 
         } catch {
+            let brandId = (try? await fetchBrandId()) ?? "unknown"
+            let msg = error.localizedDescription
+            if msg.lowercased().contains("vault") {
+                errorMessage = "Razorpay Vault Error: Credentials not found for Brand \(brandId). Please RE-SAVE in Corporate Admin settings."
+            } else {
+                errorMessage = msg + " [Brand: \(brandId)]"
+            }
             isLoading = false
-            errorMessage = error.localizedDescription
         }
     }
 
@@ -1582,8 +1623,14 @@ extension AssociateSalesViewModel: RazorpayPaymentCompletionProtocolWithData {
             onComplete()
 
         } catch {
+            let brandId = (try? await fetchBrandId()) ?? "unknown"
+            let msg = error.localizedDescription
+            if msg.lowercased().contains("vault") {
+                errorMessage = "Razorpay Vault Error: Credentials not found for Brand \(brandId). Please RE-SAVE in Corporate Admin settings."
+            } else {
+                errorMessage = msg + " [Brand: \(brandId)]"
+            }
             isLoading = false
-            errorMessage = error.localizedDescription
         }
     }
 }
