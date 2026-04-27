@@ -5,6 +5,11 @@ struct BillingView: View {
     @EnvironmentObject var orderStore: SharedOrderStore
     @Environment(\.dismiss) var dismiss
     @State private var showDraftSavedToast = false
+    @State private var showGatewayPaymentSheet = false
+    @State private var pendingGatewayLegIndex: Int = 0
+    @State private var pendingGatewayItemIndex: Int = 0
+    @State private var showReceiptUrl: String? = nil
+    
     let appointmentId: UUID?
     let maxLegs: Int      // from gateway config
     let maxSplits: Int    // from gateway config
@@ -104,6 +109,14 @@ struct BillingView: View {
                         )
                     }
                 }
+            }
+            .sheet(isPresented: $showGatewayPaymentSheet) {
+                GatewayCollectionSheet(
+                    vm: vm,
+                    legIndex: pendingGatewayLegIndex,
+                    itemIndex: pendingGatewayItemIndex,
+                    appointmentId: appointmentId
+                )
             }
         }
     }
@@ -313,7 +326,10 @@ struct BillingView: View {
 
     private func legItemRow(legIdx: Int, itemIdx: Int) -> some View {
         let item = vm.billingLegs[legIdx].items[itemIdx]
+        let leg = vm.billingLegs[legIdx]
+
         return VStack(alignment: .leading, spacing: 12) {
+            // Row 1: Method pills + delete button
             HStack {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
@@ -327,63 +343,88 @@ struct BillingView: View {
                                     .font(BrandFont.body(12, weight: .medium))
                                     .foregroundStyle(
                                         item.method == method
-                                        ? (item.isPaid ? Color.luxuryPrimary : Color.luxuryBackground)
+                                        ? (item.isPaid
+                                           ? Color(hex: "#4A7C59")
+                                           : Color.luxuryBackground)
                                         : Color.luxuryPrimaryText
                                     )
-                                    .padding(.horizontal, 12).padding(.vertical, 6)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 6)
                                     .background(
                                         item.method == method
-                                        ? (item.isPaid ? Color.luxuryPrimary.opacity(0.15) : Color.luxuryPrimaryText)
+                                        ? (item.isPaid
+                                           ? Color(hex: "#4A7C59").opacity(0.15)
+                                           : Color.luxuryPrimaryText)
                                         : Color.luxurySurface
                                     )
                                     .clipShape(Capsule())
                                     .overlay(
                                         Capsule().stroke(
-                                            item.isPaid ? Color.luxuryPrimary.opacity(0.4) : Color.luxuryDivider,
+                                            item.isPaid
+                                            ? Color(hex: "#4A7C59").opacity(0.4)
+                                            : Color.luxuryDivider,
                                             lineWidth: 0.5
                                         )
                                     )
-                                    .opacity(item.isPaid && item.method != method ? 0.3 : 1.0)
+                                    .opacity(
+                                        item.isPaid && item.method != method
+                                        ? 0.3 : 1.0
+                                    )
                             }
                             .buttonStyle(.plain)
                             .disabled(item.isPaid)
                         }
                     }
                 }
-                
+
                 Spacer()
-                
-                // Only show delete if item is new or pending AND leg has more than 1 item
-                if !item.isPaid && vm.billingLegs[legIdx].items.count > 1 {
+
+                // Delete button — only if pending and leg > 1 item
+                if !item.isPaid && leg.items.count > 1 {
                     Button {
-                        withAnimation { vm.removeSplitItem(from: legIdx, itemIndex: itemIdx) }
+                        withAnimation {
+                            vm.removeSplitItem(from: legIdx, itemIndex: itemIdx)
+                        }
                     } label: {
                         Image(systemName: "trash")
                             .foregroundStyle(Color(hex: "#9B4444"))
+                            .font(.system(size: 14))
                     }
                     .buttonStyle(.plain)
                 }
             }
-            
+
+            // Row 2: Amount + Tendered (cash) or status label
             HStack(spacing: 12) {
+                // Amount field
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Amount")
+                    Text("AMOUNT")
                         .font(.system(size: 10, weight: .bold))
                         .foregroundStyle(Color.luxurySecondaryText)
                     HStack {
-                        TextField("0.00", value: Binding(
-                            get: { vm.billingLegs[legIdx].items[itemIdx].amount },
-                            set: { vm.updateSplitAmount(legIndex: legIdx, itemIndex: itemIdx, to: $0) }
-                        ), format: .number)
-                            .disabled(item.isPaid)
-                            .keyboardType(.decimalPad)
-                            .font(BrandFont.body(14, weight: .semibold))
-                            .foregroundStyle(item.isPaid ? Color.luxurySecondaryText : Color.luxuryPrimaryText)
-                        
-                        // Status icon
+                        TextField("0.00",
+                            value: Binding(
+                                get: { vm.billingLegs[legIdx].items[itemIdx].amount },
+                                set: { vm.updateSplitAmount(
+                                    legIndex: legIdx,
+                                    itemIndex: itemIdx,
+                                    to: $0
+                                )}
+                            ),
+                            format: .number
+                        )
+                        .disabled(item.isPaid)
+                        .keyboardType(.decimalPad)
+                        .font(BrandFont.body(14, weight: .semibold))
+                        .foregroundStyle(
+                            item.isPaid
+                            ? Color.luxurySecondaryText
+                            : Color.luxuryPrimaryText
+                        )
+
                         if item.isPaid {
                             Image(systemName: "checkmark.circle.fill")
-                                .foregroundStyle(Color.luxuryPrimary)
+                                .foregroundStyle(Color(hex: "#4A7C59"))
                                 .font(.system(size: 16))
                         } else if item.existingStatus == "pending" {
                             Image(systemName: "clock")
@@ -392,28 +433,37 @@ struct BillingView: View {
                         }
                     }
                     .padding(10)
-                    .background(item.isPaid ? Color.luxuryDivider.opacity(0.15) : Color.luxuryBackground)
+                    .background(
+                        item.isPaid
+                        ? Color.luxuryDivider.opacity(0.15)
+                        : Color.luxuryBackground
+                    )
                     .cornerRadius(Radius.sm)
                 }
-                
+
+                // Tendered field — cash only, not paid
                 if item.method == "cash" && !item.isPaid {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Tendered")
+                        Text("TENDERED")
                             .font(.system(size: 10, weight: .bold))
                             .foregroundStyle(Color.luxurySecondaryText)
-                        TextField("0.00", value: $vm.billingLegs[legIdx].items[itemIdx].tendered, format: .number)
-                            .keyboardType(.decimalPad)
-                            .font(BrandFont.body(14, weight: .semibold))
-                            .padding(10)
-                            .background(Color.luxuryBackground)
-                            .cornerRadius(Radius.sm)
+                        TextField("0.00",
+                            value: $vm.billingLegs[legIdx].items[itemIdx].tendered,
+                            format: .number
+                        )
+                        .keyboardType(.decimalPad)
+                        .font(BrandFont.body(14, weight: .semibold))
+                        .padding(10)
+                        .background(Color.luxuryBackground)
+                        .cornerRadius(Radius.sm)
                     }
-                } else {
+                } else if item.method != "cash" && !item.isPaid {
+                    // Gateway note
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Note")
+                        Text("GATEWAY")
                             .font(.system(size: 10, weight: .bold))
                             .foregroundStyle(Color.luxurySecondaryText)
-                        Text(item.isPaid ? "Payment Collected" : "To be collected via \(vm.activeGateway.capitalized)")
+                        Text("Via \(vm.activeGateway.capitalized)")
                             .font(BrandFont.body(12))
                             .foregroundStyle(Color.luxurySecondaryText)
                             .padding(10)
@@ -423,10 +473,177 @@ struct BillingView: View {
                     }
                 }
             }
+
+            // Row 3: Change display for cash
+            if item.method == "cash" && !item.isPaid,
+               let tendered = item.tendered, tendered > 0 {
+                let change = tendered - item.amount
+                HStack {
+                    Text(change >= 0 ? "Change to return:" : "Short by:")
+                        .font(BrandFont.body(12))
+                        .foregroundStyle(Color.luxurySecondaryText)
+                    Spacer()
+                    Text("₹\(abs(Int(change)))")
+                        .font(BrandFont.body(13, weight: .semibold))
+                        .foregroundStyle(
+                            change >= 0
+                            ? Color(hex: "#4A7C59")
+                            : Color(hex: "#9B4444")
+                        )
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(
+                    (change >= 0
+                     ? Color(hex: "#4A7C59")
+                     : Color(hex: "#9B4444")).opacity(0.08)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: Radius.sm))
+            }
+
+            // Row 4: Action button per item
+            itemActionButton(
+                legIdx: legIdx,
+                itemIdx: itemIdx,
+                item: item
+            )
         }
         .padding(12)
         .background(Color.luxuryBackground.opacity(0.3))
         .cornerRadius(Radius.md)
+    }
+
+    private func itemActionButton(
+        legIdx: Int,
+        itemIdx: Int,
+        item: BillingLegItem
+    ) -> some View {
+        Group {
+            if item.isPaid {
+                // Paid state
+                if item.method == "cash" {
+                    // Cash — just show paid badge, no button
+                    HStack(spacing: 6) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(Color(hex: "#4A7C59"))
+                            .font(.system(size: 13))
+                        Text("Cash Received")
+                            .font(BrandFont.body(12, weight: .medium))
+                            .foregroundStyle(Color(hex: "#4A7C59"))
+                        Spacer()
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(Color(hex: "#4A7C59").opacity(0.08))
+                    .clipShape(RoundedRectangle(cornerRadius: Radius.md))
+
+                } else {
+                    // Gateway — show "View Bill" button
+                    Button {
+                        // Open Razorpay receipt URL
+                        if let summary = vm.orderPaymentSummary {
+                            let legs = summary.legs
+                            if legIdx < legs.count {
+                                let legRecord = legs[legIdx]
+                                if itemIdx < legRecord.items.count {
+                                    let itemRecord = legRecord.items[itemIdx]
+                                    if let urlString = itemRecord.receiptUrl,
+                                       let url = URL(string: urlString) {
+                                        UIApplication.shared.open(url)
+                                    }
+                                }
+                            }
+                        }
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "doc.text")
+                                .font(.system(size: 13))
+                            Text("View Bill")
+                                .font(BrandFont.body(13, weight: .semibold))
+                            Spacer()
+                            Image(systemName: "arrow.up.right")
+                                .font(.system(size: 11))
+                        }
+                        .foregroundStyle(Color.luxuryPrimaryText)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 10)
+                        .background(Color.luxurySurface)
+                        .clipShape(RoundedRectangle(cornerRadius: Radius.md))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: Radius.md)
+                                .stroke(Color.luxuryDivider, lineWidth: 0.5)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+
+            } else {
+                // Pending state
+                if item.method == "cash" {
+                    // Cash confirm button
+                    Button {
+                        Task {
+                            await vm.collectCashItem(
+                                legIndex: legIdx,
+                                itemIndex: itemIdx,
+                                appointmentId: appointmentId
+                            )
+                        }
+                    } label: {
+                        HStack {
+                            if vm.isLoading {
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                                    .tint(Color.luxuryBackground)
+                            } else {
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: 13, weight: .semibold))
+                                Text("Confirm Cash Received")
+                                    .font(BrandFont.body(13, weight: .semibold))
+                            }
+                            Spacer()
+                        }
+                        .foregroundStyle(Color.luxuryBackground)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 10)
+                        .background(Color.luxuryPrimaryText)
+                        .clipShape(RoundedRectangle(cornerRadius: Radius.md))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(vm.isLoading || item.amount <= 0)
+
+                } else {
+                    // Gateway collect button
+                    Button {
+                        pendingGatewayLegIndex = legIdx
+                        pendingGatewayItemIndex = itemIdx
+                        showGatewayPaymentSheet = true
+                    } label: {
+                        HStack {
+                            Image(systemName: "qrcode")
+                                .font(.system(size: 13))
+                            Text("Collect via \(item.method.uppercased())")
+                                .font(BrandFont.body(13, weight: .semibold))
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 11))
+                                .foregroundStyle(Color.luxurySecondaryText)
+                        }
+                        .foregroundStyle(Color.luxuryPrimaryText)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 10)
+                        .background(Color.luxurySurface)
+                        .clipShape(RoundedRectangle(cornerRadius: Radius.md))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: Radius.md)
+                                .stroke(Color.luxuryDivider, lineWidth: 0.5)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(vm.isLoading || item.amount <= 0)
+                }
+            }
+        }
     }
 
     private var validationSection: some View {
@@ -518,6 +735,33 @@ struct BillingView: View {
                     .padding(.bottom, 4)
             }
 
+            // Validation warning for unpaid immediate legs
+            let hasUnpaidImmediateItems = vm.billingLegs
+                .filter { $0.dueType == "immediate" }
+                .flatMap { $0.items }
+                .contains { !$0.isPaid }
+
+            if hasUnpaidImmediateItems {
+                HStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .foregroundStyle(Color(hex: "#C8913A"))
+                        .font(.system(size: 13))
+                    Text("Complete all immediate payments to checkout")
+                        .font(BrandFont.body(12))
+                        .foregroundStyle(Color.luxurySecondaryText)
+                    Spacer()
+                }
+                .padding(Spacing.md)
+                .background(Color(hex: "#C8913A").opacity(0.08))
+                .clipShape(RoundedRectangle(cornerRadius: Radius.md))
+                .overlay(
+                    RoundedRectangle(cornerRadius: Radius.md)
+                        .stroke(Color(hex: "#C8913A").opacity(0.3),
+                                lineWidth: 0.5)
+                )
+            }
+
+            // Save Billing Plan button (always available)
             Button {
                 Task {
                     await vm.submitBilling(
@@ -545,26 +789,50 @@ struct BillingView: View {
                 .background(Color.luxurySurface)
                 .foregroundStyle(Color.luxuryPrimaryText)
                 .clipShape(RoundedRectangle(cornerRadius: Radius.md))
-                .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(Color.luxuryDivider, lineWidth: 1))
+                .overlay(
+                    RoundedRectangle(cornerRadius: Radius.md)
+                        .stroke(Color.luxuryDivider, lineWidth: 1)
+                )
             }
             .disabled(vm.isLoading)
 
-            let assignedTotal = vm.billingLegs.reduce(0.0) { $0 + $1.totalAmount }
-            let isBalanced = abs(vm.cartTotal - assignedTotal) < 0.01
-
-            PrimaryButton(
-                title: "Mark as Paid & Confirm",
-                isLoading: vm.isLoading,
-                isDisabled: !isBalanced
-            ) {
-                Task {
-                    await vm.submitBilling(appointmentId: appointmentId, action: "mark_as_paid", orderStore: orderStore)
-                    if vm.errorMessage == nil && !vm.showReceipt {
-                         // If it opened checkout, we don't dismiss yet.
-                         // But if it finished (cash), we show receipt.
+            // Checkout button
+            // Disabled if any immediate leg item is unpaid
+            Button {
+                if let apptId = appointmentId {
+                    Task {
+                        await vm.checkoutAppointment(
+                            appointmentId: apptId,
+                            orderStore: orderStore
+                        ) {
+                            dismiss()
+                        }
+                    }
+                } else {
+                    // No appointment — direct order completion
+                    vm.showBilling = false
+                    vm.showReceipt = true
+                }
+            } label: {
+                HStack {
+                    if vm.isLoading {
+                        ProgressView().tint(Color.luxuryBackground)
+                    } else {
+                        Text("Checkout")
+                            .font(BrandFont.body(15, weight: .semibold))
                     }
                 }
+                .frame(maxWidth: .infinity)
+                .frame(height: 52)
+                .background(
+                    hasUnpaidImmediateItems
+                    ? Color.luxuryPrimaryText.opacity(0.3)
+                    : Color.luxuryPrimaryText
+                )
+                .foregroundStyle(Color.luxuryBackground)
+                .clipShape(RoundedRectangle(cornerRadius: Radius.md))
             }
+            .disabled(vm.isLoading || hasUnpaidImmediateItems)
         }
         .padding(Spacing.md)
         .background(Color.luxuryBackground)

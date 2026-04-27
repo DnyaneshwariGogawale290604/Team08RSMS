@@ -328,6 +328,7 @@ public struct PaymentLegItemRecord: Identifiable, Decodable {
     public let status: String
     public let collectedAt: String?
     public let note: String?
+    public let receiptUrl: String?
 
     public enum CodingKeys: String, CodingKey {
         case id
@@ -337,6 +338,7 @@ public struct PaymentLegItemRecord: Identifiable, Decodable {
         case status
         case collectedAt = "collected_at"
         case note
+        case receiptUrl = "receipt_url"
     }
 }
 

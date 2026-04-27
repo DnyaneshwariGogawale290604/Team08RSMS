@@ -57,9 +57,11 @@ final class AppointmentsViewModel: ObservableObject {
     // MARK: - Fetch customers + catalog (for new appointment form)
     func fetchCustomersAndCatalog() async {
         do {
+            let brandId = try await fetchBrandId()
             async let cTask: [Customer] = client
                 .from("customers")
                 .select("*")
+                .eq("brand_id", value: brandId)
                 .order("name", ascending: true)
                 .limit(100)
                 .execute()
@@ -67,6 +69,7 @@ final class AppointmentsViewModel: ObservableObject {
             async let pTask: [Product] = client
                 .from("products")
                 .select("product_id, name, brand_id, category, price, sku, making_price, image_url, is_active")
+                .eq("brand_id", value: brandId)
                 .eq("is_active", value: true)
                 .limit(100)
                 .execute()
@@ -247,5 +250,58 @@ final class AppointmentsViewModel: ObservableObject {
         // Both can throw CancellationError — let callers catch it.
         if let session = try? await auth.session { return session.user.id }
         return try await auth.user().id
+    }
+
+    func fetchBrandId() async throws -> String {
+        let authId = (try await resolveUserId()).uuidString
+        print("[AppointmentsVM] Resolving brand for user: \(authId)")
+
+        // 1. Check users table first (like Admin/Inventory)
+        struct UserRow: Decodable { let brand_id: UUID? }
+        let userRows: [UserRow] = (try? await client
+            .from("users")
+            .select("brand_id")
+            .eq("user_id", value: authId)
+            .limit(1)
+            .execute()
+            .value) ?? []
+
+        if let bId = userRows.first?.brand_id {
+            print("[AppointmentsVM] Resolved via users table: \(bId)")
+            return bId.uuidString
+        }
+
+        // 2. Fallback: resolve via store
+        print("[AppointmentsVM] No brand_id in users, falling back to store resolution")
+        struct SARow: Decodable { let store_id: UUID }
+        let saRows: [SARow] = try await client
+            .from("sales_associates")
+            .select("store_id")
+            .eq("user_id", value: authId)
+            .limit(1)
+            .execute()
+            .value
+
+        guard let storeId = saRows.first?.store_id else {
+            throw NSError(domain: "AppointmentsVM", code: 0,
+                userInfo: [NSLocalizedDescriptionKey: "Sales associate record not found"])
+        }
+
+        struct StoreRow: Decodable { let brand_id: UUID }
+        let storeRows: [StoreRow] = try await client
+            .from("stores")
+            .select("brand_id")
+            .eq("store_id", value: storeId.uuidString)
+            .limit(1)
+            .execute()
+            .value
+
+        guard let brandId = storeRows.first?.brand_id else {
+            throw NSError(domain: "AppointmentsVM", code: 0,
+                userInfo: [NSLocalizedDescriptionKey: "Brand not found for store"])
+        }
+
+        print("[AppointmentsVM] Resolved via store: \(brandId)")
+        return brandId.uuidString
     }
 }

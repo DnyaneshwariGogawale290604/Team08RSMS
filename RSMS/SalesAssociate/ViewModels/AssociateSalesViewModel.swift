@@ -67,6 +67,9 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
     @Published var orderPaymentSummary: OrderPaymentSummary? = nil
     @Published var isLoadingPaymentSummary: Bool = false
     @Published var currentAppointmentId: UUID? = nil
+    @Published var currentPaymentLegIndex: Int = 0
+    @Published var currentPaymentItemIndex: Int = 0
+    @Published var gatewayReceiptUrl: String? = nil
 
     // MARK: Cart Helpers
     var cartTotal: Double { cartItems.reduce(0) { $0 + $1.lineTotal } }
@@ -111,9 +114,11 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
     // MARK: - Fetch Customers
     func fetchCustomers(search: String = "") async {
         do {
+            let brandId = try await fetchBrandId()
             let all: [Customer] = try await client
                 .from("customers")
                 .select()
+                .eq("brand_id", value: brandId)
                 .order("name")
                 .execute()
                 .value
@@ -148,8 +153,21 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
                 let nationality: String?
                 let notes: String?
                 let customer_category: String
+                let brand_id: String
             }
-            let payload = CustomerInsert(name: name, phone: phone.isEmpty ? nil : phone, email: email.isEmpty ? nil : email, gender: gender?.isEmpty == false ? gender : nil, date_of_birth: dateOfBirth?.isEmpty == false ? dateOfBirth : nil, address: address?.isEmpty == false ? address : nil, nationality: nationality?.isEmpty == false ? nationality : nil, notes: notes?.isEmpty == false ? notes : nil, customer_category: category)
+            let brandId = try await fetchBrandId()
+            let payload = CustomerInsert(
+                name: name,
+                phone: phone.isEmpty ? nil : phone,
+                email: email.isEmpty ? nil : email,
+                gender: gender?.isEmpty == false ? gender : nil,
+                date_of_birth: dateOfBirth?.isEmpty == false ? dateOfBirth : nil,
+                address: address?.isEmpty == false ? address : nil,
+                nationality: nationality?.isEmpty == false ? nationality : nil,
+                notes: notes?.isEmpty == false ? notes : nil,
+                customer_category: category,
+                brand_id: brandId
+            )
 
             let newCustomer: Customer = try await client
                 .from("customers")
@@ -166,16 +184,18 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
         } catch {
             errorMessage = "Could not create customer."
             isLoading = false
-            return false
         }
+    return false
     }
 
     // MARK: - Fetch Products
     func fetchProducts(search: String = "") async {
         do {
+            let brandId = try await fetchBrandId()
             let all: [Product] = try await client
                 .from("products")
                 .select()
+                .eq("brand_id", value: brandId)
                 .order("name")
                 .execute()
                 .value
@@ -229,13 +249,13 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
             let authClient = SupabaseManager.shared.client.auth
             if let session = try? await authClient.session {
                 associateId = session.user.id
-                associateName = session.user.userMetadata["full_name"]?.value as? String
+                associateName = session.user.userMetadata["full_name"] as? String
                     ?? session.user.email
                     ?? "Sales Associate"
             } else {
                 let user = try await authClient.user()
                 associateId = user.id
-                associateName = user.userMetadata["full_name"]?.value as? String
+                associateName = user.userMetadata["full_name"] as? String
                     ?? user.email
                     ?? "Sales Associate"
             }
@@ -371,9 +391,26 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
     }
 
     func fetchBrandId() async throws -> String {
-        let authId = try await resolveUserId().uuidString
+        let authId = (try await resolveUserId()).uuidString
+        print("[fetchBrandId] Resolving for user: \(authId)")
 
-        // Sales Associates don't have brand_id in users — resolve via store
+        // 1. Check users table first (like Admin/Inventory)
+        struct UserRow: Decodable { let brand_id: UUID? }
+        let userRows: [UserRow] = (try? await SupabaseManager.shared.client
+            .from("users")
+            .select("brand_id")
+            .eq("user_id", value: authId)
+            .limit(1)
+            .execute()
+            .value) ?? []
+
+        if let bId = userRows.first?.brand_id {
+            print("[fetchBrandId] Resolved via users table: \(bId)")
+            return bId.uuidString
+        }
+
+        // 2. Fallback: resolve via store
+        print("[fetchBrandId] No brand_id in users, falling back to store resolution")
         struct SARow: Decodable { let store_id: UUID }
         let saRows: [SARow] = try await SupabaseManager.shared.client
             .from("sales_associates")
@@ -401,6 +438,7 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
             throw NSError(domain: "PaymentError", code: 0,
                 userInfo: [NSLocalizedDescriptionKey: "Brand not found for this store"])
         }
+        print("[fetchBrandId] Resolved via store: \(brandId)")
         return brandId.uuidString
     }
 
@@ -620,10 +658,15 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
     }
 
     func verifyPayment(gatewayPaymentId: String, gatewaySignature: String) async {
-        guard let paymentOrderId,
-              let gatewayOrderId else { return }
+        guard let paymentOrderId = self.paymentOrderId,
+              let gatewayOrderId = self.gatewayOrderId else {
+            errorMessage = "Missing payment context."
+            return
+        }
 
         isLoading = true
+        errorMessage = nil
+
         do {
             let verifyUrl = URL(string: "https://ionszphvxhffqfwlohiv.supabase.co/functions/v1/verify-payment")!
             var req = URLRequest(url: verifyUrl)
@@ -652,36 +695,28 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
                 )
             }
 
-            // Mark the sales order as completed in Supabase
-            if let order = currentOrder {
-                struct OrderStatusUpdate: Encodable { let status: String }
-                try? await SupabaseManager.shared.client
-                    .from("sales_orders")
-                    .update(OrderStatusUpdate(status: "completed"))
-                    .eq("order_id", value: order.id.uuidString)
-                    .execute()
-
-                struct OrderPaymentUpdate: Encodable {
-                    let payment_status: String
-                    let amount_paid: Double
-                }
-                try? await SupabaseManager.shared.client
-                    .from("sales_orders")
-                    .update(OrderPaymentUpdate(payment_status: "paid", amount_paid: order.totalAmount))
-                    .eq("order_id", value: order.id.uuidString)
-                    .execute()
+            // Update the specific leg item that was paid
+            let legIdx = self.currentPaymentLegIndex
+            let itemIdx = self.currentPaymentItemIndex
+            if legIdx < self.billingLegs.count &&
+               itemIdx < self.billingLegs[legIdx].items.count {
+                self.billingLegs[legIdx].items[itemIdx].existingStatus = "paid"
+                let allPaid = self.billingLegs[legIdx].items.allSatisfy { $0.isPaid }
+                let anyPaid = self.billingLegs[legIdx].items.contains { $0.isPaid }
+                self.billingLegs[legIdx].existingStatus = allPaid
+                    ? "paid" : anyPaid ? "partially_paid" : "pending"
             }
+            // Store receipt URL
+            self.gatewayReceiptUrl = "https://dashboard.razorpay.com/app/payments/\(gatewayPaymentId)"
 
             paymentCompleted = true
             isLoading = false
-            showPayment = false
-            showReceipt = true
+            // Don't show receipt yet — stay in billing view so associate can collect remaining payments
+            await self.fetchOrderPaymentSummary(salesOrderId: self.currentOrder?.id.uuidString ?? "")
+            
         } catch {
             isLoading = false
-            if error is CancellationError {
-                return
-            }
-            errorMessage = error.localizedDescription
+            errorMessage = "Payment verification failed: \(error.localizedDescription)"
         }
     }
 
@@ -788,7 +823,7 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
         }
     }
 
-    private func resolveUserId() async throws -> UUID {
+    func resolveUserId() async throws -> UUID {
         let auth = SupabaseManager.shared.client.auth
         if let session = try? await auth.session {
             return session.user.id
@@ -796,7 +831,7 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
         return try await auth.user().id
     }
 
-    private func resolveAccessToken() async throws -> String {
+    func resolveAccessToken() async throws -> String {
         if let session = try? await SupabaseManager.shared.client.auth.session {
             return session.accessToken
         }
@@ -1052,7 +1087,8 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
                         method: itemJson["method"] as? String ?? "cash",
                         status: itemJson["status"] as? String ?? "pending",
                         collectedAt: itemJson["collected_at"] as? String,
-                        note: itemJson["note"] as? String
+                        note: itemJson["note"] as? String,
+                        receiptUrl: itemJson["receipt_url"] as? String
                     )
                     items.append(item)
                 }
@@ -1342,6 +1378,259 @@ extension AssociateSalesViewModel: RazorpayPaymentCompletionProtocolWithData {
                 gatewayPaymentId: payment_id,
                 gatewaySignature: signature
             )
+        }
+    }
+
+    func collectCashItem(
+        legIndex: Int,
+        itemIndex: Int,
+        appointmentId: UUID?
+    ) async {
+        guard legIndex < billingLegs.count,
+              itemIndex < billingLegs[legIndex].items.count,
+              let order = currentOrder else { return }
+
+        let item = billingLegs[legIndex].items[itemIndex]
+        guard item.method == "cash" else { return }
+
+        isLoading = true
+        errorMessage = nil
+
+        do {
+            let brandId = try await fetchBrandId()
+            let authId = try await resolveUserId().uuidString
+            let accessToken = try await resolveAccessToken()
+
+            // Step 1: If item has no DB ID, save the billing plan first
+            if item.isNew {
+                await submitBilling(
+                    appointmentId: appointmentId,
+                    action: "save",
+                    orderStore: SharedOrderStore()
+                )
+                // Refresh to get DB IDs
+                await fetchOrderPaymentSummary(salesOrderId: order.id.uuidString)
+            }
+
+            // Get the updated item ID after potential save
+            let itemId = billingLegs[legIndex].items[itemIndex].existingItemId
+            let legId = billingLegs[legIndex].existingLegId
+
+            guard let itemId = itemId, let legId = legId else {
+                errorMessage = "Could not find payment record. Please save the billing plan first."
+                isLoading = false
+                return
+            }
+
+            let tendered = item.tendered ?? item.amount
+
+            let url = URL(string: "https://ionszphvxhffqfwlohiv.supabase.co/functions/v1/collect-remaining-payment")!
+            var req = URLRequest(url: url)
+            req.httpMethod = "POST"
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+
+            let body: [String: Any] = [
+                "brand_id": brandId,
+                "sales_order_id": order.id.uuidString,
+                "payment_leg_item_id": itemId,
+                "payment_leg_id": legId,
+                "recorded_by": authId,
+                "method": "cash",
+                "tendered": tendered,
+            ]
+            req.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+            let (data, _) = try await URLSession.shared.data(for: req)
+            guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                throw NSError(domain: "BillingError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Invalid response"])
+            }
+
+            if let error = json["error"] as? String {
+                throw NSError(domain: "BillingError", code: 2, userInfo: [NSLocalizedDescriptionKey: error])
+            }
+
+            // Mark item as paid locally
+            billingLegs[legIndex].items[itemIndex].existingStatus = "paid"
+
+            // Update leg status locally
+            let allItemsPaid = billingLegs[legIndex].items.allSatisfy { $0.isPaid }
+            let anyItemPaid = billingLegs[legIndex].items.contains { $0.isPaid }
+            billingLegs[legIndex].existingStatus = allItemsPaid ? "paid" : anyItemPaid ? "partially_paid" : "pending"
+
+            isLoading = false
+            await fetchOrderPaymentSummary(salesOrderId: order.id.uuidString)
+
+        } catch {
+            isLoading = false
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func initiateGatewayPaymentForItem(
+        legIndex: Int,
+        itemIndex: Int,
+        appointmentId: UUID?
+    ) async {
+        guard legIndex < billingLegs.count,
+              itemIndex < billingLegs[legIndex].items.count,
+              let order = currentOrder else { return }
+
+        let item = billingLegs[legIndex].items[itemIndex]
+        guard item.method == "upi" || item.method == "netbanking" else { return }
+
+        isLoading = true
+        errorMessage = nil
+
+        do {
+            let brandId = try await fetchBrandId()
+            let authId = try await resolveUserId().uuidString
+            let accessToken = try await resolveAccessToken()
+
+            // Step 1: If item has no DB ID, save billing plan first
+            if item.isNew {
+                await submitBilling(
+                    appointmentId: appointmentId,
+                    action: "save",
+                    orderStore: SharedOrderStore()
+                )
+                await fetchOrderPaymentSummary(salesOrderId: order.id.uuidString)
+            }
+
+            let itemId = billingLegs[legIndex].items[itemIndex].existingItemId
+            let legId = billingLegs[legIndex].existingLegId
+
+            guard let itemId = itemId, let legId = legId else {
+                errorMessage = "Could not find payment record."
+                isLoading = false
+                return
+            }
+
+            let url = URL(string: "https://ionszphvxhffqfwlohiv.supabase.co/functions/v1/collect-remaining-payment")!
+            var req = URLRequest(url: url)
+            req.httpMethod = "POST"
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+
+            let body: [String: Any] = [
+                "brand_id": brandId,
+                "sales_order_id": order.id.uuidString,
+                "payment_leg_item_id": itemId,
+                "payment_leg_id": legId,
+                "recorded_by": authId,
+                "method": item.method,
+            ]
+            req.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+            let (data, _) = try await URLSession.shared.data(for: req)
+            guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                throw NSError(domain: "BillingError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Invalid response"])
+            }
+
+            if let error = json["error"] as? String {
+                throw NSError(domain: "BillingError", code: 2, userInfo: [NSLocalizedDescriptionKey: error])
+            }
+
+            // Gateway requires SDK
+            let requiresSDK = json["requires_sdk"] as? Bool ?? false
+            if requiresSDK,
+               let gwOrderId = json["gateway_order_id"] as? String,
+               let keyId = json["key_id"] as? String,
+               let poId = json["payment_order_id"] as? String {
+                self.gatewayOrderId = gwOrderId
+                self.checkoutKey = keyId
+                self.paymentOrderId = poId
+                self.currentPaymentLegIndex = legIndex
+                self.currentPaymentItemIndex = itemIndex
+                isLoading = false
+                NotificationCenter.default.post(name: NSNotification.Name("OpenRazorpayCheckout"), object: nil)
+            } else {
+                isLoading = false
+            }
+
+        } catch {
+            let brandId = (try? await fetchBrandId()) ?? "unknown"
+            let msg = error.localizedDescription
+            if msg.lowercased().contains("vault") {
+                errorMessage = "Razorpay Vault Error: Credentials not found for Brand \(brandId). Please RE-SAVE in Corporate Admin settings."
+            } else {
+                errorMessage = msg + " [Brand: \(brandId)]"
+            }
+            isLoading = false
+        }
+    }
+
+    func checkoutAppointment(
+        appointmentId: UUID,
+        orderStore: SharedOrderStore,
+        onComplete: @escaping () -> Void
+    ) async {
+        guard let order = currentOrder else {
+            errorMessage = "No order found."
+            return
+        }
+
+        // Validate all immediate legs are paid
+        let unpaidImmediateItems = billingLegs
+            .filter { $0.dueType == "immediate" }
+            .flatMap { $0.items }
+            .filter { !$0.isPaid }
+
+        if !unpaidImmediateItems.isEmpty {
+            errorMessage = "Complete all immediate payments before checkout."
+            return
+        }
+
+        isLoading = true
+        errorMessage = nil
+
+        do {
+            let brandId = try await fetchBrandId()
+            let authId = try await resolveUserId().uuidString
+            let accessToken = try await resolveAccessToken()
+
+            let url = URL(string: "https://ionszphvxhffqfwlohiv.supabase.co/functions/v1/checkout-appointment")!
+            var req = URLRequest(url: url)
+            req.httpMethod = "POST"
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+
+            let body: [String: Any] = [
+                "appointment_id": appointmentId.uuidString,
+                "sales_order_id": order.id.uuidString,
+                "brand_id": brandId,
+                "recorded_by": authId,
+            ]
+            req.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+            let (data, _) = try await URLSession.shared.data(for: req)
+            guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                throw NSError(domain: "CheckoutError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Invalid response"])
+            }
+
+            if let error = json["error"] as? String {
+                throw NSError(domain: "CheckoutError", code: 2, userInfo: [NSLocalizedDescriptionKey: error])
+            }
+
+            isLoading = false
+            showBilling = false
+
+            if let placed = lastPlacedOrder {
+                orderStore.addOrder(placed)
+            }
+
+            NotificationCenter.default.post(name: NSNotification.Name("RefreshSalesAssociateDashboard"), object: nil)
+            onComplete()
+
+        } catch {
+            let brandId = (try? await fetchBrandId()) ?? "unknown"
+            let msg = error.localizedDescription
+            if msg.lowercased().contains("vault") {
+                errorMessage = "Razorpay Vault Error: Credentials not found for Brand \(brandId). Please RE-SAVE in Corporate Admin settings."
+            } else {
+                errorMessage = msg + " [Brand: \(brandId)]"
+            }
+            isLoading = false
         }
     }
 }
