@@ -190,6 +190,40 @@ public final class AdminViewModel: ObservableObject {
         }
     }
 
+    // MARK: - Vendor Orders
+
+    public func fetchPendingVendorOrders() async {
+        do {
+            pendingVendorOrders = try await RequestService.shared.fetchPendingVendorOrdersForAdmin()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    public func approveVendorOrder(id: UUID) async {
+        isLoading = true
+        defer { isLoading = false }
+        do {
+            try await RequestService.shared.approveVendorOrder(id: id)
+            await fetchPendingVendorOrders()
+            successMessage = "Vendor Order Approved."
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+    
+    public func rejectVendorOrder(id: UUID, reason: String) async {
+        isLoading = true
+        defer { isLoading = false }
+        do {
+            try await RequestService.shared.updateVendorOrderStatus(id: id, status: "rejected")
+            await fetchPendingVendorOrders()
+            successMessage = "Vendor Order Rejected."
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
     public func deleteStaffMember(_ item: StaffListItem) async -> Bool {
         isLoading = true
         defer { isLoading = false }
