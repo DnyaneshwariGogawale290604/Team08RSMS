@@ -397,7 +397,6 @@ public final class RequestService: @unchecked Sendable {
             .from("products")
             .select()
             .eq("brand_id", value: brandId)
-            .eq("is_active", value: true)
             .order("name", ascending: true)
             .execute()
             .value

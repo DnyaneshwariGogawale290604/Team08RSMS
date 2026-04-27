@@ -19,7 +19,7 @@ public final class InventoryDashboardViewModel: ObservableObject {
         isLoading = true
         do {
             // 1. Fetch Products
-            products = try await DataService.shared.fetchProductsForCurrentBrand()
+            products = try await DataService.shared.fetchAllProductsForCurrentBrand()
             
             // 2. Fetch all inventory aggregates
             storeInventory = try await DataService.shared.fetchInventory()
