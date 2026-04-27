@@ -2,10 +2,15 @@ import SwiftUI
 
 // MARK: - Main Appointments Tab View
 struct SalesAssociateAppointmentsView: View {
+    @ObservedObject private var sessionViewModel: SessionViewModel
     @EnvironmentObject var orderStore: SharedOrderStore
     @StateObject private var vm = AppointmentsViewModel()
     @State private var showNewAppointment = false
     @State private var selectedAppointment: Appointment? = nil
+
+    init(sessionViewModel: SessionViewModel) {
+        self.sessionViewModel = sessionViewModel
+    }
 
     var body: some View {
         NavigationStack {
@@ -52,6 +57,9 @@ struct SalesAssociateAppointmentsView: View {
                         .font(.system(size: 13, weight: .semibold))
                         .kerning(2)
                         .foregroundStyle(Color.luxuryPrimaryText)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    SalesAssociateProfileButton(sessionViewModel: sessionViewModel)
                 }
             }
             .sheet(isPresented: $showNewAppointment, onDismiss: {

@@ -3,12 +3,17 @@ import Supabase
 import PostgREST
 
 struct SalesAssociateClientsView: View {
+    @ObservedObject private var sessionViewModel: SessionViewModel
     @StateObject private var viewModel = SalesAssociateViewModel()
     @StateObject private var customerVM = AssociateSalesViewModel()
 
     @State private var searchText = ""
     @State private var filter = "All"
     @State private var showCreateCustomer = false
+
+    init(sessionViewModel: SessionViewModel) {
+        self.sessionViewModel = sessionViewModel
+    }
 
     var filteredCustomers: [Customer] {
         let textFiltered = viewModel.customers.filter {
@@ -142,6 +147,9 @@ struct SalesAssociateClientsView: View {
             .navigationTitle("Clients")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    SalesAssociateProfileButton(sessionViewModel: sessionViewModel)
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         customerVM.errorMessage = nil

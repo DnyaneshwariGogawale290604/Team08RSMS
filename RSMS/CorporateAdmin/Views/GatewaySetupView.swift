@@ -3,6 +3,11 @@ import SwiftUI
 struct GatewaySetupView: View {
     @StateObject var vm = GatewayViewModel()
     @State private var visibleSecrets: Set<String> = []
+    private let initialGateway: PaymentGateway?
+
+    init(initialGateway: PaymentGateway? = nil) {
+        self.initialGateway = initialGateway
+    }
 
     var body: some View {
         ZStack {
@@ -53,6 +58,9 @@ struct GatewaySetupView: View {
         .navigationTitle("Payment Gateway")
         .navigationBarTitleDisplayMode(.inline)
         .task {
+            if let initialGateway {
+                vm.selectedGateway = initialGateway
+            }
             await vm.fetchExistingConfigs()
         }
     }
@@ -135,6 +143,10 @@ struct GatewaySetupView: View {
                 .kerning(1.2)
 
             VStack(alignment: .leading, spacing: 20) {
+                if vm.selectedGateway == .razorpay {
+                    razorpayGuideCard
+                }
+
                 // 1. Gateway Picker
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
@@ -300,6 +312,61 @@ struct GatewaySetupView: View {
             .background(Color.white)
             .cornerRadius(12)
             .shadow(color: Color.black.opacity(0.03), radius: 8, x: 0, y: 4)
+        }
+    }
+
+    private var razorpayGuideCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 10) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(CatalogTheme.surface)
+                        .frame(width: 38, height: 38)
+
+                    Image(systemName: "bolt.horizontal.circle.fill")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(CatalogTheme.primary)
+                }
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Razorpay Setup")
+                        .font(.system(size: 17, weight: .bold, design: .serif))
+                        .foregroundColor(Color.luxuryPrimaryText)
+
+                    Text("Use your live dashboard keys for boutique billing.")
+                        .font(BrandFont.body(12))
+                        .foregroundColor(Color.luxurySecondaryText)
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                razorpayStepRow(number: "1", text: "Open dashboard.razorpay.com and go to Settings > API Keys.")
+                razorpayStepRow(number: "2", text: "Paste the Key ID and Key Secret below.")
+                razorpayStepRow(number: "3", text: "Enable the payment methods your sales team should collect in store.")
+            }
+        }
+        .padding(16)
+        .background(CatalogTheme.surface.opacity(0.55))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(CatalogTheme.primary.opacity(0.12), lineWidth: 1)
+        )
+    }
+
+    private func razorpayStepRow(number: String, text: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Text(number)
+                .font(.system(size: 11, weight: .bold))
+                .foregroundColor(.white)
+                .frame(width: 20, height: 20)
+                .background(CatalogTheme.primary)
+                .clipShape(Circle())
+
+            Text(text)
+                .font(BrandFont.body(12))
+                .foregroundColor(Color.luxuryPrimaryText)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 }

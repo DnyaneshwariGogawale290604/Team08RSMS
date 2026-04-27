@@ -10,29 +10,24 @@ struct SalesAssociateTabView: View {
 
     var body: some View {
         TabView {
-            SalesAssociateDashboardView()
+            SalesAssociateDashboardView(sessionViewModel: sessionViewModel)
                 .tabItem {
                     Label("Dashboard", systemImage: "chart.bar")
                 }
 
-            SalesAssociateAppointmentsView()
+            SalesAssociateAppointmentsView(sessionViewModel: sessionViewModel)
                 .tabItem {
                     Label("Appointments", systemImage: "calendar.badge.clock")
                 }
 
-            SalesAssociateOrdersView()
+            SalesAssociateOrdersView(sessionViewModel: sessionViewModel)
                 .tabItem {
                     Label("Orders", systemImage: "shippingbox")
                 }
 
-            SalesAssociateClientsView()
+            SalesAssociateClientsView(sessionViewModel: sessionViewModel)
                 .tabItem {
                     Label("Clients", systemImage: "person.2")
-                }
-
-            accountTab
-                .tabItem {
-                    Label("Account", systemImage: "person.crop.circle")
                 }
         }
         .tint(.luxuryPrimary)
@@ -60,41 +55,5 @@ struct SalesAssociateTabView: View {
         UITabBar.appearance().standardAppearance = appearance
         UITabBar.appearance().scrollEdgeAppearance = appearance
         UITabBar.appearance().unselectedItemTintColor = normalColor
-    }
-
-    private var accountTab: some View {
-        NavigationStack {
-            ZStack {
-                Color.luxuryBackground.ignoresSafeArea()
-
-                VStack(spacing: 18) {
-                    Spacer()
-
-                    Image(systemName: "person.crop.circle.badge.checkmark")
-                        .font(.system(size: 72))
-                        .foregroundStyle(Color.luxurySecondaryText)
-
-                    Text("Sales Associate")
-                        .font(.system(size: 24, weight: .bold, design: .serif))
-                        .foregroundStyle(Color.luxuryPrimaryText)
-
-                    Button {
-                        Task { await sessionViewModel.signOut() }
-                    } label: {
-                        Text("Logout")
-                            .font(BrandFont.body(15, weight: .semibold))
-                            .foregroundStyle(Color.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 13)
-                            .luxuryPrimaryButtonChrome(cornerRadius: 16)
-                    }
-                    .buttonStyle(LuxuryPressStyle())
-                    .padding(.horizontal, 24)
-
-                    Spacer()
-                }
-            }
-            .navigationTitle("Account")
-        }
     }
 }

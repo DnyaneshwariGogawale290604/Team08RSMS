@@ -2,6 +2,7 @@ import SwiftUI
 import Combine
 
 struct SalesAssociateOrdersView: View {
+    @ObservedObject private var sessionViewModel: SessionViewModel
     private enum OrderStatusFilter: String, CaseIterable {
         case all = "All"
         case pending = "Pending"
@@ -17,6 +18,10 @@ struct SalesAssociateOrdersView: View {
     @State private var searchText = ""
     @State private var selectedStatusFilter: OrderStatusFilter = .all
     @State private var billingOrderId: UUID? = nil
+
+    init(sessionViewModel: SessionViewModel) {
+        self.sessionViewModel = sessionViewModel
+    }
 
     fileprivate static func normalizeStatus(_ rawStatus: String?) -> String {
         let raw = (rawStatus ?? "pending").trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
@@ -181,6 +186,9 @@ struct SalesAssociateOrdersView: View {
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    SalesAssociateProfileButton(sessionViewModel: sessionViewModel)
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         showNewSale = true

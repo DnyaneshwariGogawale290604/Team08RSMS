@@ -1,10 +1,10 @@
 import SwiftUI
 
 public extension Color {
-    static let appBackground = Color(hex: "#FAF9F6")
+    static let appBackground = Color(hex: "#F5EFEF")
     static let appCard = Color.white
-    static let appBorder = Color(hex: "#E5E0D8")
-    static let appSecondaryText = Color(hex: "#6F6F6F")
+    static let appBorder = Color.black.opacity(0.08)
+    static let appSecondaryText = Color(hex: "#6B5B5B")
     static let appPrimaryText = Color(hex: "#1A1A1A")
     static let appAccent = Color(hex: "#4A2E32")
 
@@ -75,7 +75,7 @@ public extension View {
         self
             .background(CatalogTheme.card)
             .clipShape(RoundedRectangle(cornerRadius: CatalogTheme.cardCornerRadius, style: .continuous))
-            .shadow(color: Color.black.opacity(0.03), radius: 8, x: 0, y: 3)
+            .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 4)
     }
 
     func appPrimaryButtonChrome(enabled: Bool = true) -> some View {

@@ -1,12 +1,17 @@
 import SwiftUI
 
 struct SalesAssociateDashboardView: View {
+    @ObservedObject private var sessionViewModel: SessionViewModel
     @StateObject private var viewModel = SalesAssociateViewModel()
     // Observe the shared cache so the rating card updates the moment a new
     // rating is submitted — without any additional Supabase fetch.
     @ObservedObject private var ratingCache = RatingCache.shared
     @State private var showCatalog = false
     @State private var catalogSearch = ""
+
+    init(sessionViewModel: SessionViewModel) {
+        self.sessionViewModel = sessionViewModel
+    }
 
     var body: some View {
         NavigationStack {
@@ -40,7 +45,9 @@ struct SalesAssociateDashboardView: View {
                         .kerning(2)
                         .foregroundStyle(Color.luxuryPrimaryText)
                 }
-
+                ToolbarItem(placement: .topBarTrailing) {
+                    SalesAssociateProfileButton(sessionViewModel: sessionViewModel)
+                }
             }
             .task {
                 await viewModel.refresh()
