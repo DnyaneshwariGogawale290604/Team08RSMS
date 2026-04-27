@@ -13,6 +13,7 @@ public struct RequestsTabView: View {
     @State private var rejectReason: String = ""
     @State private var lastASN: String? = nil
     @State private var showASNBanner = false
+    @State private var showErrorAlert = false
 
     public init() {}
 
