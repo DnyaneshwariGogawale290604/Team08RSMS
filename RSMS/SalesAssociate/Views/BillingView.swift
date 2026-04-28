@@ -92,10 +92,8 @@ struct BillingView: View {
                     await vm.fetchOrderPaymentSummary(appointmentId: apptId.uuidString)
                 }
                 
-                // If after fetching we still have no legs (fresh case), initialize defaults
-                if vm.billingLegs.isEmpty {
-                    vm.initializeBillingLegs(maxLegs: maxLegs, maxSplits: maxSplits)
-                }
+                // Always check for mismatch and initialize defaults if needed
+                vm.initializeBillingLegs(maxLegs: maxLegs, maxSplits: maxSplits)
             }
             .onDisappear {
                 // Auto-save draft if legs are configured but not yet saved to DB
@@ -751,7 +749,7 @@ struct BillingView: View {
             let hasUnpaidImmediateItems = vm.billingLegs
                 .filter { $0.dueType == "immediate" }
                 .flatMap { $0.items }
-                .contains { !$0.isPaid }
+                .contains { !$0.isPaid && $0.amount > 0.01 }
 
             if hasUnpaidImmediateItems {
                 HStack(spacing: 8) {
@@ -778,7 +776,7 @@ struct BillingView: View {
                 Task {
                     await vm.submitBilling(
                         appointmentId: appointmentId,
-                        action: "save",
+                        action: "draft",
                         orderStore: orderStore
                     )
                     if vm.errorMessage == nil {

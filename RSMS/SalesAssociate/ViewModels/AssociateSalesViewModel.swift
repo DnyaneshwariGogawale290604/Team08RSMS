@@ -398,6 +398,103 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
             name: NSNotification.Name("RefreshSalesAssociateDashboard"), object: nil)
     }
 
+    /// Updates an existing order's total and items in Supabase to match the current cart.
+    func syncOrderWithCart(appointmentId: UUID? = nil) async {
+        guard let order = currentOrder, !cartItems.isEmpty else { return }
+        
+        // Check if anything actually changed to avoid unnecessary DB calls
+        if abs(order.totalAmount - cartTotal) < 0.01 {
+            return
+        }
+        
+        isLoading = true
+        errorMessage = nil
+        
+        do {
+            let orderId = order.id
+            let newTotal = cartTotal
+            
+            // 1. Update the main order total
+            struct SOUpdate: Encodable { let total_amount: Double }
+            try await client
+                .from("sales_orders")
+                .update(SOUpdate(total_amount: newTotal))
+                .eq("order_id", value: orderId.uuidString)
+                .execute()
+            
+            // 2. Delete old items and insert current ones
+            try await client
+                .from("order_items")
+                .delete()
+                .eq("order_id", value: orderId.uuidString)
+                .execute()
+            
+            struct OIInsert: Encodable {
+                let order_id: UUID; let product_id: UUID
+                let quantity: Int; let price_at_purchase: Double
+            }
+            let items = cartItems.map {
+                OIInsert(order_id: orderId, product_id: $0.product.id,
+                         quantity: $0.quantity, price_at_purchase: $0.product.price)
+            }
+            try await client
+                .from("order_items")
+                .insert(items)
+                .execute()
+            
+            // 3. RESET BILLING: Delete existing legs and items by order_id
+            // (Note: appointment_id is linked via the sales_orders table, not directly in payment_legs)
+            
+            // We must fetch leg IDs first to delete associated items (FK constraint)
+            struct LegID: Decodable { let id: UUID }
+            let existingLegs: [LegID] = try await client
+                .from("payment_legs")
+                .select("id")
+                .eq("sales_order_id", value: orderId.uuidString)
+                .execute()
+                .value
+            
+            if !existingLegs.isEmpty {
+                let ids = existingLegs.map { $0.id.uuidString }
+                print("[syncOrderWithCart] Found \(ids.count) existing legs. Deleting items first...")
+                
+                try await client
+                    .from("payment_leg_items")
+                    .delete()
+                    .in("payment_leg_id", value: ids)
+                    .execute()
+                
+                print("[syncOrderWithCart] Items deleted. Deleting legs...")
+                
+                try await client
+                    .from("payment_legs")
+                    .delete()
+                    .eq("sales_order_id", value: orderId.uuidString)
+                    .execute()
+                
+                print("[syncOrderWithCart] Legs deleted successfully.")
+                
+                // Short delay to allow DB propagation before UI re-fetches
+                try? await Task.sleep(nanoseconds: 500_000_000)
+            } else {
+                print("[syncOrderWithCart] No existing billing legs found to delete.")
+            }
+            
+            // 4. Update local state
+            await MainActor.run {
+                self.currentOrder?.totalAmount = newTotal
+                self.billingLegs = [] // Force re-initialization
+                self.isLoading = false
+            }
+            
+            print("[syncOrderWithCart] Successfully updated order \(orderId) to ₹\(newTotal)")
+        } catch {
+            print("[syncOrderWithCart] Failed: \(error)")
+            errorMessage = "Failed to update order: \(error.localizedDescription)"
+            isLoading = false
+        }
+    }
+
     private func friendlyOrderSaveError(_ error: Error) -> String {
         let message = error.localizedDescription.trimmingCharacters(in: .whitespacesAndNewlines)
         if !message.isEmpty, message != "The operation couldn’t be completed." {
@@ -891,6 +988,15 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
         maxLegs: Int = 2,
         maxSplits: Int = 2
     ) {
+        // If the total doesn't match the cart total, we FORCE A RESET
+        let currentTotal = billingLegs.reduce(0.0) { $0 + $1.totalAmount }
+        let mismatch = abs(currentTotal - cartTotal) > 0.01
+        
+        if mismatch {
+            print("[initializeBillingLegs] Total mismatch detected (Cart: ₹\(cartTotal), Legs: ₹\(currentTotal)). Resetting billing legs.")
+            billingLegs = []
+        }
+        
         // Only initialize if not already set, to prevent reset on re-render
         guard billingLegs.isEmpty else { return }
         
@@ -1381,10 +1487,20 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
                 self.checkoutKey = keyId
                 self.paymentOrderId = poId
                 isLoading = false
-                NotificationCenter.default.post(
-                    name: NSNotification.Name("OpenRazorpayCheckout"),
-                    object: nil
-                )
+                // Only open Razorpay if this wasn't a simple draft save
+                if action != "draft" {
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("OpenRazorpayCheckout"),
+                        object: nil
+                    )
+                } else {
+                    // It was a draft save, just show success
+                    isLoading = false
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("RefreshSalesAssociateDashboard"),
+                        object: nil
+                    )
+                }
             } else {
                 // All cash — mark complete
                 let orderStatus = json["order_payment_status"] as? String ?? "unpaid"
@@ -1393,6 +1509,13 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
                 showBilling = false
                 if action == "mark_as_paid" {
                     showReceipt = true
+                    
+                    // If successfully paid/checked out, delete the appointment
+                    if let apptId = appointmentId {
+                        Task {
+                            await completeAppointment(id: apptId)
+                        }
+                    }
                 }
                 NotificationCenter.default.post(
                     name: NSNotification.Name("RefreshSalesAssociateDashboard"),
@@ -1402,6 +1525,37 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
         } catch {
             isLoading = false
             errorMessage = error.localizedDescription
+        }
+    }
+
+    // MARK: - Appointment Cleanup
+    
+    /// Marks an appointment as 'completed' in Supabase. Called after successful checkout.
+    func completeAppointment(id: UUID) async {
+        print("[completeAppointment] Marking appointment as completed: \(id)")
+        do {
+            struct StatusUpdate: Encodable { let status: String }
+            try await client
+                .from("appointments")
+                .update(StatusUpdate(status: "completed"))
+                .eq("id", value: id.uuidString)
+                .execute()
+            
+            print("[completeAppointment] Successfully completed appointment: \(id)")
+            
+            // Post notification to remove locally for instant UI feedback
+            await MainActor.run {
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("RemoveAppointmentLocally"),
+                    object: id
+                )
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("RefreshAppointmentsList"),
+                    object: nil
+                )
+            }
+        } catch {
+            print("[completeAppointment] Failed: \(error)")
         }
     }
 }
@@ -1448,7 +1602,7 @@ extension AssociateSalesViewModel: RazorpayPaymentCompletionProtocolWithData {
             if item.isNew {
                 await submitBilling(
                     appointmentId: appointmentId,
-                    action: "save",
+                    action: "draft",
                     orderStore: SharedOrderStore()
                 )
                 // Refresh to get DB IDs
@@ -1538,7 +1692,7 @@ extension AssociateSalesViewModel: RazorpayPaymentCompletionProtocolWithData {
             if item.isNew {
                 await submitBilling(
                     appointmentId: appointmentId,
-                    action: "save",
+                    action: "draft",
                     orderStore: SharedOrderStore()
                 )
                 await fetchOrderPaymentSummary(salesOrderId: order.id.uuidString)
@@ -1655,7 +1809,7 @@ extension AssociateSalesViewModel: RazorpayPaymentCompletionProtocolWithData {
             // to ensure backend has a record of pending payments
             await submitBilling(
                 appointmentId: appointmentId,
-                action: "save",
+                action: "draft",
                 orderStore: orderStore
             )
 

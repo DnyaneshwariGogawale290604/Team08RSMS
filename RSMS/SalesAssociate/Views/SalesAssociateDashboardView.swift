@@ -176,19 +176,14 @@ struct SalesAssociateDashboardView: View {
                     if viewModel.catalog.isEmpty {
                         emptyStateCard(icon: "tag.slash", text: "No products matched.")
                     } else {
-                        VStack(spacing: 0) {
-                            ForEach(Array(viewModel.catalog.enumerated()), id: \.element.id) { index, product in
-                                CatalogRow(product: product)
-                                if index < viewModel.catalog.count - 1 {
-                                    Divider()
-                                        .background(Color.luxuryDivider)
-                                        .padding(.leading, 16)
-                                }
+                        LazyVGrid(columns: [
+                            GridItem(.flexible(), spacing: 16),
+                            GridItem(.flexible(), spacing: 16)
+                        ], spacing: 16) {
+                            ForEach(viewModel.catalog) { product in
+                                AssociateProductCard(product: product)
                             }
                         }
-                        .background(Color.white)
-                        .clipShape(RoundedRectangle(cornerRadius: 16))
-                        .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 2)
                         .padding(.horizontal, 16)
                     }
                 }
@@ -255,35 +250,69 @@ struct SalesAssociateDashboardView: View {
     }
 }
 
-struct CatalogRow: View {
+struct AssociateProductCard: View {
     let product: Product
+    
     var body: some View {
-        HStack(spacing: 16) {
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color.luxurySurface)
-                .frame(width: 40, height: 40)
-                .overlay(
+        VStack(alignment: .leading, spacing: 10) {
+            // Product Image Placeholder/Container
+            ZStack {
+                Color.luxurySurface
+                
+                if let imageUrl = product.imageUrl, let url = URL(string: imageUrl) {
+                    AsyncImage(url: url) { phase in
+                        switch phase {
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                        default:
+                            Image(systemName: "photo")
+                                .font(.system(size: 24))
+                                .foregroundStyle(Color.luxuryDivider)
+                        }
+                    }
+                } else {
                     Image(systemName: "tag")
-                        .font(.system(size: 14))
-                        .foregroundStyle(Color.luxuryPrimary)
-                )
-
-            VStack(alignment: .leading, spacing: 2) {
+                        .font(.system(size: 24))
+                        .foregroundStyle(Color.luxuryPrimary.opacity(0.5))
+                }
+            }
+            .frame(height: 140)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .clipped()
+            
+            VStack(alignment: .leading, spacing: 4) {
                 Text(product.name)
-                    .font(BrandFont.body(14, weight: .medium))
+                    .font(BrandFont.body(14, weight: .semibold))
                     .foregroundStyle(Color.luxuryPrimaryText)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                    .frame(height: 38, alignment: .topLeading)
+                
                 Text(product.category)
                     .font(BrandFont.body(11))
                     .foregroundStyle(Color.luxurySecondaryText)
+                
+                Spacer(minLength: 4)
+                
+                HStack {
+                    Text("₹\(Int(product.price))")
+                        .font(BrandFont.body(14, weight: .bold))
+                        .foregroundStyle(Color.luxuryDeepAccent)
+                    
+                    Spacer()
+                    
+                    Image(systemName: "chevron.right.circle.fill")
+                        .font(.system(size: 14))
+                        .foregroundStyle(Color.luxuryDivider)
+                }
             }
-            Spacer()
-            VStack(alignment: .trailing, spacing: 2) {
-                Text("₹\(Int(product.price))")
-                    .font(BrandFont.body(14, weight: .semibold))
-                    .foregroundStyle(Color.luxuryDeepAccent)
-            }
+            .padding(.horizontal, 8)
+            .padding(.bottom, 12)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 2)
     }
 }

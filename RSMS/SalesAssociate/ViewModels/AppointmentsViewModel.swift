@@ -15,6 +15,23 @@ final class AppointmentsViewModel: ObservableObject {
 
     private let client = SupabaseManager.shared.client
 
+    init() {
+        setupNotificationObservers()
+    }
+
+    private func setupNotificationObservers() {
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("RemoveAppointmentLocally"),
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            if let id = notification.object as? UUID {
+                print("[AppointmentsViewModel] Locally removing appointment \(id)")
+                self?.appointments.removeAll { $0.id == id }
+            }
+        }
+    }
+
     // MARK: - Fetch appointments (scheduled only, ordered by time)
     func fetchAppointments() async {
         isLoading = true
@@ -41,7 +58,7 @@ final class AppointmentsViewModel: ObservableObject {
                     )
                 """)
                 .eq("sales_associate_id", value: userId.uuidString)
-                .in("status", values: ["scheduled", "completed"])
+                .eq("status", value: "scheduled")
                 .order("appointment_at", ascending: true)
                 .execute()
                 .value
