@@ -291,48 +291,34 @@ struct AdminDashboardView: View {
                 // Overall gross sales summary
                 HStack {
                     Text("Total Gross Sales")
-                        .font(.subheadline)
-                        .foregroundColor(CatalogTheme.secondaryText)
+                        .font(.system(size: 15, weight: .bold, design: .serif))
+                        .foregroundColor(CatalogTheme.primaryText)
                     Spacer()
                     Text(formatCurrency(totalAllCategories))
-                        .font(.subheadline.bold())
-                        .foregroundColor(CatalogTheme.deepAccent)
+                        .font(.system(size: 16, weight: .bold, design: .serif))
+                        .foregroundColor(CatalogTheme.primary)
                 }
-                .padding(.bottom, 4)
+                .padding(.bottom, 6)
 
-                ForEach(dashboardViewModel.categorySales) { item in
-                    VStack(spacing: 6) {
-                        HStack {
-                            Text(item.category)
-                                .font(.subheadline)
-                                .foregroundColor(CatalogTheme.secondaryText)
-                                .lineLimit(1)
-                            Spacer()
-                            Text(formatCurrency(item.totalSales))
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundColor(CatalogTheme.deepAccent)
+                ForEach(Array(dashboardViewModel.categorySales.enumerated()), id: \.element.id) { index, item in
+                    HStack(spacing: 12) {
+                        Text("\(index + 1)")
+                            .font(.subheadline.bold())
+                            .foregroundColor(CatalogTheme.secondaryText)
+                            .frame(width: 24, alignment: .leading)
 
-                            if totalAllCategories > 0 {
-                                Text(String(format: "%.0f%%", (item.totalSales / totalAllCategories) * 100))
-                                    .font(.caption2)
-                                    .foregroundColor(CatalogTheme.mutedText)
-                                    .frame(width: 36, alignment: .trailing)
-                            }
-                        }
+                        Text(item.category)
+                            .font(.subheadline)
+                            .foregroundColor(CatalogTheme.primaryText)
+                            .lineLimit(1)
 
-                        GeometryReader { geo in
-                            ZStack(alignment: .leading) {
-                                RoundedRectangle(cornerRadius: 3)
-                                    .fill(CatalogTheme.surface)
-                                    .frame(height: 6)
+                        Spacer()
 
-                                RoundedRectangle(cornerRadius: 3)
-                                    .fill(categoryColor(for: item.category))
-                                    .frame(width: geo.size.width * (item.totalSales / maxSales), height: 6)
-                            }
-                        }
-                        .frame(height: 6)
+                        Text(formatCurrency(item.totalSales))
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundColor(CatalogTheme.deepAccent)
                     }
+                    .padding(.vertical, 4)
                 }
             }
         }
@@ -429,11 +415,11 @@ struct AdminDashboardView: View {
             CatalogTheme.primary,
             CatalogTheme.deepAccent,
             Color(hex: "#8C6A6E"),
-            Color(hex: "#BFAAAA"),
-            Color(hex: "#A08888"),
+            Color(hex: "#5C3C40"),
             Color(hex: "#7A5C60"),
-            Color(hex: "#C4B0B0"),
-            Color(hex: "#5C3C40")
+            Color(hex: "#9E7B7F"),
+            Color(hex: "#634246"),
+            Color(hex: "#4D2D31")
         ]
         let hash = abs(category.hashValue)
         return colors[hash % colors.count]
