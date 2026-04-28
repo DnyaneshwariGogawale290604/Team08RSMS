@@ -8,6 +8,7 @@ struct BillingView: View {
     @State private var showReceiptUrl: String? = nil
     
     let appointmentId: UUID?
+    let appointmentsVM: AppointmentsViewModel?
     let maxLegs: Int      // from gateway config
     let maxSplits: Int    // from gateway config
 
@@ -814,7 +815,8 @@ struct BillingView: View {
                     Task {
                         await vm.checkoutAppointment(
                             appointmentId: apptId,
-                            orderStore: orderStore
+                            orderStore: orderStore,
+                            appointmentsVM: appointmentsVM
                         ) {
                             dismiss()
                         }
