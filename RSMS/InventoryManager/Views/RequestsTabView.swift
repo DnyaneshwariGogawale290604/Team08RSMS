@@ -316,63 +316,81 @@ public struct RequestsTabView: View {
         } else {
             List {
                 ForEach(outgoing) { order in
-                    ReusableCardView {
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack {
-                                Text("PO-\(order.id.uuidString.prefix(5).uppercased())")
-                                    .font(.system(.subheadline, design: .monospaced).bold())
-                                    .foregroundColor(.appPrimaryText)
-                                Spacer()
-                                let sc: Color = order.status == "delivered" ? Color(hex: "#6E5155") : (order.status == "in_transit" ? .orange : .gray)
-                                Text(order.status == "in_transit" ? "In Transit" : (order.status == "delivered" ? "Delivered" : (order.status?.capitalized ?? "Unknown")))
-                                    .font(.caption.bold())
-                                    .padding(.horizontal, 10)
-                                    .padding(.vertical, 4)
-                                    .background(sc.opacity(0.15))
-                                    .foregroundColor(sc)
-                                    .clipShape(Capsule())
-                            }
-                            if let vendor = order.vendor {
-                                Label(vendor.name, systemImage: "building.2")
-                                    .font(.subheadline)
-                                    .foregroundColor(.appSecondaryText)
-                            }
-                            if let product = order.product {
-                                Label(product.name, systemImage: "tag")
-                                    .font(.subheadline)
-                                    .foregroundColor(.appSecondaryText)
-                            }
-                            HStack {
-                                Image(systemName: "number").font(.caption)
-                                Text("\(order.quantity ?? 0) units").font(.caption)
-                            }
-                            .foregroundColor(.appSecondaryText)
-                            
-                            if order.status == "in_transit" {
-                                Button {
-                                    selectedVendorOrder = order
-                                } label: {
-                                    Text("Receive (Generate GRN)")
-                                        .font(.subheadline.bold())
-                                        .foregroundColor(.white)
-                                        .frame(maxWidth: .infinity)
-                                        .padding(.vertical, 10)
-                                        .background(Color.green)
-                                        .cornerRadius(8)
-                                }
-                                .padding(.top, 4)
-                                .buttonStyle(.plain)
-                            }
-                        }
-                    }
-                    .listRowInsets(EdgeInsets())
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
-                    .padding(.vertical, 6)
-                    .padding(.horizontal, 16)
+                    vendorOrderCard(for: order)
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                        .padding(.vertical, 6)
+                        .padding(.horizontal, 16)
                 }
             }
             .listStyle(.plain)
+        }
+    }
+
+    @ViewBuilder
+    private func vendorOrderCard(for order: VendorOrder) -> some View {
+        let rawStatus = (order.status ?? "").lowercased()
+
+        let statusText: String = {
+            if rawStatus == "in_transit" { return "In Transit" }
+            if rawStatus == "delivered" { return "Delivered" }
+            return order.status?.capitalized ?? "Unknown"
+        }()
+
+        let statusColor: Color = {
+            if rawStatus == "in_transit" { return .orange }
+            if rawStatus == "delivered" { return .green }
+            return .gray
+        }()
+
+        ReusableCardView {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("PO-\(order.id.uuidString.prefix(5).uppercased())")
+                        .font(.system(.subheadline, design: .monospaced).bold())
+                        .foregroundColor(.appPrimaryText)
+                    Spacer()
+                    Text(statusText)
+                        .font(.caption.bold())
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(statusColor.opacity(0.15))
+                        .foregroundColor(statusColor)
+                        .clipShape(Capsule())
+                }
+                if let vendor = order.vendor {
+                    Label(vendor.name, systemImage: "building.2")
+                        .font(.subheadline)
+                        .foregroundColor(.appSecondaryText)
+                }
+                if let product = order.product {
+                    Label(product.name, systemImage: "tag")
+                        .font(.subheadline)
+                        .foregroundColor(.appSecondaryText)
+                }
+                HStack {
+                    Image(systemName: "number").font(.caption)
+                    Text("\(order.quantity ?? 0) units").font(.caption)
+                }
+                .foregroundColor(.appSecondaryText)
+
+                if order.status == "in_transit" {
+                    Button {
+                        selectedVendorOrder = order
+                    } label: {
+                        Text("Receive (Generate GRN)")
+                            .font(.subheadline.bold())
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(Color.green)
+                            .cornerRadius(8)
+                    }
+                    .padding(.top, 4)
+                    .buttonStyle(.plain)
+                }
+            }
         }
     }
 

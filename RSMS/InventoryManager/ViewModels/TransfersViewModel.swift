@@ -60,6 +60,10 @@ public final class TransfersViewModel: ObservableObject {
             brandProducts   = await productFetch
             stockAvailability = [:]
             errorMessage    = nil
+        } catch is CancellationError {
+            // SwiftUI can cancel the in-flight refresh when the tab lifecycle
+            // changes. Preserve the last successful data instead of surfacing
+            // a transient error alert.
         } catch {
             errorMessage = error.localizedDescription
             print("TransfersViewModel.loadData error: \(error)")
@@ -200,15 +204,12 @@ public final class TransfersViewModel: ObservableObject {
                 condition: condition,
                 notes: notes
             )
-            
-            if let warehouseId = try? await resolveWarehouseId(), let productId = order.productId, quantityReceived > 0 {
-                try await WarehouseService.shared.incrementStock(warehouseId: warehouseId, productId: productId, by: quantityReceived)
-                if let current = stockAvailability[productId] {
-                    stockAvailability[productId] = current + quantityReceived
-                } else {
-                    _ = await checkWarehouseStock(for: ProductRequest(id: UUID(), productId: productId, storeId: UUID(), requestedQuantity: 0, status: "pending", requestDate: Date()))
-                }
-            }
+
+            try await registerReceivedVendorItems(
+                for: order,
+                quantityReceived: quantityReceived,
+                grnNumber: grn
+            )
             
             await loadData()
             NotificationCenter.default.post(name: .inventoryManagerDataDidChange, object: nil)
@@ -220,6 +221,67 @@ public final class TransfersViewModel: ObservableObject {
     }
 
     // MARK: - Private Helpers
+
+    private func registerReceivedVendorItems(
+        for order: VendorOrder,
+        quantityReceived: Int,
+        grnNumber: String
+    ) async throws {
+        guard quantityReceived > 0 else { return }
+
+        guard let productId = order.product?.id ?? order.productId else {
+            throw NSError(
+                domain: "TransfersViewModel",
+                code: 1,
+                userInfo: [NSLocalizedDescriptionKey: "Product not found on this vendor order."]
+            )
+        }
+
+        let warehouseId = try await resolveWarehouseId()
+        let batchId = try await DataService.shared.ensureBatchForVendorOrder(
+            vendorOrderId: order.id,
+            productId: productId,
+            quantity: quantityReceived,
+            warehouseId: warehouseId
+        )
+
+        let batchToken = String(batchId.uuidString.prefix(8)).uppercased()
+        let grnToken = grnNumber.replacingOccurrences(of: "GRN-", with: "").uppercased()
+        let batchNumber = "BATCH-\(batchToken)"
+        let productName = order.product?.name ?? "Unknown Product"
+        let category = {
+            let raw = order.product?.category ?? ""
+            return raw.isEmpty ? "General" : raw
+        }()
+
+        var insertedCount = 0
+
+        for index in 0..<quantityReceived {
+            let sequence = String(format: "%03d", index + 1)
+            let item = InventoryItem(
+                id: "RFID-\(batchToken)-\(sequence)",
+                serialId: "SN-\(grnToken)-\(sequence)",
+                productId: productId,
+                batchNo: batchNumber,
+                certificateId: nil,
+                productName: productName,
+                category: category,
+                location: "Warehouse",
+                status: .available
+            )
+
+            try await DataService.shared.insertInventoryItem(item: item)
+            insertedCount += 1
+        }
+
+        if insertedCount > 0 {
+            try await WarehouseService.shared.incrementStock(
+                warehouseId: warehouseId,
+                productId: productId,
+                by: insertedCount
+            )
+        }
+    }
 
     private func decrementWarehouseStock(productId: UUID, deductQuantity: Int) async throws {
         // Resolve the warehouse this IM manages
@@ -255,7 +317,7 @@ public final class TransfersViewModel: ObservableObject {
         }
     }
 
-    private func resolveWarehouseId() async throws -> UUID {
+    public func resolveWarehouseId() async throws -> UUID {
         let userId = try await SupabaseManager.shared.client.auth.session.user.id
         struct Row: Decodable {
             let warehouseId: UUID

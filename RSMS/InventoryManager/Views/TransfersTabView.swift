@@ -613,6 +613,9 @@ struct CreatePurchaseOrderSheet: View {
 #if canImport(UIKit)
                             .keyboardType(.numberPad)
 #endif
+                            .onChange(of: quantityText) { newValue in
+                                quantityText = newValue.filter { $0.isNumber }
+                            }
                     }
 
                     // Notes

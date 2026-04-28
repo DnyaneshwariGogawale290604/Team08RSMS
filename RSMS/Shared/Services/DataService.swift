@@ -553,7 +553,7 @@ public actor DataService {
             let product_name: String; let category: String
             let location: String; let status: String
         }
-        try? await client.from("inventory_items").insert(
+        try await client.from("inventory_items").insert(
             ItemInsert(
                 id: item.id, serial_id: item.serialId,
                 product_id: item.productId.uuidString, batch_no: item.batchNo,
@@ -562,6 +562,75 @@ public actor DataService {
                 status: item.status.rawValue
             )
         ).execute()
+    }
+
+    public func ensureBatchForVendorOrder(
+        vendorOrderId: UUID,
+        productId: UUID,
+        quantity: Int,
+        warehouseId: UUID
+    ) async throws -> UUID {
+        struct BatchRow: Decodable {
+            let batchId: UUID
+
+            enum CodingKeys: String, CodingKey {
+                case batchId = "batch_id"
+            }
+        }
+
+        let existing: [BatchRow] = try await client
+            .from("batches")
+            .select("batch_id")
+            .eq("vendor_order_id", value: vendorOrderId)
+            .limit(1)
+            .execute()
+            .value
+
+        if let batchId = existing.first?.batchId {
+            return batchId
+        }
+
+        struct BatchInsert: Encodable {
+            let vendorOrderId: UUID
+            let productId: UUID
+            let quantity: Int
+            let warehouseId: UUID
+            let receivedAt: String
+
+            enum CodingKeys: String, CodingKey {
+                case vendorOrderId = "vendor_order_id"
+                case productId = "product_id"
+                case quantity
+                case warehouseId = "warehouse_id"
+                case receivedAt = "received_at"
+            }
+        }
+
+        let iso = ISO8601DateFormatter()
+        let created: [BatchRow] = try await client
+            .from("batches")
+            .insert(
+                BatchInsert(
+                    vendorOrderId: vendorOrderId,
+                    productId: productId,
+                    quantity: quantity,
+                    warehouseId: warehouseId,
+                    receivedAt: iso.string(from: Date())
+                )
+            )
+            .select("batch_id")
+            .execute()
+            .value
+
+        guard let batchId = created.first?.batchId else {
+            throw NSError(
+                domain: "DataService",
+                code: 1,
+                userInfo: [NSLocalizedDescriptionKey: "Failed to create a batch for this vendor order."]
+            )
+        }
+
+        return batchId
     }
 
     /// Called when a repair ticket reaches a terminal state (Completed or Scrapped).

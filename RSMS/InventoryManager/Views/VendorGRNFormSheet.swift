@@ -271,22 +271,29 @@ struct VendorGRNFormSheet: View {
                     .padding(.vertical, 10)
                     .background(Color.appAccent.opacity(0.1))
                     .cornerRadius(12)
-                Text("Inventory has been updated successfully.")
+                Text("All received items were added to the Items tab with batch-linked RFID tags, and live stock has been updated.")
                     .font(.subheadline)
                     .foregroundColor(.appSecondaryText)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 20)
-                Button("Done") {
+                
+                Button {
                     onGRNCreated(generatedGRN)
                     dismiss()
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "checkmark.circle.fill")
+                        Text("Done")
+                            .font(.system(size: 16, weight: .semibold))
+                    }
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(Color.green)
+                    .clipShape(Capsule())
                 }
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundColor(.white)
-                .padding(.horizontal, 40)
-                .padding(.vertical, 14)
-                .background(Color.green)
-                .clipShape(Capsule())
-                .padding(.top, 8)
+                .padding(.horizontal, 20)
+                .padding(.top, 4)
             }
             .padding(32)
             .background(Color(UIColor.secondarySystemGroupedBackground))

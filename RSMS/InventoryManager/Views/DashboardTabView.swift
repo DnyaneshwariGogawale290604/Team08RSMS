@@ -32,8 +32,8 @@ public struct DashboardTabView: View {
                         }
                         .padding(.horizontal)
                         
-                        // 2. Category Stock Cards
-                        categoriesSection()
+                        // 2. Items Stock Cards
+                        itemsSection()
                     }
                     .padding(.vertical)
                 }
@@ -78,21 +78,25 @@ public struct DashboardTabView: View {
     }
 
     @ViewBuilder
-    private func categoriesSection() -> some View {
-        let categories = viewModel.categories
+    private func itemsSection() -> some View {
+        let items = viewModel.availableStockRows
         
         VStack(alignment: .leading, spacing: 10) {
-            Text("Categories")
+            Text("Items Stock Levels")
                 .font(.headline)
                 .foregroundColor(.appPrimaryText)
                 .padding(.horizontal)
             
-            ForEach(categories, id: \.self) { category in
+            ForEach(items, id: \.id) { item in
                 Button(action: {
-                    categoryFilterMagic = category
+                    if let category = item.product?.category, !category.isEmpty {
+                        categoryFilterMagic = category
+                    } else {
+                        categoryFilterMagic = "General"
+                    }
                     selectedTab = 2 // Assuming Tab 2 is Items
                 }) {
-                    categoryCard(for: category)
+                    itemCard(for: item)
                 }
                 .buttonStyle(PlainButtonStyle())
             }
@@ -100,19 +104,30 @@ public struct DashboardTabView: View {
     }
 
     @ViewBuilder
-    private func categoryCard(for category: String) -> some View {
-        let count = viewModel.availableItems(for: category)
-        let categoryProducts = viewModel.products
-            .filter { ($0.category.isEmpty ? "General" : $0.category) == category }
-        let categoryTarget = max(categoryProducts.reduce(0) { $0 + max($1.reorderPoint ?? 5, 1) }, 1)
-        let percent = min(Double(count) / Double(categoryTarget), 1.0)
+    private func itemCard(for item: InventoryDashboardViewModel.AvailableStockRow) -> some View {
+        let count = item.quantity
+        let target = max(item.product?.reorderPoint ?? 5, 1)
+        let percent = min(Double(count) / Double(target), 1.0)
         let statusColor: Color = percent >= 1.0 ? .green : (percent >= 0.5 ? .orange : .red)
         let statusBadge: String = percent >= 1.0 ? "Good" : (percent >= 0.5 ? "Low" : "Very Low")
+        let productName = item.product?.name ?? "Unknown Item"
+        
+        // Check if this product has an active vendor order
+        let hasActiveOrder = viewModel.orderedProductIds.contains(item.productId)
         
         VStack(spacing: 8) {
             HStack {
-                Text(category).font(.subheadline.bold()).foregroundColor(.appPrimaryText)
+                Text(productName).font(.subheadline.bold()).foregroundColor(.appPrimaryText)
                 Spacer()
+                if hasActiveOrder {
+                    Text("Order Placed")
+                        .font(.caption2.bold())
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.blue.opacity(0.15))
+                        .foregroundColor(.blue)
+                        .cornerRadius(4)
+                }
                 Text(statusBadge)
                     .font(.caption2.bold())
                     .padding(.horizontal, 6)
@@ -134,7 +149,7 @@ public struct DashboardTabView: View {
             HStack {
                 Text("\(count) items available").font(.caption2).foregroundColor(.appSecondaryText)
                 Spacer()
-                Text("Target \(categoryTarget)")
+                Text("Target \(target)")
                     .font(.caption2)
                     .foregroundColor(.appSecondaryText)
             }

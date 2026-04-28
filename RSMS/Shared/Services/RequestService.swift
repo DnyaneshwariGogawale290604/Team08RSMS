@@ -551,7 +551,8 @@ public final class RequestService: @unchecked Sendable {
             print("⚠️ GRN insert skipped (RLS or network): \(error.localizedDescription)")
         }
 
-        // Mark the vendor order as delivered
+        // Vendor order status stays within the DB enum. Receipt quality is
+        // already captured in the GRN's `condition` field.
         try await updateVendorOrderStatus(id: vendorOrderId, status: "delivered")
 
         return grnNumber

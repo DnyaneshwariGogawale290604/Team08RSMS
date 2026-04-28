@@ -18,60 +18,57 @@ public final class InventoryDashboardViewModel: ObservableObject {
     
     @Published public var storeInventory: [StoreInventory] = []
     @Published public var sales: [SalesOrder] = []
+
+    public struct AvailableStockRow: Identifiable {
+        public let productId: UUID
+        public let product: Product?
+        public let quantity: Int
+
+        public var id: UUID { productId }
+    }
     
     public func loadDashboardData() async {
         isLoading = true
-        
-        // 1. Fetch Products
+        defer { isLoading = false }
+
         do {
-            products = try await DataService.shared.fetchAllProductsForCurrentBrand()
+            // Concurrent fetches for speed
+            async let productsFetch = DataService.shared.fetchAllProductsForCurrentBrand()
+            async let requestsFetch = RequestService.shared.fetchPendingRequests()
+            async let shipmentsFetch = RequestService.shared.fetchShipmentsForCurrentWarehouse()
+            async let vendorOrdersFetch = RequestService.shared.fetchVendorOrdersForCurrentWarehouse()
+            async let inventoryItemsFetch = DataService.shared.fetchInventoryItems()
+            async let salesFetch = DataService.shared.fetchSales()
+
+            products = try await productsFetch
+            pendingRequests = try await requestsFetch
+            recentActivity = (try? await shipmentsFetch) ?? []
+            vendorOrders = (try? await vendorOrdersFetch) ?? []
+            inventoryItems = (try? await inventoryItemsFetch) ?? []
+            sales = (try? await salesFetch) ?? []
         } catch {
-            print("Failed to fetch products: \(error)")
+            print("Failed to fetch dashboard data: \(error)")
         }
-        
-        // 2. Fetch all inventory aggregates
-        do {
-            storeInventory = try await DataService.shared.fetchInventory()
-        } catch {
-            print("Failed to fetch store inventory: \(error)")
+
+        // Keep the legacy warehouse_inventory fetch for compatibility with
+        // older views, but dashboard stock metrics are derived from
+        // inventory_items so they stay in sync with the Items tab.
+        if let userId = try? await SupabaseManager.shared.client.auth.session.user.id {
+            struct Row: Decodable {
+                let warehouseId: UUID
+                enum CodingKeys: String, CodingKey { case warehouseId = "warehouse_id" }
+            }
+            if let managerRows: [Row] = try? await SupabaseManager.shared.client
+                .from("inventory_managers")
+                .select("warehouse_id")
+                .eq("user_id", value: userId)
+                .limit(1)
+                .execute()
+                .value,
+               let warehouseId = managerRows.first?.warehouseId {
+                warehouseInventory = (try? await WarehouseService.shared.fetchInventory(warehouseId: warehouseId)) ?? []
+            }
         }
-        
-        // 2.5 Fetch individual items (for repairs/serialization)
-        do {
-            inventoryItems = try await DataService.shared.fetchInventoryItems()
-        } catch {
-            print("Failed to fetch inventory items: \(error)")
-        }
-        
-        // 3. Fetch pending vendor orders / boutique requests
-        do {
-            pendingRequests = try await RequestService.shared.fetchPendingRequests()
-        } catch {
-            print("Failed to fetch pending requests: \(error)")
-        }
-        
-        // 4. Fetch actual shipments (items in transit, delivered, etc.)
-        do {
-            recentActivity = try await RequestService.shared.fetchAllShipments()
-        } catch {
-            print("Failed to fetch recent activity: \(error)")
-        }
-        
-        // 5. Fetch sales for 'Sold' metric
-        do {
-            sales = try await DataService.shared.fetchSales()
-        } catch {
-            print("Failed to fetch sales: \(error)")
-        }
-        
-        // 6. Fetch vendor orders to show "Order Placed" tags
-        do {
-            vendorOrders = (try? await RequestService.shared.fetchVendorOrdersForCurrentWarehouse()) ?? []
-        } catch {
-            print("Failed to fetch vendor orders: \(error)")
-        }
-        
-        isLoading = false
     }
     
     // Derived properties for the dashboard
@@ -84,8 +81,7 @@ public final class InventoryDashboardViewModel: ObservableObject {
         var critical: [Product] = []
         for product in products {
             let pid = product.id
-            let item = warehouseInventory.first { $0.productId == pid }
-            let totalQuantity = item?.quantity ?? 0
+            let totalQuantity = availableStockRows.first(where: { $0.productId == pid })?.quantity ?? 0
             let rop = product.reorderPoint ?? 5
             if totalQuantity <= rop {
                 critical.append(product)
@@ -95,7 +91,7 @@ public final class InventoryDashboardViewModel: ObservableObject {
     }
     
     public var stockHealthPercentage: Int {
-        let allCount = warehouseInventory.count
+        let allCount = availableStockRows.count
         if allCount == 0 { return 100 }
         let critCount = criticalSKUs.count
         let healthyCount = allCount - critCount
@@ -115,9 +111,30 @@ public final class InventoryDashboardViewModel: ObservableObject {
     }
     
     // MARK: - Stock Summary Metrics
+
+    public var availableStockRows: [AvailableStockRow] {
+        let availableItems = inventoryItems.filter { $0.status == .available }
+        let grouped = Dictionary(grouping: availableItems, by: \.productId)
+
+        return grouped.map { productId, items in
+            AvailableStockRow(
+                productId: productId,
+                product: products.first(where: { $0.id == productId }) ?? items.first.flatMap { item in
+                    Product(
+                        id: productId,
+                        name: item.productName,
+                        category: item.category,
+                        price: 0
+                    )
+                },
+                quantity: items.count
+            )
+        }
+        .sorted { ($0.product?.name ?? "") < ($1.product?.name ?? "") }
+    }
     
     public var availableCount: Int {
-        return warehouseInventory.reduce(0) { $0 + $1.quantity }
+        inventoryItems.filter { $0.status == .available }.count
     }
     
     public var underRepairCount: Int {
@@ -126,7 +143,7 @@ public final class InventoryDashboardViewModel: ObservableObject {
 
     public var inTransitCount: Int {
         recentActivity
-            .filter { $0.status.lowercased() == "in_transit" || $0.status.lowercased() == "dispatched" }
+            .filter { $0.status.lowercased() == "in_transit" }
             .compactMap { $0.request?.requestedQuantity }
             .reduce(0, +)
     }
@@ -154,10 +171,10 @@ public final class InventoryDashboardViewModel: ObservableObject {
     }
     
     public func availableItems(for category: String) -> Int {
-        return warehouseInventory.filter { row in
-            let cat = row.product?.category.isEmpty == true ? "General" : (row.product?.category ?? "General")
-            return cat == category
-        }.reduce(0) { $0 + $1.quantity }
+        inventoryItems.filter { item in
+            let cat = item.category.isEmpty ? "General" : item.category
+            return item.status == .available && cat == category
+        }.count
     }
     
     /// Product IDs that have an active in_transit vendor order placed for them
