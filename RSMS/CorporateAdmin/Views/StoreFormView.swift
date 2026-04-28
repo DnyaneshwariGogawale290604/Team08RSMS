@@ -130,27 +130,26 @@ public struct StoreFormView: View {
 
                 divider
 
-                detailRow(title: "Status") {
-                    Menu {
-                        Picker("Status", selection: $storeStatus) {
-                            ForEach(StoreDraftStatus.allCases, id: \.self) { status in
-                                Text(status.displayName).tag(status)
-                            }
-                        }
-                    } label: {
-                        HStack(spacing: 4) {
-                            Text(storeStatus.displayName)
-                                .foregroundColor(.black)
-                            Image(systemName: "chevron.up.chevron.down")
-                                .font(.system(size: 12))
-                                .foregroundColor(.gray)
-                        }
+                Toggle(isOn: Binding(
+                    get: { storeStatus == .active },
+                    set: { storeStatus = $0 ? .active : .inactive }
+                )) {
+                    HStack {
+                        Text("Status")
+                            .font(.system(size: 16))
+                            .foregroundColor(.black)
+                        Spacer()
+                        Text(storeStatus == .active ? "Active" : "Inactive")
+                            .font(.system(size: 14))
+                            .foregroundColor(.gray)
+                            .padding(.trailing, 8)
                     }
                 }
+                .toggleStyle(SwitchToggleStyle(tint: CatalogTheme.primary))
 
                 divider
 
-                inlineTextField("Sales Target (Optional)", text: $salesTargetStr, keyboardType: .decimalPad)
+                inlineTextField("Sales Target", text: $salesTargetStr, keyboardType: .decimalPad)
             }
 
         }
@@ -333,7 +332,8 @@ public struct StoreFormView: View {
 
     private var canSave: Bool {
         !isSaving &&
-        !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        !salesTargetStr.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     private var remainingProducts: [Product] {
@@ -388,8 +388,8 @@ public struct StoreFormView: View {
         let trimmedLocation = location.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedAddress = address.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        guard !trimmedName.isEmpty, !trimmedLocation.isEmpty else {
-            presentError("Store name and location are required.")
+        guard !trimmedName.isEmpty, !trimmedLocation.isEmpty, !salesTargetStr.isEmpty else {
+            presentError("Store name, location, and sales target are required.")
             return
         }
 
@@ -444,7 +444,6 @@ public struct StoreFormView: View {
 private enum StoreDraftStatus: String, CaseIterable {
     case active
     case inactive
-    case underMaintenance = "under_maintenance"
 
     var displayName: String {
         switch self {
@@ -452,8 +451,6 @@ private enum StoreDraftStatus: String, CaseIterable {
             return "Active"
         case .inactive:
             return "Inactive"
-        case .underMaintenance:
-            return "Under maintenance"
         }
     }
 }

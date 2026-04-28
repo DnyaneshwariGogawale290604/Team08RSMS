@@ -109,10 +109,26 @@ public final class StoreInventoryMonitorViewModel: ObservableObject {
             results = results.filter { $0.product.category == category }
         }
         
-        // Sort alphabetically or smartly
-        results.sort { $0.product.name < $1.product.name }
+        // Sort by status (Urgent > Low > Healthy) then by name
+        results.sort { item1, item2 in
+            let p1 = priority(for: item1.status)
+            let p2 = priority(for: item2.status)
+            
+            if p1 != p2 {
+                return p1 < p2
+            }
+            return item1.product.name < item2.product.name
+        }
         
         self.filteredItems = results
+    }
+    
+    private func priority(for status: StockStatus) -> Int {
+        switch status {
+        case .critical: return 0
+        case .low: return 1
+        case .healthy: return 2
+        }
     }
     
     public var totalProducts: Int { allItems.count }

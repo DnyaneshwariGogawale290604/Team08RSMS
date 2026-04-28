@@ -137,10 +137,25 @@ struct InventoryMonitorCard: View {
                         .foregroundColor(CatalogTheme.secondaryText)
                 }
                 Spacer()
-                
-                Text("Qty: \(item.current)")
-                    .font(.system(size: 14, weight: .semibold, design: .serif))
-                    .foregroundColor(CatalogTheme.primaryText)
+                VStack(alignment: .trailing, spacing: 4) {
+                    HStack(spacing: 4) {
+                        Text("Current:")
+                            .font(.system(size: 12, design: .serif))
+                            .foregroundColor(CatalogTheme.secondaryText)
+                        Text("\(item.current)")
+                            .font(.system(size: 15, weight: .bold, design: .serif))
+                            .foregroundColor(item.status.color)
+                    }
+                    
+                    HStack(spacing: 4) {
+                        Text("Baseline:")
+                            .font(.system(size: 12, design: .serif))
+                            .foregroundColor(CatalogTheme.secondaryText)
+                        Text("\(item.baseline)")
+                            .font(.system(size: 13, weight: .semibold, design: .serif))
+                            .foregroundColor(CatalogTheme.primaryText)
+                    }
+                }
             }
         }
         .padding(20)

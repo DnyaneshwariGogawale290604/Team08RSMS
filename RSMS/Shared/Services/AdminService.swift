@@ -653,6 +653,54 @@ public final class AdminService: @unchecked Sendable {
             .insert(InventoryManagerInsert(userId: userId, warehouseId: warehouseId, corporateAdminId: corporateAdminId))
             .execute()
     }
+
+    public func fetchProductStocks() async throws -> [UUID: Int] {
+        let stores = try await fetchStores()
+        let storeIds = stores.map { $0.id }
+        
+        struct InventoryRow: Decodable {
+            let productId: UUID
+            let quantity: Int
+            
+            enum CodingKeys: String, CodingKey {
+                case productId = "product_id"
+                case quantity
+            }
+        }
+        
+        var stocks: [UUID: Int] = [:]
+        
+        if !storeIds.isEmpty {
+            let storeInventories: [InventoryRow] = try await client
+                .from("store_inventory")
+                .select("product_id, quantity")
+                .in("store_id", values: storeIds.map { $0.uuidString })
+                .execute()
+                .value
+            
+            for row in storeInventories {
+                stocks[row.productId, default: 0] += row.quantity
+            }
+        }
+        
+        let warehouses = try await fetchWarehouses()
+        let warehouseIds = warehouses.map { $0.id }
+        
+        if !warehouseIds.isEmpty {
+            let warehouseInventories: [InventoryRow] = try await client
+                .from("warehouse_inventory")
+                .select("product_id, quantity")
+                .in("warehouse_id", values: warehouseIds.map { $0.uuidString })
+                .execute()
+                .value
+                
+            for row in warehouseInventories {
+                stocks[row.productId, default: 0] += row.quantity
+            }
+        }
+        
+        return stocks
+    }
 }
 
 public struct CorporateAdminContext: Codable, Sendable {

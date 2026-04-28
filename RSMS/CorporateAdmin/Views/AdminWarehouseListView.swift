@@ -4,23 +4,9 @@ public struct AdminWarehouseListView: View {
     @ObservedObject var viewModel: WarehouseViewModel
     @Binding var showingAddWarehouse: Bool
     
-    @State private var selectedFilter: WarehouseFilter = .all
-
-    enum WarehouseFilter: String, CaseIterable {
-        case all = "All"
-        case active = "Active"
-        case inactive = "Inactive"
-        case maintenance = "Maintenance"
-    }
 
     private var filteredWarehouses: [Warehouse] {
-        let activeWarehouses = viewModel.warehouses.filter { ($0.status ?? "active").lowercased() != "inactive" }
-        switch selectedFilter {
-        case .all: return activeWarehouses
-        case .active: return activeWarehouses.filter { ($0.status ?? "active").lowercased() == "active" }
-        case .inactive: return activeWarehouses.filter { ($0.status ?? "").lowercased() == "inactive" }
-        case .maintenance: return activeWarehouses.filter { ($0.status ?? "").lowercased().contains("maintenance") }
-        }
+        viewModel.warehouses.filter { ($0.status ?? "active").lowercased() != "inactive" }
     }
 
     private var archivedWarehouses: [Warehouse] {
@@ -35,7 +21,6 @@ public struct AdminWarehouseListView: View {
                 LoadingView(message: "Loading Warehouses...")
             } else {
                 VStack(spacing: 0) {
-                    filterChips
                     
                     if viewModel.warehouses.isEmpty {
                         EmptyStateView(
@@ -50,7 +35,7 @@ public struct AdminWarehouseListView: View {
                                     AdminWarehouseCard(warehouse: warehouse, viewModel: viewModel)
                                 }
 
-                                if !archivedWarehouses.isEmpty && selectedFilter == .all {
+                                if !archivedWarehouses.isEmpty {
                                     VStack(alignment: .leading, spacing: 16) {
                                         Text("Archived Warehouses")
                                             .font(.system(size: 18, weight: .bold, design: .serif))
@@ -76,25 +61,6 @@ public struct AdminWarehouseListView: View {
         }
     }
 
-    private var filterChips: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 12) {
-                ForEach(WarehouseFilter.allCases, id: \.self) { filter in
-                    Button(action: { selectedFilter = filter }) {
-                        Text(filter.rawValue)
-                            .font(.system(size: 14, weight: .semibold))
-                            .padding(.horizontal, 20)
-                            .padding(.vertical, 10)
-                            .background(selectedFilter == filter ? CatalogTheme.primary : CatalogTheme.surface)
-                            .foregroundColor(selectedFilter == filter ? .white : CatalogTheme.deepAccent)
-                            .clipShape(Capsule())
-                    }
-                }
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 16)
-        }
-    }
 }
 
 public struct AdminWarehouseCard: View {

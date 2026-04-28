@@ -217,8 +217,24 @@ public struct ProductListView: View {
         default:
             base = searchFilteredProducts.filter { $0.category == selectedFilter }
         }
-        // Always push inactive products to the bottom
-        return base.sorted { ($0.isActive ?? true) && !($1.isActive ?? true) }
+        
+        return base.sorted { p1, p2 in
+            let a1 = p1.isActive ?? true
+            let a2 = p2.isActive ?? true
+            
+            if a1 != a2 {
+                return a1 && !a2
+            }
+            
+            let s1 = p1.stockStatus
+            let s2 = p2.stockStatus
+            
+            if s1 != s2 {
+                return s1 < s2
+            }
+            
+            return p1.name < p2.name
+        }
     }
 
     private var activeCount: Int {
@@ -319,9 +335,27 @@ private struct ProductCardView: View {
                     .foregroundColor(CatalogTheme.subtleCategory)
                     .lineLimit(1)
 
-                Text(formattedPrice(product.price))
-                    .font(.system(size: 15, weight: .bold, design: .serif))
-                    .foregroundColor(CatalogTheme.deepAccent)
+                HStack {
+                    Text(formattedPrice(product.price))
+                        .font(.system(size: 15, weight: .bold, design: .serif))
+                        .foregroundColor(CatalogTheme.deepAccent)
+
+                    Spacer()
+
+                    HStack(spacing: 4) {
+                        Image(systemName: product.stockStatus == .urgent ? "exclamationmark.triangle.fill" : "shippingbox.fill")
+                            .font(.system(size: 10))
+                        Text("\(product.stockQuantity ?? 0)")
+                            .font(.system(size: 12, weight: .bold))
+                    }
+                    .foregroundColor(product.stockStatus == .urgent ? .red : (product.stockStatus == .low ? .orange : CatalogTheme.secondaryText))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(product.stockStatus == .urgent ? Color.red.opacity(0.1) : (product.stockStatus == .low ? Color.orange.opacity(0.1) : Color.gray.opacity(0.1)))
+                    )
+                }
             }
             .padding(.horizontal, 12)
             .padding(.bottom, 12)

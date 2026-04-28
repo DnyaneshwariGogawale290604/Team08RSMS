@@ -4,23 +4,9 @@ public struct AdminStoreListView: View {
     @ObservedObject var viewModel: StoreViewModel
     @Binding var showingAddStore: Bool
     @State private var storePendingArchive: Store?
-    @State private var selectedFilter: StoreFilter = .all
-
-    enum StoreFilter: String, CaseIterable {
-        case all = "All"
-        case active = "Active"
-        case inactive = "Inactive"
-        case maintenance = "Maintenance"
-    }
     
     private var filteredStores: [Store] {
-        let activeStores = viewModel.stores.filter { ($0.status ?? "active").lowercased() != "inactive" }
-        switch selectedFilter {
-        case .all: return activeStores
-        case .active: return activeStores.filter { ($0.status ?? "active").lowercased() == "active" }
-        case .inactive: return activeStores.filter { ($0.status ?? "").lowercased() == "inactive" }
-        case .maintenance: return activeStores.filter { ($0.status ?? "").lowercased().contains("maintenance") }
-        }
+        viewModel.stores.filter { ($0.status ?? "active").lowercased() != "inactive" }
     }
 
     private var archivedStores: [Store] {
@@ -35,7 +21,6 @@ public struct AdminStoreListView: View {
                 LoadingView(message: "Loading Stores...")
             } else {
                 VStack(spacing: 0) {
-                    filterChips
                     
                     if viewModel.stores.isEmpty {
                         EmptyStateView(
@@ -56,7 +41,7 @@ public struct AdminStoreListView: View {
                                 }
 
                                 // Archived Section
-                                if !archivedStores.isEmpty && selectedFilter == .all {
+                                if !archivedStores.isEmpty {
                                     VStack(alignment: .leading, spacing: 16) {
                                         Text("Temporarily Unavailable Stores")
                                             .font(.system(size: 18, weight: .bold, design: .serif))
@@ -98,25 +83,6 @@ public struct AdminStoreListView: View {
         }
     }
 
-    private var filterChips: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 12) {
-                ForEach(StoreFilter.allCases, id: \.self) { filter in
-                    Button(action: { selectedFilter = filter }) {
-                        Text(filter.rawValue)
-                            .font(.system(size: 14, weight: .semibold))
-                            .padding(.horizontal, 20)
-                            .padding(.vertical, 10)
-                            .background(selectedFilter == filter ? CatalogTheme.primary : CatalogTheme.surface)
-                            .foregroundColor(selectedFilter == filter ? .white : CatalogTheme.deepAccent)
-                            .clipShape(Capsule())
-                    }
-                }
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 16)
-        }
-    }
 }
 
 public struct AdminStoreCard: View {

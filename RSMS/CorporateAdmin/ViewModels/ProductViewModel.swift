@@ -16,7 +16,27 @@ public final class ProductViewModel: ObservableObject {
         isLoading = true
         do {
             print("VIEWMODEL FETCH PRODUCTS: calling service")
-            products = try await service.fetchProducts()
+            async let productsTask = service.fetchProducts()
+            async let stocksTask = AdminService.shared.fetchProductStocks()
+            
+            var fetchedProducts = try await productsTask
+            let stocks = try await stocksTask
+            
+            for i in 0..<fetchedProducts.count {
+                fetchedProducts[i].stockQuantity = stocks[fetchedProducts[i].id] ?? 0
+            }
+            
+            // Sort by stock status: Urgent > Low > Remaining
+            self.products = fetchedProducts.sorted { p1, p2 in
+                let s1 = p1.stockStatus
+                let s2 = p2.stockStatus
+                
+                if s1 != s2 {
+                    return s1 < s2
+                }
+                return p1.name < p2.name
+            }
+            
             print("VIEWMODEL FETCH PRODUCTS COUNT:", products.count)
             errorMessage = nil
         } catch {
