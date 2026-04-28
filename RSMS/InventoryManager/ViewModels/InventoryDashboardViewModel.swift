@@ -16,51 +16,62 @@ public final class InventoryDashboardViewModel: ObservableObject {
     
     public init() {}
     
+    @Published public var storeInventory: [StoreInventory] = []
+    @Published public var sales: [SalesOrder] = []
+    
     public func loadDashboardData() async {
         isLoading = true
-        defer { isLoading = false }
-
+        
+        // 1. Fetch Products
         do {
-            async let productsFetch = DataService.shared.fetchAllProductsForCurrentBrand()
-            async let requestsFetch = RequestService.shared.fetchPendingRequests()
-            async let shipmentsFetch = RequestService.shared.fetchShipmentsForCurrentWarehouse()
-            async let vendorOrdersFetch = RequestService.shared.fetchVendorOrdersForCurrentWarehouse()
-            async let inventoryItemsFetch = DataService.shared.fetchInventoryItems()
-
-            let fetchedProducts = try await productsFetch
-            let fetchedRequests = try await requestsFetch
-            let fetchedShipments = try await shipmentsFetch
-            let fetchedVendorOrders = (try? await vendorOrdersFetch) ?? []
-            let fetchedItems = try await inventoryItemsFetch
-
-            var fetchedWarehouseInventory: [WarehouseInventoryRow] = []
-            if let userId = try? await SupabaseManager.shared.client.auth.session.user.id {
-                struct Row: Decodable {
-                    let warehouseId: UUID
-                    enum CodingKeys: String, CodingKey { case warehouseId = "warehouse_id" }
-                }
-
-                if let managerRows: [Row] = try? await SupabaseManager.shared.client
-                    .from("inventory_managers")
-                    .select("warehouse_id")
-                    .eq("user_id", value: userId)
-                    .limit(1)
-                    .execute()
-                    .value,
-                   let warehouseId = managerRows.first?.warehouseId {
-                    fetchedWarehouseInventory = try await WarehouseService.shared.fetchInventory(warehouseId: warehouseId)
-                }
-            }
-
-            products = fetchedProducts
-            pendingRequests = fetchedRequests
-            recentActivity = fetchedShipments
-            vendorOrders = fetchedVendorOrders
-            inventoryItems = fetchedItems
-            warehouseInventory = fetchedWarehouseInventory
+            products = try await DataService.shared.fetchAllProductsForCurrentBrand()
         } catch {
-            print("Failed to fetch dashboard data: \(error)")
+            print("Failed to fetch products: \(error)")
         }
+        
+        // 2. Fetch all inventory aggregates
+        do {
+            storeInventory = try await DataService.shared.fetchInventory()
+        } catch {
+            print("Failed to fetch store inventory: \(error)")
+        }
+        
+        // 2.5 Fetch individual items (for repairs/serialization)
+        do {
+            inventoryItems = try await DataService.shared.fetchInventoryItems()
+        } catch {
+            print("Failed to fetch inventory items: \(error)")
+        }
+        
+        // 3. Fetch pending vendor orders / boutique requests
+        do {
+            pendingRequests = try await RequestService.shared.fetchPendingRequests()
+        } catch {
+            print("Failed to fetch pending requests: \(error)")
+        }
+        
+        // 4. Fetch actual shipments (items in transit, delivered, etc.)
+        do {
+            recentActivity = try await RequestService.shared.fetchAllShipments()
+        } catch {
+            print("Failed to fetch recent activity: \(error)")
+        }
+        
+        // 5. Fetch sales for 'Sold' metric
+        do {
+            sales = try await DataService.shared.fetchSales()
+        } catch {
+            print("Failed to fetch sales: \(error)")
+        }
+        
+        // 6. Fetch vendor orders to show "Order Placed" tags
+        do {
+            vendorOrders = (try? await RequestService.shared.fetchVendorOrdersForCurrentWarehouse()) ?? []
+        } catch {
+            print("Failed to fetch vendor orders: \(error)")
+        }
+        
+        isLoading = false
     }
     
     // Derived properties for the dashboard
