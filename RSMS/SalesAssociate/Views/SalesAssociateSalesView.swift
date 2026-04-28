@@ -782,7 +782,7 @@ struct ProductPickerSheet: View {
                     Image(systemName: isAdded ? "checkmark" : "plus").font(.system(size: 11, weight: .semibold))
                     Text(isAdded ? "Added!" : "Add to Cart").font(BrandFont.body(13, weight: .medium))
                 }
-                .foregroundStyle(isAdded ? Color.luxuryPrimary.opacity(0.12) : Color.luxuryDeepAccent)
+                .foregroundStyle(isAdded ? Color.luxuryPrimary : Color.white)
                 .padding(.horizontal, Spacing.md).padding(.vertical, 8)
                 .background(isAdded ? Color.luxuryPrimary.opacity(0.12) : Color.luxuryDeepAccent)
                 .clipShape(Capsule())

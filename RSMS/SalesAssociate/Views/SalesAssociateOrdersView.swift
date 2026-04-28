@@ -14,7 +14,6 @@ struct SalesAssociateOrdersView: View {
     @EnvironmentObject var orderStore: SharedOrderStore
     @State private var selectedOrder: PlacedOrder? = nil
     @State private var selectedRemoteOrder: SAOrder? = nil
-    @State private var showNewSale = false
     @State private var searchText = ""
     @State private var selectedStatusFilter: OrderStatusFilter = .all
     @State private var billingOrderId: UUID? = nil
@@ -189,24 +188,6 @@ struct SalesAssociateOrdersView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     SalesAssociateProfileButton(sessionViewModel: sessionViewModel)
                 }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showNewSale = true
-                    } label: {
-                        Image(systemName: "plus")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(Color.luxuryPrimary)
-                    }
-                }
-            }
-            .fullScreenCover(isPresented: $showNewSale) {
-                SalesAssociateSalesView(isModal: true) {
-                    showNewSale = false
-                    Task {
-                        await viewModel.refresh()
-                    }
-                }
-                .environmentObject(orderStore)
             }
             .task {
                 await viewModel.refresh()
