@@ -2,14 +2,16 @@ import SwiftUI
 
 public struct DashboardTabView: View {
     @StateObject private var viewModel = InventoryDashboardViewModel()
-    @Binding var selectedTab: Int // To navigate to Tab 2 (PO) or Tab 3 (Items)
+    @Binding var selectedTab: Int // To navigate to Tab 1 (Workflows) or Tab 2 (Items)
     @Binding var prefilledSKUMagic: String? // Pass state to Transfers/PO tab
     @Binding var categoryFilterMagic: String? // Pass state to Items tab
+    public var onAccountTapped: (() -> Void)? = nil
 
-    public init(selectedTab: Binding<Int>, prefilledSKUMagic: Binding<String?>, categoryFilterMagic: Binding<String?>) {
+    public init(selectedTab: Binding<Int>, prefilledSKUMagic: Binding<String?>, categoryFilterMagic: Binding<String?>, onAccountTapped: (() -> Void)? = nil) {
         self._selectedTab = selectedTab
         self._prefilledSKUMagic = prefilledSKUMagic
         self._categoryFilterMagic = categoryFilterMagic
+        self.onAccountTapped = onAccountTapped
     }
 
     public var body: some View {
@@ -18,106 +20,137 @@ public struct DashboardTabView: View {
                 Color.appBackground.ignoresSafeArea()
                 
                 ScrollView {
-                    VStack(spacing: 20) {
-                        // 1. Four Metric Cards
-                        HStack(spacing: 12) {
-                            metricCard(title: "Total SKUs", value: "\(viewModel.totalSKUs)", icon: "shippingbox", color: .blue)
-                            metricCard(title: "Available", value: "\(viewModel.availableCount)", icon: "checkmark.circle.fill", color: .green)
+                    VStack(alignment: .leading, spacing: 24) {
+                        // Stock Summary Cards
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Stock Summary")
+                                .font(.headline)
+                                .foregroundColor(Color.appPrimaryText)
+                                .padding(.horizontal)
+                            
+                            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
+                                Button(action: {
+                                    categoryFilterMagic = nil
+                                    selectedTab = 2 // Items tab
+                                }) {
+                                    statCard(title: "Available", value: "\(viewModel.availableCount)", icon: "checkmark.circle.fill", color: .green)
+                                }
+                                .buttonStyle(PlainButtonStyle())
+                                
+                                Button(action: {
+                                    selectedTab = 1 // Workflows tab
+                                }) {
+                                    statCard(title: "In Transit", value: "\(viewModel.inTransitCount)", icon: "box.truck.fill", color: .blue)
+                                }
+                                .buttonStyle(PlainButtonStyle())
+
+                                Button(action: {
+                                    selectedTab = 1 // Workflows tab
+                                }) {
+                                    statCard(title: "Pending Req", value: "\(viewModel.pendingRequests.count)", icon: "clock.fill", color: .orange)
+                                }
+                                .buttonStyle(PlainButtonStyle())
+
+                                Button(action: {
+                                    selectedTab = 1 // Workflows tab
+                                }) {
+                                    statCard(title: "Active POs", value: "\(viewModel.activePurchaseOrderCount)", icon: "shippingbox.circle.fill", color: .blue)
+                                }
+                                .buttonStyle(PlainButtonStyle())
+                            }
+                            .padding(.horizontal)
                         }
-                        .padding(.horizontal)
+                        .padding(.top, 16)
                         
-                        HStack(spacing: 12) {
-                            metricCard(title: "Pending Req", value: "\(viewModel.pendingRequests.count)", icon: "clock.fill", color: .orange)
-                            metricCard(title: "Active POs", value: "\(viewModel.activePurchaseOrderCount)", icon: "shippingbox.circle.fill", color: .blue)
+                        // Items Stock Levels
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Items Stock Levels")
+                                .font(.headline)
+                                .foregroundColor(Color.appPrimaryText)
+                                .padding(.horizontal)
+                            
+                            ForEach(viewModel.categories, id: \.self) { category in
+                                Button(action: {
+                                    categoryFilterMagic = category
+                                    selectedTab = 2 // Items tab
+                                }) {
+                                    categoryCard(for: category)
+                                }
+                                .buttonStyle(PlainButtonStyle())
+                            }
                         }
-                        .padding(.horizontal)
                         
-                        // 2. Items Stock Cards
-                        itemsSection()
                     }
-                    .padding(.vertical)
+                    .padding(.bottom, 20)
+                }
+                .refreshable { 
+                    await viewModel.loadDashboardData()
                 }
             }
             .navigationTitle("Dashboard")
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                if let onAccountTapped = onAccountTapped {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button(action: onAccountTapped) {
+                            Image(systemName: "person.crop.circle")
+                                .foregroundColor(Color.appPrimaryText)
+                        }
+                    }
+                }
+            }
             .task {
                 await viewModel.loadDashboardData()
             }
-            .refreshable {
-                await viewModel.loadDashboardData()
-            }
         }
     }
-
-    // MARK: - Components
-
+    
     @ViewBuilder
-    private func metricCard(title: String, value: String, icon: String, color: Color) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+    private func statCard(title: String, value: String, icon: String, color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Image(systemName: icon)
+                    .font(.title2)
                     .foregroundColor(color)
-                    .font(.title3)
+                    .padding(10)
+                    .background(color.opacity(0.15))
+                    .cornerRadius(10)
                 Spacer()
-                Text(value)
-                    .font(.title2.bold())
-                    .foregroundColor(.appPrimaryText)
             }
+            
+            Text(value)
+                .font(.title2.bold())
+                .foregroundColor(Color.appPrimaryText)
+                
             Text(title)
-                .font(.caption)
-                .foregroundColor(.appSecondaryText)
+                .font(.subheadline)
+                .foregroundColor(Color.appSecondaryText)
         }
-        .padding()
-        .frame(maxWidth: .infinity)
+        .padding(16)
         .background(Color.appCard)
         .cornerRadius(12)
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(Color.appBorder, lineWidth: 1)
-        )
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.appBorder, lineWidth: 1))
     }
 
     @ViewBuilder
-    private func itemsSection() -> some View {
-        let items = viewModel.availableStockRows
-        
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Items Stock Levels")
-                .font(.headline)
-                .foregroundColor(.appPrimaryText)
-                .padding(.horizontal)
-            
-            ForEach(items, id: \.id) { item in
-                Button(action: {
-                    if let category = item.product?.category, !category.isEmpty {
-                        categoryFilterMagic = category
-                    } else {
-                        categoryFilterMagic = "General"
-                    }
-                    selectedTab = 2 // Assuming Tab 2 is Items
-                }) {
-                    itemCard(for: item)
-                }
-                .buttonStyle(PlainButtonStyle())
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func itemCard(for item: InventoryDashboardViewModel.AvailableStockRow) -> some View {
-        let count = item.quantity
-        let target = max(item.product?.reorderPoint ?? 5, 1)
-        let percent = min(Double(count) / Double(target), 1.0)
+    private func categoryCard(for category: String) -> some View {
+        let count = viewModel.availableItems(for: category)
+        let categoryProducts = viewModel.products
+            .filter { ($0.category.isEmpty ? "General" : $0.category) == category }
+        let categoryTarget = max(categoryProducts.reduce(0) { $0 + max($1.reorderPoint ?? 5, 1) }, 1)
+        let percent = min(Double(count) / Double(categoryTarget), 1.0)
         let statusColor: Color = percent >= 1.0 ? .green : (percent >= 0.5 ? .orange : .red)
         let statusBadge: String = percent >= 1.0 ? "Good" : (percent >= 0.5 ? "Low" : "Very Low")
-        let productName = item.product?.name ?? "Unknown Item"
         
-        // Check if this product has an active vendor order
-        let hasActiveOrder = viewModel.orderedProductIds.contains(item.productId)
+        // Check if any product in this category has an active vendor order
+        let categoryProductIds = viewModel.products
+            .filter { ($0.category.isEmpty ? "General" : $0.category) == category }
+            .map { $0.id }
+        let hasActiveOrder = categoryProductIds.contains(where: { viewModel.orderedProductIds.contains($0) })
         
         VStack(spacing: 8) {
             HStack {
-                Text(productName).font(.subheadline.bold()).foregroundColor(.appPrimaryText)
+                Text(category).font(.subheadline.bold()).foregroundColor(Color.appPrimaryText)
                 Spacer()
                 if hasActiveOrder {
                     Text("Order Placed")
@@ -147,11 +180,11 @@ public struct DashboardTabView: View {
             .frame(height: 6)
             
             HStack {
-                Text("\(count) items available").font(.caption2).foregroundColor(.appSecondaryText)
+                Text("\(count) items available").font(.caption2).foregroundColor(Color.appSecondaryText)
                 Spacer()
-                Text("Target \(target)")
+                Text("Target \(categoryTarget)")
                     .font(.caption2)
-                    .foregroundColor(.appSecondaryText)
+                    .foregroundColor(Color.appSecondaryText)
             }
         }
         .padding()

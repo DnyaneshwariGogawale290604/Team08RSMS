@@ -142,10 +142,9 @@ public final class InventoryDashboardViewModel: ObservableObject {
     }
 
     public var inTransitCount: Int {
-        recentActivity
-            .filter { $0.status.lowercased() == "in_transit" }
-            .compactMap { $0.request?.requestedQuantity }
-            .reduce(0, +)
+        let shipmentCount = recentActivity.filter { $0.status.lowercased() == "in_transit" }.count
+        let poCount = vendorOrders.filter { $0.status?.lowercased() == "in_transit" }.count
+        return shipmentCount + poCount
     }
 
     public var activePurchaseOrderCount: Int {

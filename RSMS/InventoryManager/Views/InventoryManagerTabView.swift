@@ -5,6 +5,7 @@ public struct InventoryManagerTabView: View {
     @State private var showingAccountSheet = false
     @State private var selectedTab: Int = 0
     @State private var prefilledSKUMagic: String? = nil
+    @State private var categoryFilterMagic: String? = nil
 
     public init(sessionViewModel: SessionViewModel) {
         self.sessionViewModel = sessionViewModel
@@ -12,21 +13,16 @@ public struct InventoryManagerTabView: View {
 
     public var body: some View {
         TabView(selection: $selectedTab) {
-            DashboardView {
-                showingAccountSheet = true
-            }
-                .tabItem {
-                    Label("Dashboard", systemImage: "square.grid.2x2.fill")
-                }
-                .tag(0)
-
-            NavigationView {
-                RequestsTabView(selectedTab: $selectedTab, prefilledSKUMagic: $prefilledSKUMagic)
-            }
+            DashboardTabView(
+                selectedTab: $selectedTab,
+                prefilledSKUMagic: $prefilledSKUMagic,
+                categoryFilterMagic: $categoryFilterMagic,
+                onAccountTapped: { showingAccountSheet = true }
+            )
             .tabItem {
-                Label("Requests", systemImage: "tray.full")
+                Label("Dashboard", systemImage: "square.grid.2x2.fill")
             }
-            .tag(1)
+            .tag(0)
 
             NavigationView {
                 TransfersTabView(selectedTab: $selectedTab, prefilledSKUMagic: $prefilledSKUMagic)
@@ -34,13 +30,13 @@ public struct InventoryManagerTabView: View {
             .tabItem {
                 Label("Workflows", systemImage: "arrow.left.arrow.right")
             }
-            .tag(2)
+            .tag(1)
 
-            ItemsTabView(categoryFilterMagic: .constant(nil as String?))
+            ItemsTabView(categoryFilterMagic: $categoryFilterMagic)
                 .tabItem {
                     Label("Items", systemImage: "shippingbox")
                 }
-                .tag(3)
+                .tag(2)
         }
         .accentColor(Color(hex: "#6E5155"))
         .onAppear {

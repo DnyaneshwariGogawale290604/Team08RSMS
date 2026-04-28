@@ -31,13 +31,6 @@ public struct InventoryManagerMainView: View {
                     Text("Items")
                 }
                 .tag(2)
-            
-            RequestsTabView(selectedTab: $selectedTab, prefilledSKUMagic: $prefilledSKUMagic)
-                .tabItem {
-                    Image(systemName: "bell.badge.fill")
-                    Text("Requests")
-                }
-                .tag(3)
         }
         .tint(.appAccent)
     }

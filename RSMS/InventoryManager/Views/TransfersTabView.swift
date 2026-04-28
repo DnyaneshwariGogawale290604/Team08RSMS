@@ -5,7 +5,12 @@ public struct TransfersTabView: View {
     @Binding var selectedTab: Int
     @Binding var prefilledSKUMagic: String?
 
-    @State private var selectedSection: Int = 1   // default to Pick Lists (most active)
+    @State private var selectedSection: Int = 1   // default to Purchase Orders
+
+    // Requests state
+    @State private var rejectTargetRequest: ProductRequest? = nil
+    @State private var showRejectAlert = false
+    @State private var rejectReason: String = ""
     @State private var showingCreatePO = false
 
     // Pick list dispatch
@@ -31,9 +36,10 @@ public struct TransfersTabView: View {
             VStack(spacing: 0) {
                 // Section picker
                 Picker("Section", selection: $selectedSection) {
-                    Text("Purchase Orders").tag(0)
-                    Text("Pick Lists").tag(1)
-                    Text("Shipments Out").tag(2)
+                    Text("Requests").tag(0)
+                    Text("Purchase Orders").tag(1)
+                    Text("Pick Lists").tag(2)
+                    Text("Shipments Out").tag(3)
                 }
                 .pickerStyle(SegmentedPickerStyle())
                 .padding(.horizontal, 16)
@@ -45,15 +51,16 @@ public struct TransfersTabView: View {
                     Spacer()
                 } else {
                     switch selectedSection {
-                    case 0: purchaseOrdersSection()
-                    case 1: pickListsSection()
+                    case 0: incomingRequestsSection()
+                    case 1: purchaseOrdersSection()
+                    case 2: pickListsSection()
                     default: shipmentsOutSection()
                     }
                 }
             }
 
             // FAB — only visible on Purchase Orders tab
-            if selectedSection == 0 {
+            if selectedSection == 1 {
                 VStack {
                     Spacer()
                     HStack {
@@ -83,7 +90,7 @@ public struct TransfersTabView: View {
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             if prefilledSKUMagic != nil {
-                selectedSection = 0
+                selectedSection = 1 // Purchase Orders
                 showingCreatePO = true
             }
         }
@@ -114,6 +121,157 @@ public struct TransfersTabView: View {
             Button("OK", role: .cancel) { viewModel.errorMessage = nil }
         } message: {
             Text(viewModel.errorMessage ?? "An unknown error occurred.")
+        }
+        .alert("Reject Request", isPresented: $showRejectAlert) {
+            TextField("Reason (optional)", text: $rejectReason)
+            Button("Reject", role: .destructive) {
+                if let req = rejectTargetRequest {
+                    Task {
+                        await viewModel.rejectRequest(
+                            request: req,
+                            reason: rejectReason.isEmpty ? "Rejected by Inventory Manager" : rejectReason
+                        )
+                        rejectReason = ""
+                    }
+                }
+            }
+            Button("Cancel", role: .cancel) { rejectReason = "" }
+        } message: {
+            Text("Please provide a reason for rejection.")
+        }
+    }
+
+    // MARK: - ⓪ Incoming Requests
+
+    @ViewBuilder
+    private func incomingRequestsSection() -> some View {
+        let incoming = viewModel.pendingRequests
+        if incoming.isEmpty {
+            emptyState(icon: "tray", title: "No Pending Requests", message: "All boutique requests have been actioned. Check Pick Lists for approved ones.")
+        } else {
+            List {
+                ForEach(incoming) { request in
+                    incomingRequestCard(request: request)
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                        .padding(.vertical, 5)
+                        .padding(.horizontal, 16)
+                }
+            }
+            .listStyle(.plain)
+        }
+    }
+
+    @ViewBuilder
+    private func incomingRequestCard(request: ProductRequest) -> some View {
+        let stockQty = request.productId.flatMap { viewModel.stockAvailability[$0] }
+        let canShip: Bool? = {
+            guard let qty = stockQty else { return nil }
+            return qty >= request.requestedQuantity
+        }()
+
+        ReusableCardView {
+            VStack(alignment: .leading, spacing: 14) {
+                // Header
+                HStack {
+                    Text("REQ-\(request.id.uuidString.prefix(5).uppercased())")
+                        .font(.system(.subheadline, design: .monospaced).bold())
+                        .foregroundColor(.appPrimaryText)
+                    Spacer()
+                    Text(request.status.capitalized)
+                        .font(.caption.bold())
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(Color.orange.opacity(0.15))
+                        .foregroundColor(.orange)
+                        .clipShape(Capsule())
+                }
+
+                Divider()
+
+                // Details
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(alignment: .top) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Product")
+                                .font(.caption)
+                                .foregroundColor(.appSecondaryText)
+                            Text(request.product?.name ?? "Unknown Product")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundColor(.appPrimaryText)
+                        }
+                        Spacer()
+                        VStack(alignment: .trailing, spacing: 4) {
+                            Text("Quantity")
+                                .font(.caption)
+                                .foregroundColor(.appSecondaryText)
+                            Text("\(request.requestedQuantity)")
+                                .font(.title3.bold())
+                                .foregroundColor(.appAccent)
+                        }
+                    }
+                    
+                    HStack {
+                        Label(request.store?.name ?? "Unknown Boutique", systemImage: "building.2")
+                            .font(.subheadline)
+                            .foregroundColor(.appSecondaryText)
+                        Spacer()
+                        if let qty = stockQty {
+                            Text("\(qty) in stock")
+                                .font(.caption.bold())
+                                .foregroundColor(qty >= request.requestedQuantity ? .green : .orange)
+                        }
+                    }
+                }
+
+                Divider()
+
+                VStack(spacing: 12) {
+                    HStack(spacing: 12) {
+                        // Reject button
+                        Button {
+                            rejectTargetRequest = request
+                            showRejectAlert = true
+                        } label: {
+                            Text("Reject")
+                                .font(.subheadline.bold())
+                                .foregroundColor(.red)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(Color.red.opacity(0.1))
+                                .cornerRadius(10)
+                        }
+                        .buttonStyle(.plain)
+
+                        // Accept
+                        Button {
+                            Task {
+                                await viewModel.acceptRequest(request: request)
+                            }
+                        } label: {
+                            Text("Accept Order")
+                                .font(.subheadline.bold())
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(Color.green)
+                                .cornerRadius(10)
+                        }
+                        .buttonStyle(.plain)
+                    }
+
+                    Text("Accepted orders move to Pick Lists for stock check & dispatch")
+                        .font(.caption2)
+                        .foregroundColor(.appSecondaryText)
+                        .multilineTextAlignment(.center)
+                }
+            }
+        }
+        .task {
+            if let pid = request.productId, viewModel.stockAvailability[pid] == nil {
+                await viewModel.checkWarehouseStock(for: request)
+            }
         }
     }
 
@@ -319,8 +477,7 @@ public struct TransfersTabView: View {
                         // Insufficient stock -> Open Create PO sheet (same as '+' FAB)
                         Button {
                             poPrefilledProductId = request.productId
-                            selectedTab = 1          // switch to Workflows tab
-                            selectedSection = 0      // jump to Purchase Orders section
+                            selectedSection = 1      // jump to Purchase Orders section
                             showingCreatePO = true   // open the sheet
                         } label: {
                             Label("Create PO", systemImage: "cart.badge.plus")
