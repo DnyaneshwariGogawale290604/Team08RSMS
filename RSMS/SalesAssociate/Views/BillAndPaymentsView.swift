@@ -332,18 +332,46 @@ struct BillAndPaymentsView: View {
         vm.isLoading = true
         vm.errorMessage = nil
         
+        // Prepare context for gateway if needed
+        vm.remainingPaymentAmount = amount
+        vm.currentPaymentLegIndex = -1
+        vm.currentPaymentItemIndex = -1
+        
         do {
             let brandId = try await vm.fetchBrandId()
             let session = try await SupabaseManager.shared.client.auth.session
             let authId = session.user.id.uuidString
 
-            let body: [String: Any] = [
+            // Find the first unpaid leg to apply this payment to, or fallback to the last leg if all are "paid"
+            let targetLeg = summary.legs.first { $0.status != "paid" } ?? summary.legs.last
+            let legId = targetLeg?.id.uuidString
+            
+            if targetLeg == nil {
+                print("[BillAndPaymentsView] WARNING: No legs found in summary!")
+            } else if targetLeg?.status == "paid" {
+                print("[BillAndPaymentsView] INFO: All legs paid, falling back to Leg \(targetLeg?.legNumber ?? 0)")
+            }
+            
+            var body: [String: Any] = [
                 "brand_id": brandId,
                 "sales_order_id": summary.orderId,
                 "recorded_by": authId,
                 "method": method,
                 "amount": amount
             ]
+            
+            if let lid = legId {
+                body["payment_leg_id"] = lid
+            }
+            
+            if let apptId = vm.currentAppointmentId?.uuidString {
+                body["appointment_id"] = apptId
+            }
+
+            if let bodyData = try? JSONSerialization.data(withJSONObject: body, options: .prettyPrinted),
+               let bodyString = String(data: bodyData, encoding: .utf8) {
+                print("[BillAndPaymentsView] REQUEST BODY: \(bodyString)")
+            }
 
             let url = URL(string: "https://ionszphvxhffqfwlohiv.supabase.co/functions/v1/collect-remaining-payment")!
             var req = URLRequest(url: url)
@@ -357,21 +385,29 @@ struct BillAndPaymentsView: View {
                 throw NSError(domain: "PaymentError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Invalid response"])
             }
 
+            if let jsonString = String(data: data, encoding: .utf8) {
+                print("[BillAndPaymentsView] RESPONSE: \(jsonString)")
+            }
+
             if let error = json["error"] as? String {
                 throw NSError(domain: "PaymentError", code: 2, userInfo: [NSLocalizedDescriptionKey: error])
             }
 
-            // Handle pending gateway payments
-            if let pending = json["pending_gateway_payment"] as? [String: Any],
-               let gwOrderId = pending["gateway_order_id"] as? String,
-               let keyId = pending["key_id"] as? String,
-               let poId = pending["payment_order_id"] as? String {
+            // Gateway requires SDK logic - matching ViewModel
+            let requiresSDK = json["requires_sdk"] as? Bool ?? false
+            if requiresSDK,
+               let gwOrderId = json["gateway_order_id"] as? String,
+               let keyId = json["key_id"] as? String,
+               let poId = json["payment_order_id"] as? String {
+                
                 vm.gatewayOrderId = gwOrderId
                 vm.checkoutKey = keyId
                 vm.paymentOrderId = poId
                 vm.isLoading = false
                 
                 let gateway = json["gateway"] as? String ?? "razorpay"
+                print("[BillAndPaymentsView] Launching \(gateway) for Order \(gwOrderId)")
+                
                 if gateway == "razorpay" {
                     NotificationCenter.default.post(name: NSNotification.Name("OpenRazorpayCheckout"), object: nil)
                 } else if gateway == "cashfree" {

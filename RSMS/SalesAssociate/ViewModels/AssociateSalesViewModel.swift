@@ -71,6 +71,7 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
     @Published var currentAppointmentId: UUID? = nil
     @Published var currentPaymentLegIndex: Int = 0
     @Published var currentPaymentItemIndex: Int = 0
+    @Published var remainingPaymentAmount: Double = 0 // For balance payments
     @Published var gatewayReceiptUrl: String? = nil
 
     // MARK: Cart Helpers
@@ -727,8 +728,12 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
 
             paymentCompleted = true
             isLoading = false
+            self.successMessage = "Payment verified successfully!"
+            
             // Don't show receipt yet — stay in billing view so associate can collect remaining payments
             await self.fetchOrderPaymentSummary(salesOrderId: self.currentOrder?.id.uuidString ?? "")
+            
+            print("[verifyPayment] SUCCESS: Payment verified for order \(self.currentOrder?.id.uuidString ?? "unknown")")
             
         } catch {
             isLoading = false
@@ -743,19 +748,25 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
         let legIdx = currentPaymentLegIndex
         let itemIdx = currentPaymentItemIndex
         
-        guard legIdx < billingLegs.count,
-              itemIdx < billingLegs[legIdx].items.count else { return }
-
-        let legItem = billingLegs[legIdx].items[itemIdx]
+        let amount: Double
+        if legIdx >= 0 && legIdx < billingLegs.count &&
+           itemIdx >= 0 && itemIdx < billingLegs[legIdx].items.count {
+            amount = billingLegs[legIdx].items[itemIdx].amount
+        } else {
+            // Fallback for remaining balance payments
+            amount = remainingPaymentAmount
+        }
+        
+        guard amount > 0 else { return }
         
         razorpay = RazorpayCheckout.initWithKey(keyId, andDelegateWithData: self)
 
         let options: [String: Any] = [
-            "amount": Int(legItem.amount * 100),
+            "amount": Int(amount * 100),
             "currency": "INR",
             "order_id": gatewayOrderId,
             "name": "RSMS Sales",
-            "description": "Payment for Split",
+            "description": "Payment for Order",
             "prefill": [
                 "contact": selectedCustomer?.phone ?? "",
                 "email": selectedCustomer?.email ?? ""
@@ -1639,6 +1650,14 @@ extension AssociateSalesViewModel: RazorpayPaymentCompletionProtocolWithData {
             let brandId = try await fetchBrandId()
             let authId = try await resolveUserId().uuidString
             let accessToken = try await resolveAccessToken()
+            
+            // Step 1: Save the full billing plan (legs/splits) first
+            // to ensure backend has a record of pending payments
+            await submitBilling(
+                appointmentId: appointmentId,
+                action: "save",
+                orderStore: orderStore
+            )
 
             let url = URL(string: "https://ionszphvxhffqfwlohiv.supabase.co/functions/v1/checkout-appointment")!
             var req = URLRequest(url: url)
