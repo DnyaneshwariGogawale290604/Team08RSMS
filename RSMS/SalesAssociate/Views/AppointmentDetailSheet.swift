@@ -282,8 +282,7 @@ struct AppointmentDetailSheet: View {
 
                 checkoutVM = newVM
                 isStartingOrder = false
-                // Open billing directly
-                checkoutVM?.showBilling = true
+                // Open the Add Products screen; user taps billing button to proceed
                 showCheckout = true
                 return
             }

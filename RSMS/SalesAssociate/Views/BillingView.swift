@@ -5,9 +5,6 @@ struct BillingView: View {
     @EnvironmentObject var orderStore: SharedOrderStore
     @Environment(\.dismiss) var dismiss
     @State private var showDraftSavedToast = false
-    @State private var showGatewayPaymentSheet = false
-    @State private var pendingGatewayLegIndex: Int = 0
-    @State private var pendingGatewayItemIndex: Int = 0
     @State private var showReceiptUrl: String? = nil
     
     let appointmentId: UUID?
@@ -110,14 +107,6 @@ struct BillingView: View {
                     }
                 }
             }
-            .sheet(isPresented: $showGatewayPaymentSheet) {
-                GatewayCollectionSheet(
-                    vm: vm,
-                    legIndex: pendingGatewayLegIndex,
-                    itemIndex: pendingGatewayItemIndex,
-                    appointmentId: appointmentId
-                )
-            }
         }
     }
 
@@ -200,9 +189,11 @@ struct BillingView: View {
         }
     }
 
+    @ViewBuilder
     private func legCard(index: Int) -> some View {
-        let leg = vm.billingLegs[index]
-        return VStack(alignment: .leading, spacing: Spacing.md) {
+        if index < vm.billingLegs.count {
+            let leg = vm.billingLegs[index]
+            VStack(alignment: .leading, spacing: Spacing.md) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Leg \(leg.legNumber)")
@@ -248,7 +239,10 @@ struct BillingView: View {
                         .background(Color.luxuryDivider.opacity(0.1))
                         .clipShape(Capsule())
                 } else {
-                    Picker("Due Type", selection: $vm.billingLegs[index].dueType) {
+                    Picker("Due Type", selection: Binding(
+                        get: { index < vm.billingLegs.count ? vm.billingLegs[index].dueType : "immediate" },
+                        set: { if index < vm.billingLegs.count { vm.billingLegs[index].dueType = $0 } }
+                    )) {
                         Text("Now").tag("immediate")
                         Text("Later").tag("on_delivery")
                     }
@@ -273,9 +267,9 @@ struct BillingView: View {
                     .font(BrandFont.body(13))
                     .foregroundStyle(Color.luxurySecondaryText)
                 Spacer()
-                TextField("Leg total", value: Binding(
-                    get: { vm.billingLegs[index].totalAmount },
-                    set: { vm.updateLegAmount(at: index, to: $0) }
+                TextField("Leg total", value: Binding<Double?>(
+                    get: { index < vm.billingLegs.count ? (vm.billingLegs[index].totalAmount == 0 ? nil : vm.billingLegs[index].totalAmount) : nil },
+                    set: { vm.updateLegAmount(at: index, to: $0 ?? 0.0) }
                 ), format: .number)
                     .disabled(leg.isFullyLocked || leg.hasAnyPaidItem)
                     .keyboardType(.decimalPad)
@@ -322,13 +316,16 @@ struct BillingView: View {
         .clipShape(RoundedRectangle(cornerRadius: Radius.lg))
         .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.luxuryDivider, lineWidth: 0.5))
         .padding(.horizontal, Spacing.md)
+        }
     }
 
+    @ViewBuilder
     private func legItemRow(legIdx: Int, itemIdx: Int) -> some View {
-        let item = vm.billingLegs[legIdx].items[itemIdx]
-        let leg = vm.billingLegs[legIdx]
+        if legIdx < vm.billingLegs.count, itemIdx < vm.billingLegs[legIdx].items.count {
+            let item = vm.billingLegs[legIdx].items[itemIdx]
+            let leg = vm.billingLegs[legIdx]
 
-        return VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 12) {
             // Row 1: Method pills + delete button
             HStack {
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -403,13 +400,13 @@ struct BillingView: View {
                         .foregroundStyle(Color.luxurySecondaryText)
                     HStack {
                         TextField("0.00",
-                            value: Binding(
-                                get: { vm.billingLegs[legIdx].items[itemIdx].amount },
-                                set: { vm.updateSplitAmount(
-                                    legIndex: legIdx,
-                                    itemIndex: itemIdx,
-                                    to: $0
-                                )}
+                            value: Binding<Double?>(
+                                get: {
+                                    guard legIdx < vm.billingLegs.count, itemIdx < vm.billingLegs[legIdx].items.count else { return nil }
+                                    let val = vm.billingLegs[legIdx].items[itemIdx].amount
+                                    return val == 0 ? nil : val
+                                },
+                                set: { vm.updateSplitAmount(legIndex: legIdx, itemIndex: itemIdx, to: $0 ?? 0.0) }
                             ),
                             format: .number
                         )
@@ -448,7 +445,10 @@ struct BillingView: View {
                             .font(.system(size: 10, weight: .bold))
                             .foregroundStyle(Color.luxurySecondaryText)
                         TextField("0.00",
-                            value: $vm.billingLegs[legIdx].items[itemIdx].tendered,
+                            value: Binding(
+                                get: { (legIdx < vm.billingLegs.count && itemIdx < vm.billingLegs[legIdx].items.count) ? vm.billingLegs[legIdx].items[itemIdx].tendered : nil },
+                                set: { if legIdx < vm.billingLegs.count && itemIdx < vm.billingLegs[legIdx].items.count { vm.billingLegs[legIdx].items[itemIdx].tendered = $0 } }
+                            ),
                             format: .number
                         )
                         .keyboardType(.decimalPad)
@@ -511,6 +511,7 @@ struct BillingView: View {
         .padding(12)
         .background(Color.luxuryBackground.opacity(0.3))
         .cornerRadius(Radius.md)
+        }
     }
 
     private func itemActionButton(
@@ -615,15 +616,25 @@ struct BillingView: View {
                 } else {
                     // Gateway collect button
                     Button {
-                        pendingGatewayLegIndex = legIdx
-                        pendingGatewayItemIndex = itemIdx
-                        showGatewayPaymentSheet = true
+                        Task {
+                            await vm.initiateGatewayPaymentForItem(
+                                legIndex: legIdx,
+                                itemIndex: itemIdx,
+                                appointmentId: appointmentId
+                            )
+                        }
                     } label: {
                         HStack {
-                            Image(systemName: "qrcode")
-                                .font(.system(size: 13))
-                            Text("Collect via \(item.method.uppercased())")
-                                .font(BrandFont.body(13, weight: .semibold))
+                            if vm.isLoading {
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                                    .tint(Color.luxuryPrimaryText)
+                            } else {
+                                Image(systemName: "creditcard")
+                                    .font(.system(size: 13))
+                                Text("Pay via Gateway")
+                                    .font(BrandFont.body(13, weight: .semibold))
+                            }
                             Spacer()
                             Image(systemName: "chevron.right")
                                 .font(.system(size: 11))

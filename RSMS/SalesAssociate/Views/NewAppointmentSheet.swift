@@ -21,6 +21,8 @@ struct NewAppointmentSheet: View {
     // Customer picker
     @State private var customerSearch: String = ""
     @State private var showCustomerPicker = false
+    @State private var showCreateCustomerInPicker = false
+    @StateObject private var createCustomerVM = AssociateSalesViewModel()
 
     // Product search
     @State private var productSearch: String = ""
@@ -378,6 +380,20 @@ struct NewAppointmentSheet: View {
                     Button("Cancel") { showCustomerPicker = false }
                         .foregroundStyle(Color.luxuryPrimaryText)
                 }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showCreateCustomerInPicker = true
+                    } label: {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.system(size: 20))
+                            .foregroundStyle(Color.luxuryDeepAccent)
+                    }
+                }
+            }
+            .sheet(isPresented: $showCreateCustomerInPicker, onDismiss: {
+                Task { await vm.fetchCustomersAndCatalog() }
+            }) {
+                CustomerSheet(vm: createCustomerVM, initialMode: .create)
             }
         }
     }

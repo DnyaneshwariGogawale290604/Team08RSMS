@@ -44,24 +44,19 @@ public struct WarehouseFormView: View {
                                 divider
                                 inlineTextField("Location (e.g. City)", text: $location)
                                 divider
-                                HStack {
-                                    Text("Status")
-                                        .font(.system(size: 16))
-                                        .foregroundColor(.black)
-                                    VStack(alignment: .trailing, spacing: 8) {
-                                        HStack(spacing: 8) {
-                                            let isActive = self.isActive
-                                            Text(isActive ? "Active" : "Inactive")
-                                                .font(.system(size: 13, weight: .medium))
-                                                .foregroundColor(isActive ? CatalogTheme.primary : CatalogTheme.deepAccent)
-                                            
-                                            Toggle("", isOn: $isActive)
-                                                .labelsHidden()
-                                                .toggleStyle(SwitchToggleStyle(tint: CatalogTheme.primary))
-                                                .scaleEffect(0.8)
-                                        }
+                                Toggle(isOn: $isActive) {
+                                    HStack {
+                                        Text("Status")
+                                            .font(.system(size: 16))
+                                            .foregroundColor(.black)
+                                        Spacer()
+                                        Text(isActive ? "Active" : "Inactive")
+                                            .font(.system(size: 14))
+                                            .foregroundColor(.gray)
+                                            .padding(.trailing, 8)
                                     }
                                 }
+                                .toggleStyle(SwitchToggleStyle(tint: CatalogTheme.primary))
                             }
                         }
                         

@@ -231,6 +231,7 @@ public final class GatewayViewModel: ObservableObject {
                 "key_secret": keySecret,
                 "enabled_methods": enabledMethods
             ]
+            print("[save-gateway-config] SAVING FOR BRAND: \(brandId)")
             if let bodyData = try? JSONSerialization.data(withJSONObject: body, options: .prettyPrinted),
                let bodyString = String(data: bodyData, encoding: .utf8) {
                 print("[save-gateway-config] REQUEST BODY: \(bodyString)")

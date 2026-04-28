@@ -546,6 +546,36 @@ public actor DataService {
         }
     }
     
+    /// Look up a single inventory item by its RFID tag ID from Supabase.
+    public func fetchInventoryItemByRFID(_ rfid: String) async throws -> InventoryItem? {
+        let results: [InventoryItem] = try await client
+            .from("inventory_items")
+            .select()
+            .eq("id", value: rfid)
+            .limit(1)
+            .execute()
+            .value
+        return results.first
+    }
+    
+    /// Update just the location (and optionally timestamp) of an inventory item.
+    public func updateInventoryItemLocation(id: String, newLocation: String) async throws {
+        struct LocationUpdate: Encodable {
+            let location: String
+            let timestamp: String
+            enum CodingKeys: String, CodingKey {
+                case location
+                case timestamp
+            }
+        }
+        let iso = ISO8601DateFormatter()
+        try await client
+            .from("inventory_items")
+            .update(LocationUpdate(location: newLocation, timestamp: iso.string(from: Date())))
+            .eq("id", value: id)
+            .execute()
+    }
+    
     public func insertInventoryItem(item: InventoryItem) async throws {
         struct ItemInsert: Encodable {
             let id: String; let serial_id: String; let product_id: String

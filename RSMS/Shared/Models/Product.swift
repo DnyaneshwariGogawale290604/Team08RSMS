@@ -15,6 +15,7 @@ public struct Product: Identifiable, Codable, Hashable, Sendable {
     public var sizeOptions: [String]?
     public var reorderPoint: Int?
     public var reorderQuantity: Int?
+    public var stockQuantity: Int?
 
     enum CodingKeys: String, CodingKey {
         case id = "product_id"
@@ -81,6 +82,7 @@ public struct Product: Identifiable, Codable, Hashable, Sendable {
         }
         reorderPoint = try? c.decodeIfPresent(Int.self, forKey: .reorderPoint) ?? 5
         reorderQuantity = try? c.decodeIfPresent(Int.self, forKey: .reorderQuantity) ?? 20
+        stockQuantity = nil
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -106,7 +108,7 @@ public struct Product: Identifiable, Codable, Hashable, Sendable {
                 price: Double, sku: String? = nil, makingPrice: Double? = nil,
                 imageUrl: String? = nil, isActive: Bool? = true,
                 tax: Double? = nil, totalPrice: Double? = nil, sizeOptions: [String]? = nil,
-                reorderPoint: Int? = 5, reorderQuantity: Int? = 20) {
+                reorderPoint: Int? = 5, reorderQuantity: Int? = 20, stockQuantity: Int? = nil) {
         self.id = id
         self.name = name
         self.brandId = brandId
@@ -121,5 +123,28 @@ public struct Product: Identifiable, Codable, Hashable, Sendable {
         self.sizeOptions = sizeOptions
         self.reorderPoint = reorderPoint
         self.reorderQuantity = reorderQuantity
+        self.stockQuantity = stockQuantity
+    }
+
+    public enum StockStatus: Int, Comparable {
+        case urgent = 0
+        case low = 1
+        case normal = 2
+        
+        public static func < (lhs: StockStatus, rhs: StockStatus) -> Bool {
+            lhs.rawValue < rhs.rawValue
+        }
+    }
+
+    public var stockStatus: StockStatus {
+        let stock = stockQuantity ?? 0
+        let reorder = reorderPoint ?? 5
+        if stock <= reorder / 2 {
+            return .urgent
+        } else if stock <= reorder {
+            return .low
+        } else {
+            return .normal
+        }
     }
 }
