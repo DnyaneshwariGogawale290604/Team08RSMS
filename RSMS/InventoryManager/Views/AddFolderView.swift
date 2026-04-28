@@ -3,17 +3,19 @@ import SwiftUI
 public struct AddFolderView: View {
     @Environment(\.presentationMode) var presentationMode
     @ObservedObject private var engine = InventoryEngine.shared
+    @ObservedObject var viewModel: InventoryDashboardViewModel
     
     @State private var folderName: String = ""
     @State private var batchNo: String = "B-\(Int.random(in: 100...999))"
-    @State private var location: String = "Warehouse"
+    @State private var location: String = ""
     @State private var itemCount: Int = 1
     @State private var errorMessage: String? = nil
     @State private var showSuccess = false
     
-    let availableLocations = ["Warehouse", "Main Vault", "Showroom Floor", "Paris Boutique", "Tokyo Boutique", "New York Store", "Scanning Bay"]
-    
-    public init() {}
+    public init(viewModel: InventoryDashboardViewModel) {
+        self.viewModel = viewModel
+        self._location = State(initialValue: viewModel.locations.first ?? "Warehouse")
+    }
     
     public var body: some View {
         NavigationView {
@@ -55,7 +57,7 @@ public struct AddFolderView: View {
                                         .font(.subheadline.bold())
                                         .foregroundColor(.appPrimaryText)
                                     
-                                    TextField("e.g. Diamond Ring, Gold Bracelet", text: $folderName)
+                                    TextField("Category Name", text: $folderName)
                                         .padding(12)
                                         .background(Color.appBackground)
                                         .cornerRadius(10)
@@ -104,7 +106,7 @@ public struct AddFolderView: View {
                                         .foregroundColor(.appPrimaryText)
                                     
                                     Picker("Location", selection: $location) {
-                                        ForEach(availableLocations, id: \.self) { loc in
+                                        ForEach(viewModel.locations, id: \.self) { loc in
                                             Text(loc).tag(loc)
                                         }
                                     }
@@ -128,26 +130,17 @@ public struct AddFolderView: View {
                                         .font(.subheadline.bold())
                                         .foregroundColor(.appPrimaryText)
                                     
-                                    HStack(spacing: 20) {
-                                        Button(action: { if itemCount > 1 { itemCount -= 1 } }) {
-                                            Image(systemName: "minus.circle.fill")
-                                                .font(.title2)
-                                                .foregroundColor(itemCount > 1 ? .appAccent : .appBorder)
-                                        }
-                                        .disabled(itemCount <= 1)
-                                        
-                                        Text("\(itemCount)")
-                                            .font(.title.bold())
-                                            .foregroundColor(.appPrimaryText)
-                                            .frame(minWidth: 50)
-                                        
-                                        Button(action: { itemCount += 1 }) {
-                                            Image(systemName: "plus.circle.fill")
-                                                .font(.title2)
-                                                .foregroundColor(.appAccent)
-                                        }
-                                    }
-                                    .frame(maxWidth: .infinity)
+                                    TextField("0", value: $itemCount, format: .number)
+                                        .keyboardType(.numberPad)
+                                        .font(.title2.bold())
+                                        .foregroundColor(.appPrimaryText)
+                                        .padding()
+                                        .background(Color.appBackground)
+                                        .cornerRadius(10)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 10)
+                                                .stroke(Color.appBorder, lineWidth: 1)
+                                        )
                                     
                                     Text("Each item will get a unique RFID tag and serial number.")
                                         .font(.caption)

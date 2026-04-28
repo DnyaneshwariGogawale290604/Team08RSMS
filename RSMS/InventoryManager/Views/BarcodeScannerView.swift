@@ -52,11 +52,13 @@ public class BarcodeScannerViewController: UIViewController {
     public override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .black
-        setupCamera()
+        checkCameraAuthAndSetup()
     }
     
     public override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        // Reset so the scanner can detect again when returning
+        hasScanned = false
         if let session = captureSession, !session.isRunning {
             DispatchQueue.global(qos: .userInitiated).async {
                 session.startRunning()
@@ -76,6 +78,27 @@ public class BarcodeScannerViewController: UIViewController {
     public override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         previewLayer?.frame = view.layer.bounds
+    }
+    
+    private func checkCameraAuthAndSetup() {
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        case .authorized:
+            setupCamera()
+        case .notDetermined:
+            AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
+                DispatchQueue.main.async {
+                    if granted {
+                        self?.setupCamera()
+                    } else {
+                        self?.showFallbackLabel("Camera access was denied.\nPlease enable it in Settings > Privacy > Camera.")
+                    }
+                }
+            }
+        case .denied, .restricted:
+            showFallbackLabel("Camera access is required to scan barcodes.\nPlease enable it in Settings > Privacy > Camera.")
+        @unknown default:
+            showFallbackLabel("Camera not available")
+        }
     }
     
     private func setupCamera() {
@@ -164,7 +187,12 @@ extension BarcodeScannerViewController: AVCaptureMetadataOutputObjectsDelegate {
 
 public struct AddItemScanView: View {
     @Environment(\.presentationMode) var presentationMode
-    @ObservedObject private var engine = InventoryEngine.shared
+    @ObservedObject var viewModel: InventoryDashboardViewModel
+    
+    public init(viewModel: InventoryDashboardViewModel) {
+        self.viewModel = viewModel
+        self._location = State(initialValue: viewModel.locations.first ?? "Warehouse")
+    }
     
     // Scan state
     @State private var scannedCode: String? = nil
@@ -172,16 +200,15 @@ public struct AddItemScanView: View {
     @State private var scanPhase: ScanPhase = .scanning
     
     // Item details (populated from scan or manually entered)
-    @State private var productName: String = ""
-    @State private var category: String = ""
+    @State private var selectedProduct: Product? = nil
     @State private var batchNo: String = "B-SCAN"
     @State private var location: String = "Warehouse"
     @State private var isTorchOn = false
     @State private var showSuccess = false
     @State private var scanCount = 0
+    @State private var errorText: String?
     
     let availableCategories = ["Ring", "Necklace", "Bracelet", "Watch", "Handbag", "Earring", "Pendant", "Other"]
-    let availableLocations = ["Warehouse", "Main Vault", "Showroom Floor", "Scanning Bay", "Paris Boutique", "Tokyo Boutique", "New York Store"]
     
     enum ScanPhase {
         case scanning
@@ -384,8 +411,7 @@ public struct AddItemScanView: View {
                         // Re-scan
                         scannedCode = nil
                         scannedType = ""
-                        productName = ""
-                        category = ""
+                        selectedProduct = nil
                         withAnimation { scanPhase = .scanning }
                     }) {
                         HStack {
@@ -425,13 +451,16 @@ public struct AddItemScanView: View {
             }
             
             Section(header: Text("Product Information")) {
-                TextField("Product Name", text: $productName)
-                
-                Picker("Category", selection: $category) {
-                    Text("Select Category").tag("")
-                    ForEach(availableCategories, id: \.self) { cat in
-                        Text(cat).tag(cat)
+                Picker("Select Product", selection: $selectedProduct) {
+                    Text("Choose a product...").tag(nil as Product?)
+                    ForEach(viewModel.products, id: \.id) { product in
+                        Text(product.name).tag(product as Product?)
                     }
+                }
+                
+                if let product = selectedProduct {
+                    LabeledContent("Category", value: product.category.isEmpty ? "General" : product.category)
+                        .foregroundColor(.appSecondaryText)
                 }
                 
                 TextField("Batch Number", text: $batchNo)
@@ -439,7 +468,7 @@ public struct AddItemScanView: View {
             
             Section(header: Text("Location")) {
                 Picker("Storage Location", selection: $location) {
-                    ForEach(availableLocations, id: \.self) { loc in
+                    ForEach(viewModel.locations, id: \.self) { loc in
                         Text(loc).tag(loc)
                     }
                 }
@@ -455,12 +484,24 @@ public struct AddItemScanView: View {
                     .frame(maxWidth: .infinity)
                     .foregroundColor(.white)
                     .padding()
-                    .background(productName.isEmpty || category.isEmpty ? Color.gray : Color.appAccent)
+                    .background(selectedProduct == nil ? Color.gray : Color.appAccent)
                     .cornerRadius(12)
                 }
-                .disabled(productName.isEmpty || category.isEmpty)
+                .disabled(selectedProduct == nil)
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets())
+            }
+            
+            if let err = errorText {
+                Section {
+                    HStack {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(.red)
+                        Text(err)
+                            .foregroundColor(.red)
+                            .font(.caption)
+                    }
+                }
             }
         }
         .toolbar {
@@ -476,110 +517,70 @@ public struct AddItemScanView: View {
     // MARK: - Helpers
     
     private func parseScannedCode(_ code: String) {
-        // Attempt to extract meaningful data from common barcode formats
-        // Many retail barcodes encode product info in specific formats
-        
-        // For EAN/UPC codes, we can look up category based on prefix
-        if code.count >= 8, code.allSatisfy({ $0.isNumber }) {
-            // Numeric barcode — likely EAN/UPC
-            let prefix = String(code.prefix(3))
-            switch prefix {
-            case "200"..."299":
-                category = "Ring"
-                productName = "Jewelry Item \(code.suffix(4))"
-            case "300"..."399":
-                category = "Necklace"
-                productName = "Necklace \(code.suffix(4))"
-            case "400"..."499":
-                category = "Watch"
-                productName = "Timepiece \(code.suffix(4))"
-            case "500"..."599":
-                category = "Bracelet"
-                productName = "Bracelet \(code.suffix(4))"
-            default:
-                productName = "Product \(code.suffix(4))"
-                category = "Other"
-            }
-        } else if code.contains("|") || code.contains(";") {
-            // Delimited format: name|category|batch
-            let delimiter: Character = code.contains("|") ? "|" : ";"
-            let parts = code.split(separator: delimiter).map(String.init)
-            if parts.count >= 1 { productName = parts[0] }
-            if parts.count >= 2 { category = parts[1] }
-            if parts.count >= 3 { batchNo = parts[2] }
-        } else if code.hasPrefix("{") {
-            // JSON-like format
-            // Simple parse for {"name":"...","category":"..."}
-            if let data = code.data(using: .utf8),
-               let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                productName = dict["name"] as? String ?? dict["product"] as? String ?? ""
-                category = dict["category"] as? String ?? dict["cat"] as? String ?? ""
-                batchNo = dict["batch"] as? String ?? batchNo
-            }
+        // Attempt to find product by SKU or name
+        let cleanSKU = code.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let match = viewModel.products.first(where: { $0.sku?.localizedCaseInsensitiveContains(cleanSKU) == true || $0.name.localizedCaseInsensitiveContains(cleanSKU) }) {
+            selectedProduct = match
         } else {
-            // Alphanumeric — use as product reference
-            productName = "Scanned: \(code.prefix(20))"
-            category = "Other"
+            selectedProduct = nil
         }
     }
     
     private func quickAddItem() {
-        guard let code = scannedCode else { return }
+        guard let _ = scannedCode else { return }
         
-        let rfid = "RFID-\(code.prefix(8))"
-        
-        // Check for duplicate
-        if engine.inventory.contains(where: { $0.id == rfid }) {
-            // Append random suffix to avoid collision
-            let uniqueRfid = "RFID-\(code.prefix(4))-\(Int.random(in: 1000...9999))"
-            addItemToEngine(rfid: uniqueRfid)
+        // If we found a match automatically, add it immediately
+        if selectedProduct != nil {
+            addItemFromScan()
         } else {
-            addItemToEngine(rfid: rfid)
+            // Force user to pick a product
+            withAnimation { scanPhase = .details }
         }
     }
     
     private func addItemFromScan() {
-        guard let code = scannedCode else { return }
-        let rfid = "RFID-\(code.prefix(8))"
+        guard let code = scannedCode, let product = selectedProduct else { return }
+        let rfid = "RFID-\(code.prefix(8))-\(Int.random(in: 1000...9999))"
         
-        if engine.inventory.contains(where: { $0.id == rfid }) {
-            let uniqueRfid = "RFID-\(code.prefix(4))-\(Int.random(in: 1000...9999))"
-            addItemToEngine(rfid: uniqueRfid)
-        } else {
-            addItemToEngine(rfid: rfid)
-        }
-    }
-    
-    private func addItemToEngine(rfid: String) {
-        let finalName = productName.isEmpty ? "Scanned Item" : productName
-        let finalCategory = category.isEmpty ? "Scan" : category
-        
-        let newItem = InventoryItem(
-            id: rfid,
-            serialId: "SN-\(Int.random(in: 1000...9999))",
-            productId: UUID(),
-            batchNo: batchNo,
-            certificateId: nil,
-            productName: finalName,
-            category: finalCategory,
-            location: location,
-            status: .available
-        )
-        
-        engine.inventory.insert(newItem, at: 0)
-        engine.updateStockLevel(sku: finalName, location: location, quantityDelta: 1)
-        
-        scanCount += 1
-        showSuccess = true
-        
-        // Reset for next scan
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            scannedCode = nil
-            scannedType = ""
-            productName = ""
-            category = ""
-            batchNo = "B-SCAN"
-            withAnimation { scanPhase = .scanning }
+        Task {
+            do {
+                try await DataService.shared.incrementWarehouseInventoryForCurrentManager(
+                    productId: product.id,
+                    quantity: 1
+                )
+                
+                let newItem = InventoryItem(
+                    id: rfid,
+                    serialId: "SN-\(Int.random(in: 1000...9999))",
+                    productId: product.id,
+                    batchNo: batchNo,
+                    productName: product.name,
+                    category: product.category.isEmpty ? "General" : product.category,
+                    location: location,
+                    status: .available
+                )
+                
+                try await DataService.shared.insertInventoryItem(item: newItem)
+                
+                await MainActor.run {
+                    scanCount += 1
+                    showSuccess = true
+                    
+                    // Reset for next scan
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        scannedCode = nil
+                        scannedType = ""
+                        selectedProduct = nil
+                        batchNo = "B-SCAN"
+                        withAnimation { scanPhase = .scanning }
+                    }
+                }
+                await viewModel.loadDashboardData()
+            } catch {
+                await MainActor.run {
+                    errorText = "Failed to save to Supabase: \(error.localizedDescription)"
+                }
+            }
         }
     }
     

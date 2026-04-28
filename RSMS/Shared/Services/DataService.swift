@@ -397,6 +397,65 @@ public actor DataService {
         let payload = InventoryInsert(product_id: productId, store_id: mainStore.id, quantity: quantity)
         try await client.from("store_inventory").insert(payload).execute()
     }
+
+    public func incrementWarehouseInventoryForCurrentManager(productId: UUID, quantity: Int) async throws {
+        let warehouseId = try await resolveCurrentInventoryManagerWarehouseId()
+
+        struct WarehouseInventoryRecord: Decodable {
+            let id: UUID
+            let quantity: Int
+
+            enum CodingKeys: String, CodingKey {
+                case id = "inventory_id"
+                case quantity
+            }
+        }
+
+        let existingRows: [WarehouseInventoryRecord] = try await client
+            .from("warehouse_inventory")
+            .select("inventory_id,quantity")
+            .eq("warehouse_id", value: warehouseId.uuidString)
+            .eq("product_id", value: productId.uuidString)
+            .limit(1)
+            .execute()
+            .value
+
+        if let existingRow = existingRows.first {
+            struct WarehouseInventoryUpdate: Encodable {
+                let quantity: Int
+                let updated_at: String
+            }
+
+            let iso = ISO8601DateFormatter()
+            let payload = WarehouseInventoryUpdate(
+                quantity: existingRow.quantity + quantity,
+                updated_at: iso.string(from: Date())
+            )
+
+            try await client
+                .from("warehouse_inventory")
+                .update(payload)
+                .eq("inventory_id", value: existingRow.id.uuidString)
+                .execute()
+        } else {
+            struct WarehouseInventoryInsert: Encodable {
+                let warehouse_id: UUID
+                let product_id: UUID
+                let quantity: Int
+            }
+
+            let payload = WarehouseInventoryInsert(
+                warehouse_id: warehouseId,
+                product_id: productId,
+                quantity: quantity
+            )
+
+            try await client
+                .from("warehouse_inventory")
+                .insert(payload)
+                .execute()
+        }
+    }
     
     // MARK: - Individual Inventory Items (RFID/Serial)
     public func fetchInventoryItems() async throws -> [InventoryItem] {
@@ -408,15 +467,29 @@ public actor DataService {
                 .execute()
                 .value
 
-            if result.isEmpty {
-                return try await generateMockInventoryItems()
+            if !result.isEmpty {
+                return result
             }
-            
-            return result
         } catch {
-            print("Supabase: inventory_items_with_ticket fetch failed, using mock. \(error)")
-            return try await generateMockInventoryItems()
+            print("Supabase: inventory_items_with_ticket fetch failed. \(error)")
         }
+        
+        // Fallback to table
+        do {
+            let result: [InventoryItem] = try await client
+                .from("inventory_items")
+                .select()
+                .execute()
+                .value
+                
+            if !result.isEmpty {
+                return result
+            }
+        } catch {
+            print("Supabase: inventory_items table fetch failed. \(error)")
+        }
+        
+        return try await generateMockInventoryItems()
     }
     
     /// Called on first launch when inventory_items table is empty.
@@ -624,6 +697,53 @@ public actor DataService {
     }
 
     private func resolveCurrentUserBrandIdOrThrow() async throws -> UUID {
+        let userId = try await client.auth.session.user.id
+
+        if let brandId = (try? await resolveBrandIdFromUsers(userId: userId)) ?? nil {
+            return brandId
+        }
+        if let brandId = (try? await resolveBrandIdFromInventoryManager(userId: userId)) ?? nil {
+            return brandId
+        }
+        if let brandId = (try? await resolveBrandIdFromBoutiqueManager(userId: userId)) ?? nil {
+            return brandId
+        }
+        if let brandId = (try? await resolveBrandIdFromSalesAssociate(userId: userId)) ?? nil {
+            return brandId
+        }
+        if let brandId = (try? await resolveBrandIdFromCorporateAdmin(userId: userId)) ?? nil {
+            return brandId
+        }
+
+        throw DataServiceError.missingCurrentUserBrand
+    }
+
+    private func resolveCurrentInventoryManagerWarehouseId() async throws -> UUID {
+        struct WarehouseRow: Decodable {
+            let warehouseId: UUID
+
+            enum CodingKeys: String, CodingKey {
+                case warehouseId = "warehouse_id"
+            }
+        }
+
+        let userId = try await client.auth.session.user.id
+        let rows: [WarehouseRow] = try await client
+            .from("inventory_managers")
+            .select("warehouse_id")
+            .eq("user_id", value: userId)
+            .limit(1)
+            .execute()
+            .value
+
+        guard let warehouseId = rows.first?.warehouseId else {
+            throw DataServiceError.missingCurrentWarehouse
+        }
+
+        return warehouseId
+    }
+
+    private func resolveBrandIdFromUsers(userId: UUID) async throws -> UUID? {
         struct UserBrandRow: Decodable {
             let brandId: UUID?
 
@@ -631,8 +751,6 @@ public actor DataService {
                 case brandId = "brand_id"
             }
         }
-
-        let userId = try await client.auth.session.user.id
 
         let rows: [UserBrandRow] = try await client
             .from("users")
@@ -642,21 +760,160 @@ public actor DataService {
             .execute()
             .value
 
-        guard let brandId = rows.first?.brandId else {
-            throw DataServiceError.missingCurrentUserBrand
+        return rows.first?.brandId
+    }
+
+    private func resolveBrandIdFromInventoryManager(userId: UUID) async throws -> UUID? {
+        struct WarehouseRow: Decodable {
+            let warehouseId: UUID
+
+            enum CodingKeys: String, CodingKey {
+                case warehouseId = "warehouse_id"
+            }
         }
 
-        return brandId
+        struct WarehouseBrandRow: Decodable {
+            let brandId: UUID?
+
+            enum CodingKeys: String, CodingKey {
+                case brandId = "brand_id"
+            }
+        }
+
+        let warehouseRows: [WarehouseRow] = try await client
+            .from("inventory_managers")
+            .select("warehouse_id")
+            .eq("user_id", value: userId)
+            .limit(1)
+            .execute()
+            .value
+
+        guard let warehouseId = warehouseRows.first?.warehouseId else {
+            return nil
+        }
+
+        let brandRows: [WarehouseBrandRow] = try await client
+            .from("warehouses")
+            .select("brand_id")
+            .eq("warehouse_id", value: warehouseId.uuidString)
+            .limit(1)
+            .execute()
+            .value
+
+        return brandRows.first?.brandId
+    }
+
+    private func resolveBrandIdFromBoutiqueManager(userId: UUID) async throws -> UUID? {
+        struct StoreRow: Decodable {
+            let storeId: UUID
+
+            enum CodingKeys: String, CodingKey {
+                case storeId = "store_id"
+            }
+        }
+
+        struct StoreBrandRow: Decodable {
+            let brandId: UUID?
+
+            enum CodingKeys: String, CodingKey {
+                case brandId = "brand_id"
+            }
+        }
+
+        let storeRows: [StoreRow] = try await client
+            .from("boutique_managers")
+            .select("store_id")
+            .eq("user_id", value: userId)
+            .limit(1)
+            .execute()
+            .value
+
+        guard let storeId = storeRows.first?.storeId else {
+            return nil
+        }
+
+        let brandRows: [StoreBrandRow] = try await client
+            .from("stores")
+            .select("brand_id")
+            .eq("store_id", value: storeId.uuidString)
+            .limit(1)
+            .execute()
+            .value
+
+        return brandRows.first?.brandId
+    }
+
+    private func resolveBrandIdFromSalesAssociate(userId: UUID) async throws -> UUID? {
+        struct StoreRow: Decodable {
+            let storeId: UUID
+
+            enum CodingKeys: String, CodingKey {
+                case storeId = "store_id"
+            }
+        }
+
+        struct StoreBrandRow: Decodable {
+            let brandId: UUID?
+
+            enum CodingKeys: String, CodingKey {
+                case brandId = "brand_id"
+            }
+        }
+
+        let storeRows: [StoreRow] = try await client
+            .from("sales_associates")
+            .select("store_id")
+            .eq("user_id", value: userId)
+            .limit(1)
+            .execute()
+            .value
+
+        guard let storeId = storeRows.first?.storeId else {
+            return nil
+        }
+
+        let brandRows: [StoreBrandRow] = try await client
+            .from("stores")
+            .select("brand_id")
+            .eq("store_id", value: storeId.uuidString)
+            .limit(1)
+            .execute()
+            .value
+
+        return brandRows.first?.brandId
+    }
+
+    private func resolveBrandIdFromCorporateAdmin(userId: UUID) async throws -> UUID? {
+        struct CorporateAdminBrandRow: Decodable {
+            let brandId: UUID?
+
+            enum CodingKeys: String, CodingKey {
+                case brandId = "brand_id"
+            }
+        }
+
+        let rows: [CorporateAdminBrandRow] = try await client
+            .from("corporate_admins")
+            .select("brand_id")
+            .eq("user_id", value: userId)
+            .limit(1)
+            .execute()
+            .value
+
+        return rows.first?.brandId
     }
 }
 
 private enum DataServiceError: LocalizedError {
     case missingCurrentUserBrand
+    case missingCurrentWarehouse
 
     var errorDescription: String? {
         switch self {
         case .missingCurrentUserBrand:
             return "Current user is not linked to a brand."
+        case .missingCurrentWarehouse:
+            return "No warehouse is assigned to the current inventory manager."
         }
     }
 }

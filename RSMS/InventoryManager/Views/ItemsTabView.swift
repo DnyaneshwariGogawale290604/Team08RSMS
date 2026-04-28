@@ -5,10 +5,19 @@ public struct ItemsTabView: View {
     @Binding var categoryFilterMagic: String?
     
     @State private var searchText = ""
-    @State private var showingAddManual = false
-    @State private var showingAddScan = false
-    @State private var showingAuditScanner = false
-    @State private var showingAddFolder = false
+    enum ActiveSheet: String, Identifiable {
+        case addManual, addScan, auditScanner, addFolder
+        var id: String { rawValue }
+    }
+    @State private var activeSheet: ActiveSheet?
+    
+    private func presentSheet(_ sheet: ActiveSheet) {
+        // Delay presentation slightly to avoid conflict with the Menu dismissal animation
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            self.activeSheet = sheet
+        }
+    }
+    
     @State private var repairFilter: RepairFilter = .all
     
     public enum RepairFilter: String, CaseIterable {
@@ -33,8 +42,7 @@ public struct ItemsTabView: View {
                         TextField("Search names, RFIDs, serials...", text: $searchText)
                         
                         Button(action: {
-                            // Dummy barcode open
-                            showingAddScan = true
+                            presentSheet(.addScan)
                         }) {
                             Image(systemName: "barcode.viewfinder")
                                 .foregroundColor(.appAccent)
@@ -109,16 +117,16 @@ public struct ItemsTabView: View {
                     HStack {
                         Spacer()
                         Menu {
-                            Button(action: { showingAddManual = true }) {
+                            Button(action: { presentSheet(.addManual) }) {
                                 Label("Add Manual", systemImage: "doc.badge.plus")
                             }
-                            Button(action: { showingAddScan = true }) {
+                            Button(action: { presentSheet(.addScan) }) {
                                 Label("Add via Scan", systemImage: "barcode.viewfinder")
                             }
-                            Button(action: { showingAuditScanner = true }) {
+                            Button(action: { presentSheet(.auditScanner) }) {
                                 Label("Audit Location Scan", systemImage: "location.viewfinder")
                             }
-                            Button(action: { showingAddFolder = true }) {
+                            Button(action: { presentSheet(.addFolder) }) {
                                 Label("Add Folder", systemImage: "folder.badge.plus")
                             }
                         } label: {
@@ -143,17 +151,17 @@ public struct ItemsTabView: View {
             .refreshable {
                 await viewModel.loadDashboardData()
             }
-            .sheet(isPresented: $showingAddManual) {
-                AddItemManualView(viewModel: viewModel)
-            }
-            .sheet(isPresented: $showingAddScan) {
-                AddItemScanView()
-            }
-            .sheet(isPresented: $showingAuditScanner) {
-                RFIDScannerView()
-            }
-            .sheet(isPresented: $showingAddFolder) {
-                AddFolderView()
+            .sheet(item: $activeSheet) { sheet in
+                switch sheet {
+                case .addManual:
+                    AddItemManualView(viewModel: viewModel)
+                case .addScan:
+                    AddItemScanView(viewModel: viewModel)
+                case .auditScanner:
+                    RFIDScannerView()
+                case .addFolder:
+                    AddFolderView(viewModel: viewModel)
+                }
             }
         }
     }
@@ -608,6 +616,11 @@ public struct AddItemManualView: View {
     @Environment(\.presentationMode) var presentationMode
     @ObservedObject var viewModel: InventoryDashboardViewModel
     
+    public init(viewModel: InventoryDashboardViewModel) {
+        self.viewModel = viewModel
+        self._location = State(initialValue: viewModel.locations.first ?? "Warehouse")
+    }
+    
     @State private var selectedProduct: Product? = nil
     @State private var rfid = "RFID-\(Int.random(in: 1000...9999))"
     @State private var batchNo = "B-MANUAL"
@@ -615,7 +628,6 @@ public struct AddItemManualView: View {
     @State private var errorText: String?
     
     let availableCategories = ["Ring", "Necklace", "Bracelet", "Watch", "Handbag", "Earring", "Pendant", "Other"]
-    let availableLocations = ["Warehouse", "Main Vault", "Showroom Floor", "Paris Boutique", "Tokyo Boutique", "New York Store", "Scanning Bay"]
     
     public var body: some View {
         NavigationView {
@@ -649,7 +661,7 @@ public struct AddItemManualView: View {
                 
                 Section(header: Text("Location")) {
                     Picker("Storage Location", selection: $location) {
-                        ForEach(availableLocations, id: \.self) { loc in
+                        ForEach(viewModel.locations, id: \.self) { loc in
                             Text(loc).tag(loc)
                         }
                     }
@@ -697,8 +709,11 @@ public struct AddItemManualView: View {
         Task {
             do {
                 if let product = selectedProduct {
-                    // Update aggregate inventory
-                    try await DataService.shared.createInventoryItem(productId: product.id, quantity: 1)
+                    // Inventory managers own warehouse stock, not store inventory.
+                    try await DataService.shared.incrementWarehouseInventoryForCurrentManager(
+                        productId: product.id,
+                        quantity: 1
+                    )
                     
                     // Add specific serialized item for the new repair/item feature
                     let newItem = InventoryItem(

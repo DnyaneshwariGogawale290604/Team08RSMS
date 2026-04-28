@@ -59,7 +59,7 @@ public final class InventoryDashboardViewModel: ObservableObject {
             inventoryItems = fetchedItems
             warehouseInventory = fetchedWarehouseInventory
         } catch {
-            print("Failed to fetch Inventory Dashboard data: \(error)")
+            print("Failed to fetch dashboard data: \(error)")
         }
     }
     
@@ -93,7 +93,14 @@ public final class InventoryDashboardViewModel: ObservableObject {
     }
     
     public var categories: [String] {
-        return Array(Set(products.map { $0.category.isEmpty ? "General" : $0.category })).sorted()
+        let productCats = products.map { $0.category.isEmpty ? "General" : $0.category }
+        let itemCats = inventoryItems.map { $0.category.isEmpty ? "General" : $0.category }
+        return Array(Set(productCats + itemCats)).sorted()
+    }
+    
+    public var locations: [String] {
+        let locs = Array(Set(inventoryItems.map { $0.location })).filter { !$0.isEmpty }.sorted()
+        return locs.isEmpty ? ["Warehouse"] : locs
     }
     
     // MARK: - Stock Summary Metrics
