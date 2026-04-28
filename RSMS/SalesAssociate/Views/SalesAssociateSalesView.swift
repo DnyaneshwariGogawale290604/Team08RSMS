@@ -158,6 +158,7 @@ struct SalesAssociateSalesView: View {
                 BillingView(
                     vm: vm,
                     appointmentId: appointmentId,
+                    appointmentsVM: appointmentsVM,
                     maxLegs: vm.maxPaymentLegs,
                     maxSplits: vm.maxLegSplits
                 )
@@ -174,6 +175,12 @@ struct SalesAssociateSalesView: View {
             )) {
                 Button("OK") { vm.successMessage = nil }
             } message: { Text(vm.successMessage ?? "") }
+            .onAppear {
+                if isModal && vm.currentOrder == nil {
+                    // Fresh appointment checkout - ensure no stale billing data
+                    vm.resetOrderContext()
+                }
+            }
             .onReceive(NotificationCenter.default.publisher(
                 for: NSNotification.Name("OpenRazorpayCheckout")
             )) { _ in

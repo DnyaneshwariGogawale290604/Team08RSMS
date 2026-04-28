@@ -6,6 +6,10 @@ struct BillAndPaymentsView: View {
     @ObservedObject var vm: AssociateSalesViewModel
     @Environment(\.dismiss) var dismiss
     let salesOrderId: UUID
+    
+    @State private var paymentMethod: String = "online"
+    @State private var splitAmounts: [Double] = []
+    @State private var activeLegIndex: Int = -1 // To track which leg we are paying into
 
     var body: some View {
         NavigationStack {
@@ -74,6 +78,15 @@ struct BillAndPaymentsView: View {
             )) {
                 Button("OK") { vm.successMessage = nil }
             } message: { Text(vm.successMessage ?? "") }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OpenRazorpayCheckout"))) { _ in
+                vm.openRazorpayCheckout()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OpenCashfreeCheckout"))) { _ in
+                // Placeholder
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OpenPayUCheckout"))) { _ in
+                // Placeholder
+            }
         }
     }
 
@@ -205,56 +218,117 @@ struct BillAndPaymentsView: View {
     }
 
     private func collectRemainingSection(_ summary: OrderPaymentSummary) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            SectionHeader(title: "Collect Payment")
+        VStack(alignment: .leading, spacing: 16) {
+            SectionHeader(title: "Collect Remaining Balance")
             
-            Text("The customer has an outstanding balance of ₹\(Int(summary.remaining)). Choose a method to record the remaining payment.")
-                .font(BrandFont.body(13))
-                .foregroundStyle(Color.luxurySecondaryText)
-                .padding(.horizontal, Spacing.md)
+            // Method Toggle
+            HStack(spacing: 0) {
+                ForEach(["online", "cash"], id: \.self) { method in
+                    Button {
+                        paymentMethod = method
+                    } label: {
+                        Text(method.uppercased())
+                            .font(BrandFont.body(11, weight: .bold))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(paymentMethod == method ? Color.luxuryPrimaryText : Color.clear)
+                            .foregroundStyle(paymentMethod == method ? Color.luxuryBackground : Color.luxurySecondaryText)
+                    }
+                    .clipShape(Capsule())
+                }
+            }
+            .padding(4)
+            .background(Color.luxuryDivider.opacity(0.2))
+            .clipShape(Capsule())
+            .padding(.horizontal, Spacing.md)
+
+            // Splits Logic
+            let remaining = summary.remaining
+            let currentSplits = splitAmounts.isEmpty ? [remaining] : splitAmounts
             
-            HStack(spacing: 12) {
-                paymentOptionButton(title: "UPI", method: "upi", summary: summary)
-                paymentOptionButton(title: "Cash", method: "cash", summary: summary)
-                paymentOptionButton(title: "Net Banking", method: "netbanking", summary: summary)
+            VStack(spacing: 12) {
+                ForEach(0..<currentSplits.count, id: \.self) { index in
+                    VStack(spacing: 12) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("AMOUNT").font(.system(size: 10, weight: .bold)).foregroundStyle(Color.luxurySecondaryText)
+                                TextField("0", value: Binding(
+                                    get: { currentSplits[index] },
+                                    set: { val in
+                                        if splitAmounts.isEmpty { splitAmounts = [remaining] }
+                                        splitAmounts[index] = val
+                                    }
+                                ), format: .number)
+                                .keyboardType(.decimalPad)
+                                .font(.system(size: 18, weight: .semibold, design: .serif))
+                                .padding(Spacing.md)
+                                .background(Color.luxuryBackground)
+                                .cornerRadius(Radius.md)
+                            }
+                            
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("GATEWAY").font(.system(size: 10, weight: .bold)).foregroundStyle(Color.luxurySecondaryText)
+                                Text(paymentMethod == "cash" ? "Record Cash" : "Via \(vm.activeGateway.capitalized)")
+                                    .font(BrandFont.body(14))
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(Spacing.md)
+                                    .background(Color.luxuryBackground.opacity(0.5))
+                                    .cornerRadius(Radius.md)
+                            }
+                        }
+                        
+                        Button {
+                            Task {
+                                await collectPayment(method: paymentMethod, amount: currentSplits[index], summary: summary)
+                            }
+                        } label: {
+                            HStack {
+                                Image(systemName: paymentMethod == "cash" ? "banknote" : "creditcard")
+                                Text(paymentMethod == "cash" ? "Record Cash Payment" : "Pay via Gateway")
+                                    .font(BrandFont.body(14, weight: .bold))
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                            }
+                            .padding(Spacing.md)
+                            .background(Color.luxurySurface)
+                            .cornerRadius(Radius.md)
+                            .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(Color.luxuryDivider, lineWidth: 1))
+                        }
+                        .foregroundStyle(Color.luxuryPrimaryText)
+                        .disabled(vm.isLoading)
+                    }
+                    .padding(Spacing.md)
+                    .background(Color.luxurySurface.opacity(0.4))
+                    .cornerRadius(Radius.lg)
+                }
+                
+                if currentSplits.count < vm.maxLegSplits {
+                    Button {
+                        if splitAmounts.isEmpty { splitAmounts = [remaining] }
+                        let currentTotal = splitAmounts.reduce(0, +)
+                        if currentTotal < remaining {
+                            splitAmounts.append(remaining - currentTotal)
+                        } else {
+                            splitAmounts.append(0)
+                        }
+                    } label: {
+                        HStack {
+                            Image(systemName: "plus.circle")
+                            Text("Add Split").font(BrandFont.body(13))
+                        }
+                        .foregroundStyle(Color.luxuryPrimary)
+                    }
+                    .padding(.top, 8)
+                }
             }
             .padding(.horizontal, Spacing.md)
         }
+        .padding(.bottom, 40)
     }
 
-    private func paymentOptionButton(title: String, method: String, summary: OrderPaymentSummary) -> some View {
-        let isEnabled = summary.enabledMethods.contains(method)
-        
-        return Button {
-            Task {
-                await collectPayment(method: method, summary: summary)
-            }
-        } label: {
-            VStack(spacing: 8) {
-                Image(systemName: iconForMethod(method))
-                    .font(.title3)
-                Text(title)
-                    .font(BrandFont.body(11, weight: .semibold))
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
-            .background(isEnabled ? Color.luxuryPrimaryText : Color.luxuryDivider)
-            .foregroundStyle(isEnabled ? Color.luxuryBackground : Color.luxurySecondaryText)
-            .cornerRadius(Radius.md)
-        }
-        .disabled(!isEnabled || vm.isLoading)
-    }
 
-    private func iconForMethod(_ method: String) -> String {
-        switch method {
-        case "upi": return "qrcode"
-        case "cash": return "banknote"
-        case "netbanking": return "building.columns"
-        default: return "creditcard"
-        }
-    }
 
-    private func collectPayment(method: String, summary: OrderPaymentSummary) async {
+    private func collectPayment(method: String, amount: Double, summary: OrderPaymentSummary) async {
         vm.isLoading = true
         vm.errorMessage = nil
         
@@ -268,7 +342,7 @@ struct BillAndPaymentsView: View {
                 "sales_order_id": summary.orderId,
                 "recorded_by": authId,
                 "method": method,
-                "amount": summary.remaining
+                "amount": amount
             ]
 
             let url = URL(string: "https://ionszphvxhffqfwlohiv.supabase.co/functions/v1/collect-remaining-payment")!
@@ -296,7 +370,17 @@ struct BillAndPaymentsView: View {
                 vm.checkoutKey = keyId
                 vm.paymentOrderId = poId
                 vm.isLoading = false
-                NotificationCenter.default.post(name: NSNotification.Name("OpenRazorpayCheckout"), object: nil)
+                
+                let gateway = json["gateway"] as? String ?? "razorpay"
+                if gateway == "razorpay" {
+                    NotificationCenter.default.post(name: NSNotification.Name("OpenRazorpayCheckout"), object: nil)
+                } else if gateway == "cashfree" {
+                    vm.cashfreeSessionId = json["payment_session_id"] as? String
+                    NotificationCenter.default.post(name: NSNotification.Name("OpenCashfreeCheckout"), object: nil)
+                } else if gateway == "payu" {
+                    vm.payuHash = json["payu_hash"] as? String
+                    NotificationCenter.default.post(name: NSNotification.Name("OpenPayUCheckout"), object: nil)
+                }
             } else {
                 vm.isLoading = false
                 vm.successMessage = "Payment recorded successfully."

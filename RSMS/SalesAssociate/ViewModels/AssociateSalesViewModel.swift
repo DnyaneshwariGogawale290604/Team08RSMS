@@ -33,6 +33,8 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
     @Published var checkoutKey: String? = nil
     @Published var paymentSessionUrl: String? = nil
     @Published var paymentSessionToken: String? = nil
+    @Published var cashfreeSessionId: String? = nil
+    @Published var payuHash: String? = nil
     @Published var cashTendered: Double = 0
     @Published var cashNote: String = ""
     @Published var paymentMethod: String = "upi"
@@ -106,6 +108,17 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
         currentOrder = nil
         currentTransaction = nil
         paymentCompleted = false
+        paymentOrderId = nil
+        gatewayOrderId = nil
+        checkoutKey = nil
+        billingLegs = []
+        orderPaymentSummary = nil
+    }
+
+    func resetOrderContext() {
+        currentOrder = nil
+        billingLegs = []
+        orderPaymentSummary = nil
         paymentOrderId = nil
         gatewayOrderId = nil
         checkoutKey = nil
@@ -297,6 +310,7 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
                 let sales_associate_id: UUID
                 let total_amount: Double
                 let store_id: UUID
+                let appointment_id: UUID?
             }
             struct OIInsert: Encodable {
                 let order_id: UUID; let product_id: UUID
@@ -309,7 +323,8 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
                     customer_id: customer.id,
                     sales_associate_id: associateId,
                     total_amount: total,
-                    store_id: storeId
+                    store_id: storeId,
+                    appointment_id: appointmentId
                 ))
                 .execute()
 
@@ -1498,7 +1513,7 @@ extension AssociateSalesViewModel: RazorpayPaymentCompletionProtocolWithData {
               let order = currentOrder else { return }
 
         let item = billingLegs[legIndex].items[itemIndex]
-        guard item.method == "upi" || item.method == "netbanking" else { return }
+        guard item.method == "online" || item.method == "upi" || item.method == "netbanking" else { return }
 
         isLoading = true
         errorMessage = nil
@@ -1568,7 +1583,17 @@ extension AssociateSalesViewModel: RazorpayPaymentCompletionProtocolWithData {
                 self.currentPaymentLegIndex = legIndex
                 self.currentPaymentItemIndex = itemIndex
                 isLoading = false
-                NotificationCenter.default.post(name: NSNotification.Name("OpenRazorpayCheckout"), object: nil)
+                
+                let gateway = json["gateway"] as? String ?? "razorpay"
+                if gateway == "razorpay" {
+                    NotificationCenter.default.post(name: NSNotification.Name("OpenRazorpayCheckout"), object: nil)
+                } else if gateway == "cashfree" {
+                    self.cashfreeSessionId = json["payment_session_id"] as? String
+                    NotificationCenter.default.post(name: NSNotification.Name("OpenCashfreeCheckout"), object: nil)
+                } else if gateway == "payu" {
+                    self.payuHash = json["payu_hash"] as? String
+                    NotificationCenter.default.post(name: NSNotification.Name("OpenPayUCheckout"), object: nil)
+                }
             } else {
                 isLoading = false
             }
@@ -1588,6 +1613,7 @@ extension AssociateSalesViewModel: RazorpayPaymentCompletionProtocolWithData {
     func checkoutAppointment(
         appointmentId: UUID,
         orderStore: SharedOrderStore,
+        appointmentsVM: AppointmentsViewModel? = nil,
         onComplete: @escaping () -> Void
     ) async {
         guard let order = currentOrder else {
@@ -1644,7 +1670,11 @@ extension AssociateSalesViewModel: RazorpayPaymentCompletionProtocolWithData {
                 orderStore.addOrder(placed)
             }
 
-            NotificationCenter.default.post(name: NSNotification.Name("RefreshSalesAssociateDashboard"), object: nil)
+            if let avm = appointmentsVM {
+                await avm.deleteAppointment(id: appointmentId)
+            }
+
+            resetOrderContext()
             onComplete()
 
         } catch {
