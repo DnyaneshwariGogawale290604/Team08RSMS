@@ -895,11 +895,15 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
     // Remove a leg
     func removeBillingLeg(at index: Int) {
         guard billingLegs.count > 1 else { return }
+        let removedAmount = billingLegs[index].totalAmount
         billingLegs.remove(at: index)
         // Renumber legs
         for i in billingLegs.indices {
             billingLegs[i].legNumber = i + 1
         }
+        // Add removed amount to Leg 1 (index 0) and sync its splits
+        billingLegs[0].totalAmount += removedAmount
+        syncSplitsInLeg(at: 0, in: &billingLegs)
     }
 
     // Add split item to a leg
@@ -928,6 +932,8 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
         for i in billingLegs[legIndex].items.indices {
             billingLegs[legIndex].items[i].itemNumber = i + 1
         }
+        // Balance the leg's remaining splits to absorb the deleted amount
+        syncSplitsInLeg(at: legIndex, in: &billingLegs)
     }
 
     // Update a specific leg's amount and balance others
@@ -983,15 +989,8 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
             // Special case for Leg 1 (Principal): Splits balance AGAINST EACH OTHER
             let leg = updatedLegs[0]
             if leg.items.count > 1 {
-                if itemIndex == leg.items.count - 1 {
-                    let targetIdx = itemIndex - 1
-                    var othersSum = newValue
-                    for i in 0..<leg.items.count {
-                        if i != itemIndex && i != targetIdx { othersSum += leg.items[i].amount }
-                    }
-                    updatedLegs[0].items[targetIdx].amount = max(0, leg.totalAmount - othersSum)
-                } else {
-                    let targetIdx = leg.items.count - 1
+                // Find a target item to balance against. It must be PENDING and NOT the one being edited.
+                if let targetIdx = leg.items.firstIndex(where: { !$0.isPaid && $0.id != leg.items[itemIndex].id }) {
                     var othersSum = newValue
                     for i in 0..<leg.items.count {
                         if i != itemIndex && i != targetIdx { othersSum += leg.items[i].amount }
@@ -1011,15 +1010,18 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
     private func syncSplitsInLeg(at index: Int, in legs: inout [BillingLeg]) {
         guard index < legs.count else { return }
         let leg = legs[index]
-        if leg.items.count == 1 {
-            legs[index].items[0].amount = leg.totalAmount
-        } else {
-            var otherSum = 0.0
-            for i in 0..<(leg.items.count - 1) {
+        
+        // Find the first pending item to act as the counterbalance
+        let targetItemIdx = leg.items.firstIndex(where: { !$0.isPaid }) ?? (leg.items.count - 1)
+        
+        var otherSum = 0.0
+        for i in 0..<leg.items.count {
+            if i != targetItemIdx {
                 otherSum += leg.items[i].amount
             }
-            legs[index].items[leg.items.count - 1].amount = max(0, leg.totalAmount - otherSum)
         }
+        
+        legs[index].items[targetItemIdx].amount = max(0, leg.totalAmount - otherSum)
     }
 
     // Auto-balance billing legs and splits
@@ -1083,7 +1085,7 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
                     let item = PaymentLegItemRecord(
                         id: UUID(uuidString: itemJson["id"] as? String ?? "") ?? UUID(),
                         itemNumber: itemJson["item_number"] as? Int ?? 0,
-                        amount: itemJson["amount"] as? Double ?? 0,
+                        amount: (itemJson["amount"] as? NSNumber)?.doubleValue ?? 0,
                         method: itemJson["method"] as? String ?? "cash",
                         status: itemJson["status"] as? String ?? "pending",
                         collectedAt: itemJson["collected_at"] as? String,
@@ -1096,8 +1098,8 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
                     id: UUID(uuidString: legJson["id"] as? String ?? "") ?? UUID(),
                     legNumber: legJson["leg_number"] as? Int ?? 0,
                     dueType: legJson["due_type"] as? String ?? "immediate",
-                    totalAmount: legJson["total_amount"] as? Double ?? 0,
-                    amountPaid: legJson["amount_paid"] as? Double ?? 0,
+                    totalAmount: (legJson["total_amount"] as? NSNumber)?.doubleValue ?? 0,
+                    amountPaid: (legJson["amount_paid"] as? NSNumber)?.doubleValue ?? 0,
                     status: legJson["status"] as? String ?? "pending",
                     collectedAt: legJson["collected_at"] as? String,
                     items: items
@@ -1107,9 +1109,9 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
 
             let summary = OrderPaymentSummary(
                 orderId: orderJson["id"] as? String ?? "",
-                totalAmount: orderJson["total_amount"] as? Double ?? 0,
-                amountPaid: orderJson["amount_paid"] as? Double ?? 0,
-                remaining: orderJson["remaining"] as? Double ?? 0,
+                totalAmount: (orderJson["total_amount"] as? NSNumber)?.doubleValue ?? 0,
+                amountPaid: (orderJson["amount_paid"] as? NSNumber)?.doubleValue ?? 0,
+                remaining: (orderJson["remaining"] as? NSNumber)?.doubleValue ?? 0,
                 paymentStatus: orderJson["payment_status"] as? String ?? "unpaid",
                 isFullyPaid: orderJson["is_fully_paid"] as? Bool ?? false,
                 legs: legs,
@@ -1439,6 +1441,10 @@ extension AssociateSalesViewModel: RazorpayPaymentCompletionProtocolWithData {
                 "method": "cash",
                 "tendered": tendered,
             ]
+            if let bodyData = try? JSONSerialization.data(withJSONObject: body, options: .prettyPrinted),
+               let bodyString = String(data: bodyData, encoding: .utf8) {
+                print("[collect-cash] REQUEST BODY: \(bodyString)")
+            }
             req.httpBody = try JSONSerialization.data(withJSONObject: body)
 
             let (data, _) = try await URLSession.shared.data(for: req)
@@ -1520,6 +1526,10 @@ extension AssociateSalesViewModel: RazorpayPaymentCompletionProtocolWithData {
                 "recorded_by": authId,
                 "method": item.method,
             ]
+            if let bodyData = try? JSONSerialization.data(withJSONObject: body, options: .prettyPrinted),
+               let bodyString = String(data: bodyData, encoding: .utf8) {
+                print("[collect-remaining-payment] REQUEST BODY: \(bodyString)")
+            }
             req.httpBody = try JSONSerialization.data(withJSONObject: body)
 
             let (data, _) = try await URLSession.shared.data(for: req)

@@ -7,10 +7,11 @@ struct GatewayCollectionSheet: View {
     let itemIndex: Int
     let appointmentId: UUID?
 
-    @State private var deliveryMode = "qr"
-    // "qr" = show QR on screen
+    @State private var deliveryMode = ""
+    // "qr" = show QR on screen (UPI)
+    // "open" = open link on screen (Netbanking)
     // "link" = share link via phone
-    // "both" = show QR + share link
+    // "both" = show QR/Open Link + share link
     @State private var phoneNumber = ""
     @State private var channel = "whatsapp" // "whatsapp" or "sms"
     @State private var linkSent = false
@@ -62,11 +63,11 @@ struct GatewayCollectionSheet: View {
                                 .padding(.horizontal, Spacing.md)
 
                             HStack(spacing: 8) {
-                                ForEach([
-                                    ("qr", "Show QR"),
-                                    ("link", "Share Link"),
-                                    ("both", "Both")
-                                ], id: \.0) { mode in
+                                let modes: [(String, String)] = (item?.method ?? "") == "netbanking"
+                                    ? [("open", "Open Link"), ("link", "Share Link"), ("both", "Both")]
+                                    : [("qr", "Show QR"), ("link", "Share Link"), ("both", "Both")]
+                                
+                                ForEach(modes, id: \.0) { mode in
                                     Button {
                                         deliveryMode = mode.0
                                     } label: {
@@ -100,8 +101,32 @@ struct GatewayCollectionSheet: View {
                             .padding(.horizontal, Spacing.md)
                         }
 
-                        // QR section
-                        if deliveryMode == "qr" || deliveryMode == "both" {
+                        // Netbanking Open Link section
+                        if deliveryMode == "open" || (deliveryMode == "both" && (item?.method ?? "") == "netbanking") {
+                            VStack(spacing: Spacing.md) {
+                                RoundedRectangle(cornerRadius: Radius.lg)
+                                    .fill(Color.luxurySurface)
+                                    .frame(height: 200)
+                                    .overlay(
+                                        VStack(spacing: 12) {
+                                            Image(systemName: "link.circle")
+                                                .font(.system(size: 52))
+                                                .foregroundStyle(Color.luxurySecondaryText)
+                                            Text("Payment link will appear after initiating")
+                                                .font(BrandFont.body(13))
+                                                .foregroundStyle(Color.luxurySecondaryText)
+                                        }
+                                    )
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: Radius.lg)
+                                            .stroke(Color.luxuryDivider, lineWidth: 0.5)
+                                    )
+                            }
+                            .padding(.horizontal, Spacing.md)
+                        }
+
+                        // QR section (UPI)
+                        if deliveryMode == "qr" || (deliveryMode == "both" && (item?.method ?? "") != "netbanking") {
                             VStack(spacing: Spacing.md) {
                                 // QR placeholder
                                 // Real QR shown after initiateGatewayPaymentForItem
@@ -237,11 +262,14 @@ struct GatewayCollectionSheet: View {
                                     itemIndex: itemIndex,
                                     appointmentId: appointmentId
                                 )
-                                if deliveryMode == "link"
-                                   || deliveryMode == "both" {
-                                    linkSent = true
+                                // ONLY dismiss if there was no error!
+                                // Otherwise the user never sees the error message.
+                                if vm.errorMessage == nil {
+                                    if deliveryMode == "link" || deliveryMode == "both" {
+                                        linkSent = true
+                                    }
+                                    dismiss()
                                 }
-                                dismiss()
                             }
                         }
                         .padding(.horizontal, Spacing.md)
@@ -261,6 +289,11 @@ struct GatewayCollectionSheet: View {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Cancel") { dismiss() }
                         .foregroundStyle(Color.luxurySecondaryText)
+                }
+            }
+            .onAppear {
+                if deliveryMode.isEmpty {
+                    deliveryMode = (item?.method ?? "") == "netbanking" ? "open" : "qr"
                 }
             }
         }
