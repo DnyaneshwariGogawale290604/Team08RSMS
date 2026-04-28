@@ -5,9 +5,6 @@ struct BillingView: View {
     @EnvironmentObject var orderStore: SharedOrderStore
     @Environment(\.dismiss) var dismiss
     @State private var showDraftSavedToast = false
-    @State private var showGatewayPaymentSheet = false
-    @State private var pendingGatewayLegIndex: Int = 0
-    @State private var pendingGatewayItemIndex: Int = 0
     @State private var showReceiptUrl: String? = nil
     
     let appointmentId: UUID?
@@ -109,14 +106,6 @@ struct BillingView: View {
                         )
                     }
                 }
-            }
-            .sheet(isPresented: $showGatewayPaymentSheet) {
-                GatewayCollectionSheet(
-                    vm: vm,
-                    legIndex: pendingGatewayLegIndex,
-                    itemIndex: pendingGatewayItemIndex,
-                    appointmentId: appointmentId
-                )
             }
         }
     }
@@ -627,15 +616,25 @@ struct BillingView: View {
                 } else {
                     // Gateway collect button
                     Button {
-                        pendingGatewayLegIndex = legIdx
-                        pendingGatewayItemIndex = itemIdx
-                        showGatewayPaymentSheet = true
+                        Task {
+                            await vm.initiateGatewayPaymentForItem(
+                                legIndex: legIdx,
+                                itemIndex: itemIdx,
+                                appointmentId: appointmentId
+                            )
+                        }
                     } label: {
                         HStack {
-                            Image(systemName: "qrcode")
-                                .font(.system(size: 13))
-                            Text("Collect via \(item.method.uppercased())")
-                                .font(BrandFont.body(13, weight: .semibold))
+                            if vm.isLoading {
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                                    .tint(Color.luxuryPrimaryText)
+                            } else {
+                                Image(systemName: "creditcard")
+                                    .font(.system(size: 13))
+                                Text("Pay via Gateway")
+                                    .font(BrandFont.body(13, weight: .semibold))
+                            }
                             Spacer()
                             Image(systemName: "chevron.right")
                                 .font(.system(size: 11))

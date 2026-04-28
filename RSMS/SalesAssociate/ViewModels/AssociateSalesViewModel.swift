@@ -473,11 +473,12 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
             let maxLegs = json["max_payment_legs"] as? Int ?? 2
             let maxSplits = json["max_leg_splits"] as? Int ?? 2
 
-            // Cash always included regardless of gateway config
-            var allMethods = methods
-            if !allMethods.contains("cash") {
-                allMethods.append("cash")
+            // If the gateway has online methods enabled, surface "online" as a unified method
+            var allMethods: [String] = []
+            if !methods.isEmpty && configured {
+                allMethods.append("online")
             }
+            allMethods.append("cash")
 
             await MainActor.run {
                 self.gatewayConfigured = configured
@@ -722,23 +723,37 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
 
     func openRazorpayCheckout() {
         guard let keyId = checkoutKey,
-              let gatewayOrderId,
-              let order = currentOrder else { return }
+              let gatewayOrderId = gatewayOrderId else { return }
+              
+        let legIdx = currentPaymentLegIndex
+        let itemIdx = currentPaymentItemIndex
+        
+        guard legIdx < billingLegs.count,
+              itemIdx < billingLegs[legIdx].items.count else { return }
 
+        let legItem = billingLegs[legIdx].items[itemIdx]
+        
         razorpay = RazorpayCheckout.initWithKey(keyId, andDelegateWithData: self)
 
         let options: [String: Any] = [
-            "amount": Int(order.totalAmount * 100),
+            "amount": Int(legItem.amount * 100),
             "currency": "INR",
             "order_id": gatewayOrderId,
-            "name": "Your Shop",
-            "description": "Payment for Order",
+            "name": "RSMS Sales",
+            "description": "Payment for Split",
             "prefill": [
                 "contact": selectedCustomer?.phone ?? "",
                 "email": selectedCustomer?.email ?? ""
             ]
         ]
-        razorpay?.open(options)
+        
+        DispatchQueue.main.async {
+            if let topVC = UIApplication.shared.topMostViewController {
+                self.razorpay?.open(options, displayController: topVC)
+            } else {
+                self.razorpay?.open(options)
+            }
+        }
     }
 
     func subscribeToPaymentStatus() {
@@ -1642,5 +1657,31 @@ extension AssociateSalesViewModel: RazorpayPaymentCompletionProtocolWithData {
             }
             isLoading = false
         }
+    }
+}
+
+
+extension UIApplication {
+    var topMostViewController: UIViewController? {
+        guard let windowScene = connectedScenes.first(where: { $0.activationState == .foregroundActive || $0.activationState == .foregroundInactive }) as? UIWindowScene,
+              let rootViewController = windowScene.windows.first(where: { $0.isKeyWindow })?.rootViewController else {
+            return nil
+        }
+        
+        var topController = rootViewController
+        
+        while let presentedViewController = topController.presentedViewController {
+            topController = presentedViewController
+        }
+        
+        if let navigationController = topController as? UINavigationController {
+            topController = navigationController.visibleViewController ?? topController
+        } else if let tabBarController = topController as? UITabBarController {
+            if let selected = tabBarController.selectedViewController {
+                topController = selected
+            }
+        }
+        
+        return topController
     }
 }
