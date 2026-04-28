@@ -473,11 +473,12 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
             let maxLegs = json["max_payment_legs"] as? Int ?? 2
             let maxSplits = json["max_leg_splits"] as? Int ?? 2
 
-            // Cash always included regardless of gateway config
-            var allMethods = methods
-            if !allMethods.contains("cash") {
-                allMethods.append("cash")
+            // If the gateway has online methods enabled, surface "online" as a unified method
+            var allMethods: [String] = []
+            if !methods.isEmpty && configured {
+                allMethods.append("online")
             }
+            allMethods.append("cash")
 
             await MainActor.run {
                 self.gatewayConfigured = configured
@@ -722,23 +723,37 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
 
     func openRazorpayCheckout() {
         guard let keyId = checkoutKey,
-              let gatewayOrderId,
-              let order = currentOrder else { return }
+              let gatewayOrderId = gatewayOrderId else { return }
+              
+        let legIdx = currentPaymentLegIndex
+        let itemIdx = currentPaymentItemIndex
+        
+        guard legIdx < billingLegs.count,
+              itemIdx < billingLegs[legIdx].items.count else { return }
 
+        let legItem = billingLegs[legIdx].items[itemIdx]
+        
         razorpay = RazorpayCheckout.initWithKey(keyId, andDelegateWithData: self)
 
         let options: [String: Any] = [
-            "amount": Int(order.totalAmount * 100),
+            "amount": Int(legItem.amount * 100),
             "currency": "INR",
             "order_id": gatewayOrderId,
-            "name": "Your Shop",
-            "description": "Payment for Order",
+            "name": "RSMS Sales",
+            "description": "Payment for Split",
             "prefill": [
                 "contact": selectedCustomer?.phone ?? "",
                 "email": selectedCustomer?.email ?? ""
             ]
         ]
-        razorpay?.open(options)
+        
+        DispatchQueue.main.async {
+            if let topVC = UIApplication.shared.topMostViewController {
+                self.razorpay?.open(options, displayController: topVC)
+            } else {
+                self.razorpay?.open(options)
+            }
+        }
     }
 
     func subscribeToPaymentStatus() {
@@ -895,11 +910,15 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
     // Remove a leg
     func removeBillingLeg(at index: Int) {
         guard billingLegs.count > 1 else { return }
+        let removedAmount = billingLegs[index].totalAmount
         billingLegs.remove(at: index)
         // Renumber legs
         for i in billingLegs.indices {
             billingLegs[i].legNumber = i + 1
         }
+        // Add removed amount to Leg 1 (index 0) and sync its splits
+        billingLegs[0].totalAmount += removedAmount
+        syncSplitsInLeg(at: 0, in: &billingLegs)
     }
 
     // Add split item to a leg
@@ -928,6 +947,8 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
         for i in billingLegs[legIndex].items.indices {
             billingLegs[legIndex].items[i].itemNumber = i + 1
         }
+        // Balance the leg's remaining splits to absorb the deleted amount
+        syncSplitsInLeg(at: legIndex, in: &billingLegs)
     }
 
     // Update a specific leg's amount and balance others
@@ -983,15 +1004,8 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
             // Special case for Leg 1 (Principal): Splits balance AGAINST EACH OTHER
             let leg = updatedLegs[0]
             if leg.items.count > 1 {
-                if itemIndex == leg.items.count - 1 {
-                    let targetIdx = itemIndex - 1
-                    var othersSum = newValue
-                    for i in 0..<leg.items.count {
-                        if i != itemIndex && i != targetIdx { othersSum += leg.items[i].amount }
-                    }
-                    updatedLegs[0].items[targetIdx].amount = max(0, leg.totalAmount - othersSum)
-                } else {
-                    let targetIdx = leg.items.count - 1
+                // Find a target item to balance against. It must be PENDING and NOT the one being edited.
+                if let targetIdx = leg.items.firstIndex(where: { !$0.isPaid && $0.id != leg.items[itemIndex].id }) {
                     var othersSum = newValue
                     for i in 0..<leg.items.count {
                         if i != itemIndex && i != targetIdx { othersSum += leg.items[i].amount }
@@ -1011,15 +1025,18 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
     private func syncSplitsInLeg(at index: Int, in legs: inout [BillingLeg]) {
         guard index < legs.count else { return }
         let leg = legs[index]
-        if leg.items.count == 1 {
-            legs[index].items[0].amount = leg.totalAmount
-        } else {
-            var otherSum = 0.0
-            for i in 0..<(leg.items.count - 1) {
+        
+        // Find the first pending item to act as the counterbalance
+        let targetItemIdx = leg.items.firstIndex(where: { !$0.isPaid }) ?? (leg.items.count - 1)
+        
+        var otherSum = 0.0
+        for i in 0..<leg.items.count {
+            if i != targetItemIdx {
                 otherSum += leg.items[i].amount
             }
-            legs[index].items[leg.items.count - 1].amount = max(0, leg.totalAmount - otherSum)
         }
+        
+        legs[index].items[targetItemIdx].amount = max(0, leg.totalAmount - otherSum)
     }
 
     // Auto-balance billing legs and splits
@@ -1083,7 +1100,7 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
                     let item = PaymentLegItemRecord(
                         id: UUID(uuidString: itemJson["id"] as? String ?? "") ?? UUID(),
                         itemNumber: itemJson["item_number"] as? Int ?? 0,
-                        amount: itemJson["amount"] as? Double ?? 0,
+                        amount: (itemJson["amount"] as? NSNumber)?.doubleValue ?? 0,
                         method: itemJson["method"] as? String ?? "cash",
                         status: itemJson["status"] as? String ?? "pending",
                         collectedAt: itemJson["collected_at"] as? String,
@@ -1096,8 +1113,8 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
                     id: UUID(uuidString: legJson["id"] as? String ?? "") ?? UUID(),
                     legNumber: legJson["leg_number"] as? Int ?? 0,
                     dueType: legJson["due_type"] as? String ?? "immediate",
-                    totalAmount: legJson["total_amount"] as? Double ?? 0,
-                    amountPaid: legJson["amount_paid"] as? Double ?? 0,
+                    totalAmount: (legJson["total_amount"] as? NSNumber)?.doubleValue ?? 0,
+                    amountPaid: (legJson["amount_paid"] as? NSNumber)?.doubleValue ?? 0,
                     status: legJson["status"] as? String ?? "pending",
                     collectedAt: legJson["collected_at"] as? String,
                     items: items
@@ -1107,9 +1124,9 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
 
             let summary = OrderPaymentSummary(
                 orderId: orderJson["id"] as? String ?? "",
-                totalAmount: orderJson["total_amount"] as? Double ?? 0,
-                amountPaid: orderJson["amount_paid"] as? Double ?? 0,
-                remaining: orderJson["remaining"] as? Double ?? 0,
+                totalAmount: (orderJson["total_amount"] as? NSNumber)?.doubleValue ?? 0,
+                amountPaid: (orderJson["amount_paid"] as? NSNumber)?.doubleValue ?? 0,
+                remaining: (orderJson["remaining"] as? NSNumber)?.doubleValue ?? 0,
                 paymentStatus: orderJson["payment_status"] as? String ?? "unpaid",
                 isFullyPaid: orderJson["is_fully_paid"] as? Bool ?? false,
                 legs: legs,
@@ -1439,6 +1456,10 @@ extension AssociateSalesViewModel: RazorpayPaymentCompletionProtocolWithData {
                 "method": "cash",
                 "tendered": tendered,
             ]
+            if let bodyData = try? JSONSerialization.data(withJSONObject: body, options: .prettyPrinted),
+               let bodyString = String(data: bodyData, encoding: .utf8) {
+                print("[collect-cash] REQUEST BODY: \(bodyString)")
+            }
             req.httpBody = try JSONSerialization.data(withJSONObject: body)
 
             let (data, _) = try await URLSession.shared.data(for: req)
@@ -1520,6 +1541,10 @@ extension AssociateSalesViewModel: RazorpayPaymentCompletionProtocolWithData {
                 "recorded_by": authId,
                 "method": item.method,
             ]
+            if let bodyData = try? JSONSerialization.data(withJSONObject: body, options: .prettyPrinted),
+               let bodyString = String(data: bodyData, encoding: .utf8) {
+                print("[collect-remaining-payment] REQUEST BODY: \(bodyString)")
+            }
             req.httpBody = try JSONSerialization.data(withJSONObject: body)
 
             let (data, _) = try await URLSession.shared.data(for: req)
@@ -1632,5 +1657,31 @@ extension AssociateSalesViewModel: RazorpayPaymentCompletionProtocolWithData {
             }
             isLoading = false
         }
+    }
+}
+
+
+extension UIApplication {
+    var topMostViewController: UIViewController? {
+        guard let windowScene = connectedScenes.first(where: { $0.activationState == .foregroundActive || $0.activationState == .foregroundInactive }) as? UIWindowScene,
+              let rootViewController = windowScene.windows.first(where: { $0.isKeyWindow })?.rootViewController else {
+            return nil
+        }
+        
+        var topController = rootViewController
+        
+        while let presentedViewController = topController.presentedViewController {
+            topController = presentedViewController
+        }
+        
+        if let navigationController = topController as? UINavigationController {
+            topController = navigationController.visibleViewController ?? topController
+        } else if let tabBarController = topController as? UITabBarController {
+            if let selected = tabBarController.selectedViewController {
+                topController = selected
+            }
+        }
+        
+        return topController
     }
 }
