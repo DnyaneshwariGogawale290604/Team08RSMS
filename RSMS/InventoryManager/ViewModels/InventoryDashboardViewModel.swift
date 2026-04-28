@@ -37,7 +37,7 @@ public final class InventoryDashboardViewModel: ObservableObject {
             async let requestsFetch = RequestService.shared.fetchPendingRequests()
             async let shipmentsFetch = RequestService.shared.fetchShipmentsForCurrentWarehouse()
             async let vendorOrdersFetch = RequestService.shared.fetchVendorOrdersForCurrentWarehouse()
-            async let inventoryItemsFetch = DataService.shared.fetchInventoryItems()
+            async let inventoryItemsFetch = DataService.shared.fetchInventoryItemsForCurrentBrand()
             async let salesFetch = DataService.shared.fetchSales()
 
             products = try await productsFetch

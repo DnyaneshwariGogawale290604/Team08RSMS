@@ -458,6 +458,59 @@ public actor DataService {
     }
     
     // MARK: - Individual Inventory Items (RFID/Serial)
+
+    /// Fetches inventory items scoped to the current user's brand by joining on products.
+    public func fetchInventoryItemsForCurrentBrand() async throws -> [InventoryItem] {
+        let brandId = try await resolveCurrentUserBrandIdOrThrow()
+        print("[DataService] fetchInventoryItemsForCurrentBrand — brandId: \(brandId)")
+
+        // Fetch all products for this brand to get the product IDs
+        let brandProducts: [Product] = try await client
+            .from("products")
+            .select("product_id")
+            .eq("brand_id", value: brandId)
+            .execute()
+            .value
+
+        guard !brandProducts.isEmpty else {
+            print("[DataService] fetchInventoryItemsForCurrentBrand — no products for brand")
+            return []
+        }
+
+        let productIdStrings = brandProducts.map { $0.id.uuidString }
+
+        // Try the view first (includes nested repair ticket JSON)
+        do {
+            let result: [InventoryItem] = try await client
+                .from("inventory_items_with_ticket")
+                .select()
+                .in("product_id", values: productIdStrings)
+                .execute()
+                .value
+            print("[DataService] fetchInventoryItemsForCurrentBrand — fetched \(result.count) items from view")
+            return result
+        } catch {
+            print("Supabase: inventory_items_with_ticket brand-filtered fetch failed. \(error)")
+        }
+
+        // Fallback to base table
+        do {
+            let result: [InventoryItem] = try await client
+                .from("inventory_items")
+                .select()
+                .in("product_id", values: productIdStrings)
+                .execute()
+                .value
+            print("[DataService] fetchInventoryItemsForCurrentBrand — fetched \(result.count) items from table")
+            return result
+        } catch {
+            print("Supabase: inventory_items brand-filtered table fetch failed. \(error)")
+        }
+
+        return try await generateMockInventoryItems()
+    }
+
+    /// Fetches ALL inventory items (no brand filter). Prefer fetchInventoryItemsForCurrentBrand() for brand-scoped views.
     public func fetchInventoryItems() async throws -> [InventoryItem] {
         do {
             // Read from the VIEW which nests the active repair ticket as JSON
