@@ -19,7 +19,7 @@ public struct ActivityRingView: View {
                 .trim(from: 0, to: min(progress, 1.0))
                 .stroke(
                     CatalogTheme.primary,
-                    style: StrokeStyle(lineWidth: 12, lineCap: .butt)
+                    style: StrokeStyle(lineWidth: 12, lineCap: .round)
                 )
                 .rotationEffect(.degrees(-90))
             

@@ -611,7 +611,7 @@ struct SalesTargetCard: View {
                     
                     Circle()
                         .trim(from: 0, to: CGFloat(percent))
-                        .stroke(BoutiqueTheme.primary, style: StrokeStyle(lineWidth: 16, lineCap: .butt))
+                        .stroke(BoutiqueTheme.primary, style: StrokeStyle(lineWidth: 16, lineCap: .round))
                         .rotationEffect(.degrees(-90))
                         .animation(.easeOut(duration: 0.8), value: percent)
                     
