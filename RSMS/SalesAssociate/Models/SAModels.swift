@@ -74,6 +74,26 @@ struct SARating: Identifiable, Decodable, Sendable {
 
     enum CodingKeys: String, CodingKey {
         case id = "order_id"
-        case ratingValue = "rating_value"
+        case ratingValue = "rating"
+    }
+}
+
+// MARK: - Trending Product (for dashboard section)
+struct TrendingProduct: Identifiable {
+    let id = UUID()
+    let productId: UUID
+    let name: String
+    let category: String
+    let price: Double
+    let soldCount: Int
+    let trendScore: Double
+
+    /// Flame intensity 1–3 based on normalised trend score (0–100 scale, top product = 100)
+    var flameLevel: Int {
+        switch trendScore {
+        case ..<40:  return 1   // low velocity
+        case 40..<80: return 2  // moderate
+        default:      return 3  // hot — near top seller
+        }
     }
 }

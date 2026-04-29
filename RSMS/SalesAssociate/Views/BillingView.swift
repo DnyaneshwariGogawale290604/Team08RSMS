@@ -108,6 +108,10 @@ struct BillingView: View {
                     }
                 }
             }
+            // Rating prompt — shown automatically after successful checkout
+            .sheet(isPresented: $vm.showRatingPrompt) {
+                RatingPromptSheet(vm: vm)
+            }
         }
     }
 

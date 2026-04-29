@@ -142,7 +142,7 @@ struct SalesAssociateSalesView: View {
                             if isSaving {
                                 ProgressView().tint(Color.luxuryBackground)
                             } else {
-                                Text("SAVE")
+                                Text("Save")
                                     .font(.system(size: 13, weight: .semibold))
                                     .kerning(1)
                                     .foregroundStyle(Color.luxuryPrimaryText)
@@ -519,7 +519,20 @@ struct CartItemRow: View {
                         .foregroundStyle(item.quantity <= 1 ? Color(hex: "#9B4444") : Color.luxurySecondaryText)
                         .frame(width: 28, height: 28).background(Color.luxurySurface).clipShape(Circle())
                 }
-                Text("\(item.quantity)").font(BrandFont.body(14, weight: .semibold)).foregroundStyle(Color.luxuryPrimaryText).frame(minWidth: 20)
+                
+                TextField("", value: Binding(
+                    get: { item.quantity },
+                    set: { newVal in vm.updateQuantity(item: item, quantity: max(0, newVal)) }
+                ), format: .number)
+                .keyboardType(.numberPad)
+                .multilineTextAlignment(.center)
+                .font(BrandFont.body(14, weight: .semibold))
+                .foregroundStyle(Color.luxuryPrimaryText)
+                .frame(minWidth: 30, maxWidth: 45)
+                .padding(.vertical, 4)
+                .background(Color.luxurySurface)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+
                 Button { vm.updateQuantity(item: item, quantity: item.quantity + 1) } label: {
                     Image(systemName: "plus").font(.system(size: 12, weight: .medium))
                         .foregroundStyle(Color.luxuryPrimaryText)
@@ -612,8 +625,14 @@ struct CustomerSheet: View {
                                         }
                                     }
                                     Spacer()
-                                    if let cat = customer.customerCategory { BadgeView(text: cat, color: cat == "VIP" ? Color(hex: "#C8913A") : Color.luxurySecondaryText) }
-                                    if vm.selectedCustomer?.id == customer.id { Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.luxuryPrimary) }
+                                    HStack(spacing: 8) {
+                                        if let cat = customer.customerCategory { BadgeView(text: cat, color: cat == "VIP" ? Color(hex: "#C8913A") : Color.luxurySecondaryText) }
+                                        if vm.selectedCustomer?.id == customer.id { 
+                                            Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.luxuryPrimary).frame(width: 20)
+                                        } else {
+                                            Color.clear.frame(width: 20)
+                                        }
+                                    }
                                 }
                                 .padding(.horizontal, Spacing.md).padding(.vertical, 14)
                             }

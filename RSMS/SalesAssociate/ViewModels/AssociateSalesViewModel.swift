@@ -63,6 +63,7 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
     @Published var showReceipt = false
     @Published var showProductRequest = false
     @Published var showBilling = false
+    @Published var showRatingPrompt = false
 
     // MARK: Billing
     @Published var billingLegs: [BillingLeg] = []
@@ -818,8 +819,7 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
     }
 
     // MARK: - Submit Rating
-    // Updates the current order row in sales_orders with rating_value (Int) and
-    // rating_feedback (text). NULL is stored when no feedback is provided.
+    // Inserts a new record into the order_feedback table.
     func submitRating(rating: Double, feedback: String, associateId: UUID? = nil) async {
         guard let orderId = lastPlacedOrder?.id else {
             errorMessage = "No order to attach rating to."
@@ -827,20 +827,29 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
         }
 
         do {
-            struct RatingUpdate: Encodable {
-                let rating_value: Int
-                let rating_feedback: String?
+            let userId = try await resolveUserId()
+            
+            struct FeedbackInsert: Encodable {
+                let order_id: UUID
+                let sales_associate_id: UUID
+                let rating: Int
+                let feedback: String?
+                let is_submitted: Bool
+                let feedback_token: String
             }
 
-            let payload = RatingUpdate(
-                rating_value: Int(rating.rounded()),
-                rating_feedback: feedback.isEmpty ? nil : feedback
+            let payload = FeedbackInsert(
+                order_id: orderId,
+                sales_associate_id: associateId ?? userId,
+                rating: Int(rating.rounded()),
+                feedback: feedback.isEmpty ? nil : feedback,
+                is_submitted: true,
+                feedback_token: UUID().uuidString
             )
 
-            try await client
-                .from("sales_orders")
-                .update(payload)
-                .eq("order_id", value: orderId.uuidString)
+            try await SupabaseManager.shared.serviceRoleClient
+                .from("order_feedback")
+                .insert(payload)
                 .execute()
 
             // Update local cache — no re-fetch needed
@@ -1673,6 +1682,10 @@ extension AssociateSalesViewModel: RazorpayPaymentCompletionProtocolWithData {
             if let avm = appointmentsVM {
                 await avm.deleteAppointment(id: appointmentId)
             }
+
+            // Trigger rating prompt — must happen before resetOrderContext
+            // so lastPlacedOrder is still available for submitRating
+            showRatingPrompt = true
 
             resetOrderContext()
             onComplete()

@@ -19,6 +19,7 @@ final class SalesAssociateViewModel: ObservableObject {
     @Published var recentOrders: [SAOrder] = []
     @Published var customers: [Customer] = []
     @Published var catalog: [Product] = []
+    @Published var trendingProducts: [TrendingProduct] = []
 
 
     private let client = SupabaseManager.shared.client
@@ -67,11 +68,10 @@ final class SalesAssociateViewModel: ObservableObject {
                 .execute()
                 .value
 
-            async let ratingsTask: [SARating] = client
-                .from("sales_orders")
-                .select("order_id,rating_value")
-                .eq("sales_associate_id", value: userId.uuidString)  // ← must be String
-                .in("store_id", values: scopedStoreIds)
+            async let ratingsTask: [SARating] = SupabaseManager.shared.serviceRoleClient
+                .from("order_feedback")
+                .select("order_id, rating")
+                .eq("sales_associate_id", value: userId.uuidString)
                 .execute()
                 .value
 
@@ -116,10 +116,10 @@ final class SalesAssociateViewModel: ObservableObject {
             customersCount = customers.count
             self.catalog = fetchedCatalog
 
-            let todayPrefix = Self.todayPrefix()
-            let todays = orders.filter { ($0.createdAt ?? "").hasPrefix(todayPrefix) }
-            todayOrderCount = todays.count
-            todaySalesAmount = todays.map(\.totalAmount).reduce(0, +)
+            let monthPrefix = Self.monthPrefix()
+            let monthOrders = orders.filter { ($0.createdAt ?? "").hasPrefix(monthPrefix) }
+            todayOrderCount = monthOrders.count
+            todaySalesAmount = monthOrders.map(\.totalAmount).reduce(0, +)
 
             // Seed RatingCache only on first load — after that the cache is
             // maintained locally via incremental averaging on each new submission.
@@ -131,6 +131,10 @@ final class SalesAssociateViewModel: ObservableObject {
             }
 
             errorMessage = nil
+
+            // Fetch trending products for dashboard
+            await fetchTrendingProducts()
+
         } catch is CancellationError {
             // SwiftUI cancelled the task — do not surface to user
         } catch {
@@ -182,38 +186,131 @@ final class SalesAssociateViewModel: ObservableObject {
         }
     }
 
-    func completeOrder(orderId: UUID) async {
+    // MARK: - Update Order Status (for contextMenu actions in Orders tab)
+    func updateOrderStatus(orderId: UUID, status: String) async {
         struct OrderStatusUpdate: Encodable { let status: String }
-
+        struct OrderTrackingInsert: Encodable {
+            let order_id: UUID
+            let status: String
+        }
+        
         do {
             try await client
                 .from("sales_orders")
-                .update(OrderStatusUpdate(status: "completed"))
+                .update(OrderStatusUpdate(status: status))
                 .eq("order_id", value: orderId.uuidString)
                 .execute()
+                
+            // Insert into order_tracking table
+            try? await client
+                .from("order_tracking")
+                .insert(OrderTrackingInsert(order_id: orderId, status: status))
+                .execute()
 
-            if let index = recentOrders.firstIndex(where: { $0.id == orderId }) {
-                let current = recentOrders[index]
-                recentOrders[index] = SAOrder(
+            // Update local array in-place
+            if let idx = recentOrders.firstIndex(where: { $0.id == orderId }) {
+                let current = recentOrders[idx]
+                recentOrders[idx] = SAOrder(
                     id: current.id,
                     totalAmount: current.totalAmount,
-                    status: "completed",
+                    status: status,
                     createdAt: current.createdAt,
                     customerName: current.customerName
                 )
             }
-
             errorMessage = nil
         } catch is CancellationError {
-            // Task cancelled by UI lifecycle; do nothing.
         } catch {
-            errorMessage = "Failed to complete order: \(error.localizedDescription)"
+            errorMessage = "Failed to update order status: \(error.localizedDescription)"
         }
     }
 
-    private static func todayPrefix() -> String {
+    // MARK: - Fetch Trending Products (computed live from order_items)
+    func fetchTrendingProducts() async {
+        do {
+            let userId = try await resolveUserId()
+            let brandId = try await resolveBrandId(userId: userId)
+            // Postgres returns UUIDs lowercase; Swift's UUID.uuidString is uppercase — normalise both sides
+            let brandIdLower = brandId.lowercased()
+
+            // Decode each order_item row joined with its product
+            struct OrderItemRow: Decodable {
+                let product_id: UUID
+                let quantity: Int
+                let products: ProductInfo?
+
+                struct ProductInfo: Decodable {
+                    let name: String
+                    let price: Double
+                    let category: String?
+                    let brand_id: String?
+                }
+            }
+
+            // Fetch ALL historical order_items joined with products (no artificial cap)
+            let rows: [OrderItemRow] = try await client
+                .from("order_items")
+                .select("product_id, quantity, products(name, price, category, brand_id)")
+                .limit(2000)
+                .execute()
+                .value
+
+            print("[fetchTrendingProducts] fetched \(rows.count) rows, brand=\(brandIdLower)")
+
+            // Filter to this brand using case-insensitive comparison and aggregate
+            var totals: [UUID: (name: String, category: String, price: Double, count: Int)] = [:]
+            for row in rows {
+                guard let info = row.products,
+                      (info.brand_id ?? "").lowercased() == brandIdLower else { continue }
+                if let existing = totals[row.product_id] {
+                    totals[row.product_id] = (
+                        existing.name,
+                        existing.category,
+                        existing.price,
+                        existing.count + row.quantity
+                    )
+                } else {
+                    totals[row.product_id] = (
+                        info.name,
+                        info.category ?? "",
+                        info.price,
+                        row.quantity
+                    )
+                }
+            }
+
+            print("[fetchTrendingProducts] \(totals.count) distinct products after brand filter")
+
+            // Sort by total units sold, take top 3
+            let sorted = totals
+                .sorted { $0.value.count > $1.value.count }
+                .prefix(3)
+
+            let maxCount = max(sorted.first?.value.count ?? 1, 1)
+
+            trendingProducts = sorted.map { productId, info in
+                // Normalise to 0–100 so flame levels reflect relative velocity
+                let score = Double(info.count) / Double(maxCount) * 100.0
+                return TrendingProduct(
+                    productId: productId,
+                    name: info.name,
+                    category: info.category,
+                    price: info.price,
+                    soldCount: info.count,
+                    trendScore: score
+                )
+            }
+            print("[fetchTrendingProducts] result: \(trendingProducts.map { "\($0.name): \($0.soldCount)" })")
+        } catch is CancellationError {
+        } catch {
+            print("[fetchTrendingProducts] error: \(error)")
+        }
+    }
+
+
+    private static func monthPrefix() -> String {
         let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.dateFormat = "yyyy-MM"
         formatter.locale = Locale(identifier: "en_US_POSIX")
         return formatter.string(from: Date())
     }
