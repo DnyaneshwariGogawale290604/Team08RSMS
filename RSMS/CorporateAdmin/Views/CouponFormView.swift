@@ -101,14 +101,14 @@ struct CouponFormView: View {
     
     private var basicsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("BASICS")
+            Text("Basics")
                 .font(.system(size: 13, weight: .bold))
                 .foregroundColor(CatalogTheme.secondaryText)
                 .padding(.leading, 4)
             
             VStack(spacing: 0) {
                 HStack {
-                    TextField("COUPON CODE", text: $code)
+                    TextField("Coupon code", text: $code)
                         .autocapitalization(.allCharacters)
                         .font(.system(size: 16, weight: .bold, design: .monospaced))
                     
@@ -136,7 +136,7 @@ struct CouponFormView: View {
     
     private var discountSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("DISCOUNT")
+            Text("Discount")
                 .font(.system(size: 13, weight: .bold))
                 .foregroundColor(CatalogTheme.secondaryText)
                 .padding(.leading, 4)
@@ -175,10 +175,10 @@ struct CouponFormView: View {
                 if discountType == .percentage {
                     Divider()
                     HStack {
-                        Text("Max Cap (₹)")
+                        Text("Max cap (₹)")
                             .font(BrandFont.body(15, weight: .medium))
                         Spacer()
-                        TextField("No Limit", text: $maxDiscountCap)
+                        TextField("No limit", text: $maxDiscountCap)
                             .keyboardType(.decimalPad)
                             .multilineTextAlignment(.trailing)
                             .frame(width: 100)
@@ -191,7 +191,7 @@ struct CouponFormView: View {
                 Divider()
                 
                 HStack {
-                    Text("Min Order (₹)")
+                    Text("Min order (₹)")
                         .font(BrandFont.body(15, weight: .medium))
                     Spacer()
                     TextField("0", text: $minOrderAmount)
@@ -211,7 +211,7 @@ struct CouponFormView: View {
     
     private var validitySection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("VALIDITY")
+            Text("Validity")
                 .font(.system(size: 13, weight: .bold))
                 .foregroundColor(CatalogTheme.secondaryText)
                 .padding(.leading, 4)
@@ -259,7 +259,7 @@ struct CouponFormView: View {
     private var storesSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("APPLICABLE STORES")
+                Text("Applicable stores")
                 Spacer()
                 Button("Select All") {
                     selectedStoreIds = Set(viewModel.stores.map(\.id))
