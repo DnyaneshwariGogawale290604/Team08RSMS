@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import PhotosUI
 
 public struct AddEditProductView: View {
     @Environment(\.dismiss) private var dismiss
@@ -14,9 +15,8 @@ public struct AddEditProductView: View {
     @State private var makingPrice: String = ""
     @State private var taxPercentage: String = "18"
     @State private var isActive: Bool = true
-    @State private var selectedImage: UIImage?
-    @State private var showImagePicker = false
     @State private var isSaving = false
+    @State private var variantDrafts: [ProductVariantDraft] = []
 
     public init(viewModel: ProductViewModel, editingProduct: Product? = nil) {
         self.viewModel = viewModel
@@ -26,21 +26,50 @@ public struct AddEditProductView: View {
     public var body: some View {
         NavigationView {
             Form {
-                Section {
-                    Button {
-                        showImagePicker = true
-                    } label: {
-                        productImagePicker
-                    }
-                    .buttonStyle(.plain)
-                    .listRowBackground(CatalogTheme.card)
-                }
-
                 Section(header: sectionHeader("Basic Info")) {
                     TextField("Product Name", text: $name)
                         .textInputAutocapitalization(.words)
-                    TextField("Category", text: $category)
-                        .textInputAutocapitalization(.words)
+                    HStack {
+                        TextField("Category", text: $category)
+                            .textInputAutocapitalization(.words)
+
+                        if !availableCategories.isEmpty {
+                            Menu {
+                                ForEach(availableCategories, id: \.self) { categoryName in
+                                    Button(categoryName) {
+                                        category = categoryName
+                                    }
+                                }
+                            } label: {
+                                Image(systemName: "chevron.down.circle")
+                                    .foregroundColor(.accentColor)
+                            }
+                        }
+                    }
+                }
+                .listRowBackground(CatalogTheme.card)
+
+                Section(header: variantSectionHeader) {
+                    if variantDrafts.count > 1 {
+                        Button {
+                            applyFirstVariantInfoToAll()
+                        } label: {
+                            Label("Same Info for All", systemImage: "text.badge.checkmark")
+                        }
+                    }
+
+                    ForEach($variantDrafts) { $draft in
+                        VariantEditorRow(draft: $draft, isBaseModel: draft.id == variantDrafts.first?.id) {
+                            removeVariant(draft.id)
+                        }
+                    }
+
+                    Button {
+                        addVariant()
+                    } label: {
+                        Label("Add Variant", systemImage: "plus.circle.fill")
+                    }
+                    .disabled(variantDrafts.count >= 12)
                 }
                 .listRowBackground(CatalogTheme.card)
                 
@@ -130,10 +159,19 @@ public struct AddEditProductView: View {
                         let rate = (existingTax / product.price) * 100
                         taxPercentage = String(format: "%.1f", rate)
                     }
+                    variantDrafts = product.displayVariants.map {
+                        ProductVariantDraft(
+                            id: $0.id,
+                            name: $0.name,
+                            infoText: $0.infoText ?? "",
+                            existingImageUrls: $0.imageUrls
+                        )
+                    }
                 }
-            }
-            .sheet(isPresented: $showImagePicker) {
-                ImagePicker(image: $selectedImage)
+
+                if variantDrafts.isEmpty {
+                    addBaseVariant()
+                }
             }
             .alert(
                 "Product Save Failed",
@@ -151,64 +189,54 @@ public struct AddEditProductView: View {
         }
     }
 
-    @ViewBuilder
-    private var productImagePicker: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(CatalogTheme.imageBackground)
-                .frame(height: 180)
-
-            if let selectedImage {
-                Image(uiImage: selectedImage)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 180)
-                    .clipped()
-                    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-            } else if let imageUrl = editingProduct?.imageUrl,
-                      !imageUrl.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-                      let url = URL(string: imageUrl) {
-                AsyncImage(url: url) { image in
-                    image
-                        .resizable()
-                        .scaledToFill()
-                } placeholder: {
-                    ProgressView()
-                        .tint(.accentColor)
-                }
-                .frame(maxWidth: .infinity)
-                .frame(height: 180)
-                .clipped()
-                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-            } else {
-                uploadPlaceholder
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .frame(height: 180)
-        .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-    }
-
-    private var uploadPlaceholder: some View {
-        VStack(spacing: 10) {
-            Image(systemName: "photo.badge.plus")
-                .font(.system(size: 30, weight: .regular))
-                .foregroundColor(.accentColor)
-            Text("Choose Product Image")
-                .font(.subheadline)
-                .foregroundColor(CatalogTheme.primaryText)
-            Text("Photos will appear in the catalog cards.")
-                .font(.footnote)
-                .foregroundColor(CatalogTheme.secondaryText)
-        }
-    }
-
     private func sectionHeader(_ title: String) -> some View {
         Text(title)
             .font(.subheadline.weight(.semibold))
             .foregroundColor(CatalogTheme.primaryText)
             .textCase(nil)
+    }
+
+    private var variantSectionHeader: some View {
+        HStack {
+            sectionHeader("Variants")
+            Spacer()
+            Text("Base + variants, 1-5 images each")
+                .font(.caption)
+                .foregroundColor(CatalogTheme.secondaryText)
+                .textCase(nil)
+        }
+    }
+
+    private var availableCategories: [String] {
+        Array(Set(viewModel.products.map { $0.category.trimmingCharacters(in: .whitespacesAndNewlines) }))
+            .filter { !$0.isEmpty }
+            .sorted()
+    }
+
+    private func addBaseVariant() {
+        variantDrafts.append(ProductVariantDraft(name: "Base Model"))
+    }
+
+    private func addVariant() {
+        variantDrafts.append(ProductVariantDraft(name: ""))
+    }
+
+    private func removeVariant(_ id: UUID) {
+        guard id != variantDrafts.first?.id else { return }
+
+        guard variantDrafts.count > 1 else {
+            variantDrafts[0] = ProductVariantDraft(name: "Base Model")
+            return
+        }
+
+        variantDrafts.removeAll { $0.id == id }
+    }
+
+    private func applyFirstVariantInfoToAll() {
+        guard let firstInfo = variantDrafts.first?.infoText else { return }
+        for index in variantDrafts.indices {
+            variantDrafts[index].infoText = firstInfo
+        }
     }
 
     private func save() {
@@ -233,10 +261,11 @@ public struct AddEditProductView: View {
 
         Task {
             let didSave: Bool
+            let variants = normalizedVariantInputs()
             if editingProduct == nil {
-                didSave = await viewModel.addProduct(newProduct, image: selectedImage)
+                didSave = await viewModel.addProduct(newProduct, image: nil, variants: variants)
             } else {
-                didSave = await viewModel.updateProduct(newProduct)
+                didSave = await viewModel.updateProduct(newProduct, variants: variants)
             }
 
             if didSave {
@@ -245,6 +274,155 @@ public struct AddEditProductView: View {
                 isSaving = false
             }
         }
+    }
+
+    private func normalizedVariantInputs() -> [ProductVariantDraftInput] {
+        var drafts = variantDrafts
+        if drafts.isEmpty {
+            drafts = [ProductVariantDraft(name: "Base Model")]
+        }
+
+        let productName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        if drafts[0].name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            drafts[0].name = productName.isEmpty ? "Base Model" : productName
+        }
+
+        return drafts.map(\.serviceInput)
+    }
+}
+
+private struct ProductVariantDraft: Identifiable {
+    var id: UUID = UUID()
+    var name: String
+    var infoText: String = ""
+    var existingImageUrls: [String] = []
+    var selectedImages: [UIImage] = []
+    var pickerItems: [PhotosPickerItem] = []
+
+    var serviceInput: ProductVariantDraftInput {
+        ProductVariantDraftInput(
+            id: id,
+            name: name,
+            infoText: infoText,
+            existingImageUrls: existingImageUrls,
+            newImages: selectedImages
+        )
+    }
+}
+
+private struct VariantEditorRow: View {
+    @Binding var draft: ProductVariantDraft
+    let isBaseModel: Bool
+    let onRemove: () -> Void
+
+    private var remainingImageSlots: Int {
+        max(0, 5 - draft.existingImageUrls.count)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 10) {
+                TextField(isBaseModel ? "Base model name" : "Variant name", text: $draft.name)
+                    .textInputAutocapitalization(.words)
+
+                if isBaseModel {
+                    Text("Base")
+                        .font(.caption.weight(.semibold))
+                        .foregroundColor(.accentColor)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(CatalogTheme.imageBackground)
+                        .clipShape(Capsule())
+                } else {
+                    Button(role: .destructive, action: onRemove) {
+                        Image(systemName: "trash")
+                    }
+                    .buttonStyle(.borderless)
+                }
+            }
+
+            TextField("Info text for this variant", text: $draft.infoText, axis: .vertical)
+                .lineLimit(2...4)
+                .textInputAutocapitalization(.sentences)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(draft.existingImageUrls, id: \.self) { imageUrl in
+                        remotePreview(imageUrl)
+                    }
+
+                    ForEach(Array(draft.selectedImages.enumerated()), id: \.offset) { _, image in
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 64, height: 64)
+                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    }
+
+                    if draft.existingImageUrls.count + draft.selectedImages.count < 5 {
+                        PhotosPicker(
+                            selection: $draft.pickerItems,
+                            maxSelectionCount: remainingImageSlots,
+                            matching: .images
+                        ) {
+                            VStack(spacing: 6) {
+                                Image(systemName: "photo.on.rectangle.angled")
+                                Text("Images")
+                                    .font(.caption2)
+                            }
+                            .foregroundColor(.accentColor)
+                            .frame(width: 64, height: 64)
+                            .background(CatalogTheme.imageBackground)
+                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        }
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+
+            Text("\(draft.existingImageUrls.count + draft.selectedImages.count)/5 images")
+                .font(.caption)
+                .foregroundColor(CatalogTheme.secondaryText)
+        }
+        .padding(.vertical, 6)
+        .onChange(of: draft.pickerItems) { _, items in
+            Task {
+                await loadImages(from: items)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func remotePreview(_ imageUrl: String) -> some View {
+        if let url = URL(string: imageUrl) {
+            AsyncImage(url: url) { phase in
+                switch phase {
+                case .success(let image):
+                    image
+                        .resizable()
+                        .scaledToFill()
+                default:
+                    CatalogTheme.imageBackground
+                }
+            }
+            .frame(width: 64, height: 64)
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        }
+    }
+
+    @MainActor
+    private func loadImages(from items: [PhotosPickerItem]) async {
+        var loadedImages: [UIImage] = []
+
+        for item in items {
+            if loadedImages.count >= remainingImageSlots { break }
+            if let data = try? await item.loadTransferable(type: Data.self),
+               let image = UIImage(data: data) {
+                loadedImages.append(image)
+            }
+        }
+
+        draft.selectedImages = Array(loadedImages.prefix(remainingImageSlots))
     }
 }
 

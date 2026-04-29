@@ -16,6 +16,7 @@ public struct Product: Identifiable, Codable, Hashable, Sendable {
     public var reorderPoint: Int?
     public var reorderQuantity: Int?
     public var stockQuantity: Int?
+    public var variants: [ProductVariant]?
 
     enum CodingKeys: String, CodingKey {
         case id = "product_id"
@@ -83,6 +84,7 @@ public struct Product: Identifiable, Codable, Hashable, Sendable {
         reorderPoint = try? c.decodeIfPresent(Int.self, forKey: .reorderPoint) ?? 5
         reorderQuantity = try? c.decodeIfPresent(Int.self, forKey: .reorderQuantity) ?? 20
         stockQuantity = nil
+        variants = nil
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -108,7 +110,8 @@ public struct Product: Identifiable, Codable, Hashable, Sendable {
                 price: Double, sku: String? = nil, makingPrice: Double? = nil,
                 imageUrl: String? = nil, isActive: Bool? = true,
                 tax: Double? = nil, totalPrice: Double? = nil, sizeOptions: [String]? = nil,
-                reorderPoint: Int? = 5, reorderQuantity: Int? = 20, stockQuantity: Int? = nil) {
+                reorderPoint: Int? = 5, reorderQuantity: Int? = 20, stockQuantity: Int? = nil,
+                variants: [ProductVariant]? = nil) {
         self.id = id
         self.name = name
         self.brandId = brandId
@@ -124,6 +127,7 @@ public struct Product: Identifiable, Codable, Hashable, Sendable {
         self.reorderPoint = reorderPoint
         self.reorderQuantity = reorderQuantity
         self.stockQuantity = stockQuantity
+        self.variants = variants
     }
 
     public enum StockStatus: Int, Comparable {
@@ -146,5 +150,92 @@ public struct Product: Identifiable, Codable, Hashable, Sendable {
         } else {
             return .normal
         }
+    }
+
+    public var displayImageUrl: String? {
+        allImageUrls.first
+    }
+
+    public var allImageUrls: [String] {
+        let variantUrls = displayVariants
+            .flatMap(\.imageUrls)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+
+        let productUrl = imageUrl?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !variantUrls.isEmpty {
+            return variantUrls
+        }
+
+        if let productUrl, !productUrl.isEmpty {
+            return [productUrl]
+        }
+
+        return []
+    }
+
+    public var displayVariants: [ProductVariant] {
+        if let variants, !variants.isEmpty {
+            return variants
+        }
+
+        let fallbackUrl = imageUrl?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return [
+            ProductVariant(
+                id: id,
+                productId: id,
+                name: "Base Model",
+                imageUrls: fallbackUrl?.isEmpty == false ? [fallbackUrl!] : []
+            )
+        ]
+    }
+}
+
+public struct ProductVariant: Identifiable, Codable, Hashable, Sendable {
+    public var id: UUID
+    public var productId: UUID
+    public var name: String
+    public var imageUrls: [String]
+    public var infoText: String?
+    public var createdAt: Date?
+
+    enum CodingKeys: String, CodingKey {
+        case id = "variant_id"
+        case productId = "product_id"
+        case name
+        case imageUrls = "image_urls"
+        case infoText = "info_text"
+        case createdAt = "created_at"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        productId = try c.decode(UUID.self, forKey: .productId)
+        name = (try? c.decodeIfPresent(String.self, forKey: .name)) ?? "Unnamed Variant"
+        imageUrls = (try? c.decodeIfPresent([String].self, forKey: .imageUrls)) ?? []
+        infoText = try? c.decodeIfPresent(String.self, forKey: .infoText) ?? nil
+
+        if let date = try? c.decodeIfPresent(Date.self, forKey: .createdAt) {
+            createdAt = date
+        } else {
+            createdAt = nil
+        }
+    }
+
+    public init(
+        id: UUID = UUID(),
+        productId: UUID,
+        name: String,
+        imageUrls: [String] = [],
+        infoText: String? = nil,
+        createdAt: Date? = nil
+    ) {
+        self.id = id
+        self.productId = productId
+        self.name = name
+        self.imageUrls = imageUrls
+        self.infoText = infoText
+        self.createdAt = createdAt
     }
 }

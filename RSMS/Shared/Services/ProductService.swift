@@ -20,7 +20,7 @@ public final class ProductService: @unchecked Sendable {
             .order("name", ascending: true)
             .execute()
 
-        return response.value
+        return try await attachVariants(to: response.value)
     }
 
     public func uploadImage(_ image: UIImage) async -> String? {
@@ -65,12 +65,29 @@ public final class ProductService: @unchecked Sendable {
         }
     }
 
+    public func uploadImages(_ images: [UIImage]) async -> [String] {
+        var urls: [String] = []
+
+        for image in images {
+            if let url = await uploadImage(image) {
+                urls.append(url)
+            }
+        }
+
+        return urls
+    }
+
     public func addProduct(_ product: Product, image: UIImage?) async throws -> Product {
+        try await addProduct(product, image: image, variants: [])
+    }
+
+    public func addProduct(_ product: Product, image: UIImage?, variants: [ProductVariantDraftInput]) async throws -> Product {
+        let variantImageUrls = await uploadVariantImages(variants)
         let imageUrl: String?
         if let image {
             imageUrl = await uploadImage(image)
         } else {
-            imageUrl = nil
+            imageUrl = variantImageUrls.flatMap(\.urls).first
         }
 
         struct ProductInsert: Encodable {
@@ -112,7 +129,9 @@ public final class ProductService: @unchecked Sendable {
 
             print("Insert response:", response)
             print("INSERT SUCCESS")
-            return response.value
+            try await syncVariants(productId: response.value.id, variants: variants, uploadedImageUrls: variantImageUrls)
+            let productsWithVariants = try await attachVariants(to: [response.value])
+            return productsWithVariants.first ?? response.value
         } catch {
             print("INSERT ERROR:", error)
             throw error
@@ -152,6 +171,17 @@ public final class ProductService: @unchecked Sendable {
     }
 
     public func updateProduct(_ product: Product) async throws {
+        try await updateProductDetails(product)
+    }
+
+    public func updateProduct(_ product: Product, variants: [ProductVariantDraftInput]) async throws {
+        try await updateProductDetails(product)
+
+        let variantImageUrls = await uploadVariantImages(variants)
+        try await syncVariants(productId: product.id, variants: variants, uploadedImageUrls: variantImageUrls)
+    }
+
+    private func updateProductDetails(_ product: Product) async throws {
         let currentBrandId = try await resolveCurrentUserBrandIdOrThrow()
         let productBrandId = try await fetchProductBrandId(productId: product.id)
         guard productBrandId == currentBrandId else {
@@ -224,6 +254,77 @@ public final class ProductService: @unchecked Sendable {
         return rows.first?.brandId
     }
 
+    private func attachVariants(to products: [Product]) async throws -> [Product] {
+        guard !products.isEmpty else { return products }
+
+        let productIds = products.map { $0.id.uuidString }
+        let variants: [ProductVariant] = try await client
+            .from("product_variants")
+            .select("variant_id,product_id,name,image_urls,info_text,created_at")
+            .in("product_id", values: productIds)
+            .order("created_at", ascending: true)
+            .execute()
+            .value
+
+        let groupedVariants = Dictionary(grouping: variants, by: \.productId)
+        return products.map { product in
+            var copy = product
+            copy.variants = groupedVariants[product.id] ?? []
+            return copy
+        }
+    }
+
+    private func uploadVariantImages(_ variants: [ProductVariantDraftInput]) async -> [(id: UUID, urls: [String])] {
+        var uploaded: [(id: UUID, urls: [String])] = []
+
+        for variant in variants {
+            let urls = await uploadImages(variant.newImages)
+            uploaded.append((id: variant.id, urls: urls))
+        }
+
+        return uploaded
+    }
+
+    private func syncVariants(
+        productId: UUID,
+        variants: [ProductVariantDraftInput],
+        uploadedImageUrls: [(id: UUID, urls: [String])]
+    ) async throws {
+        try await client
+            .from("product_variants")
+            .delete()
+            .eq("product_id", value: productId)
+            .execute()
+
+        let payload = variants.compactMap { variant -> ProductVariantInsert? in
+            let trimmedName = variant.name.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmedName.isEmpty else { return nil }
+
+            let newUrls = uploadedImageUrls.first(where: { $0.id == variant.id })?.urls ?? []
+            let urls = Array((variant.existingImageUrls + newUrls)
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+                .prefix(5))
+
+            return ProductVariantInsert(
+                variant_id: variant.id,
+                product_id: productId,
+                name: trimmedName,
+                image_urls: urls,
+                info_text: variant.infoText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    ? nil
+                    : variant.infoText.trimmingCharacters(in: .whitespacesAndNewlines)
+            )
+        }
+
+        guard !payload.isEmpty else { return }
+
+        try await client
+            .from("product_variants")
+            .insert(payload)
+            .execute()
+    }
+
     private func resolveCurrentUserBrandIdOrThrow() async throws -> UUID {
         struct UserBrand: Decodable {
             let brandId: UUID?
@@ -248,6 +349,30 @@ public final class ProductService: @unchecked Sendable {
 
         return brandId
     }
+}
+
+public struct ProductVariantDraftInput: @unchecked Sendable {
+    public let id: UUID
+    public let name: String
+    public let infoText: String
+    public let existingImageUrls: [String]
+    public let newImages: [UIImage]
+
+    public init(id: UUID, name: String, infoText: String, existingImageUrls: [String], newImages: [UIImage]) {
+        self.id = id
+        self.name = name
+        self.infoText = infoText
+        self.existingImageUrls = existingImageUrls
+        self.newImages = newImages
+    }
+}
+
+private struct ProductVariantInsert: Encodable {
+    let variant_id: UUID
+    let product_id: UUID
+    let name: String
+    let image_urls: [String]
+    let info_text: String?
 }
 
 private enum ProductServiceError: LocalizedError {

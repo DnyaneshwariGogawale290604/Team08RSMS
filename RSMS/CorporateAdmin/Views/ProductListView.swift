@@ -4,7 +4,8 @@ public struct ProductListView: View {
     @ObservedObject private var sessionViewModel: SessionViewModel
     @StateObject private var viewModel = ProductViewModel()
     @State private var showingAddProduct = false
-    @State private var selectedProduct: Product?
+    @State private var selectedDetailProduct: Product?
+    @State private var selectedEditProduct: Product?
     @State private var searchText = ""
     @State private var selectedFilter: String = "All"
 
@@ -43,13 +44,13 @@ public struct ProductListView: View {
                                     ProductCardView(
                                         product: product,
                                         onTap: {
-                                            selectedProduct = product
+                                            selectedDetailProduct = product
                                         },
                                         onView: {
-                                            selectedProduct = product
+                                            selectedDetailProduct = product
                                         },
                                         onEdit: {
-                                            selectedProduct = product
+                                            selectedEditProduct = product
                                         }
                                     )
                                 }
@@ -86,7 +87,13 @@ public struct ProductListView: View {
             .sheet(isPresented: $showingAddProduct) {
                 AddEditProductView(viewModel: viewModel)
             }
-            .sheet(item: $selectedProduct) { product in
+            .sheet(item: $selectedDetailProduct) { product in
+                CorporateProductDetailSheet(product: product) {
+                    selectedDetailProduct = nil
+                    selectedEditProduct = product
+                }
+            }
+            .sheet(item: $selectedEditProduct) { product in
                 AddEditProductView(viewModel: viewModel, editingProduct: product)
             }
             .alert(
@@ -147,7 +154,7 @@ public struct ProductListView: View {
         HStack(spacing: 12) {
             StatsCardView(
                 title: "Total",
-                value: "\(searchFilteredProducts.count)",
+                value: "\(filteredProducts.count)",
                 icon: "shippingbox.fill"
             )
 
@@ -171,7 +178,7 @@ public struct ProductListView: View {
     }
     
     private var allFilters: [String] {
-        ["All", "Active", "Inactive"] + availableCategories
+        ["All"] + availableCategories
     }
 
     private var filtersRow: some View {
@@ -210,10 +217,6 @@ public struct ProductListView: View {
         switch selectedFilter {
         case "All":
             base = searchFilteredProducts
-        case "Active":
-            base = searchFilteredProducts.filter { $0.isActive ?? true }
-        case "Inactive":
-            base = searchFilteredProducts.filter { !($0.isActive ?? true) }
         default:
             base = searchFilteredProducts.filter { $0.category == selectedFilter }
         }
@@ -238,11 +241,11 @@ public struct ProductListView: View {
     }
 
     private var activeCount: Int {
-        searchFilteredProducts.filter { $0.isActive ?? true }.count
+        filteredProducts.filter { $0.isActive ?? true }.count
     }
 
     private var inactiveCount: Int {
-        searchFilteredProducts.filter { !($0.isActive ?? true) }.count
+        filteredProducts.filter { !($0.isActive ?? true) }.count
     }
 }
 
@@ -401,23 +404,9 @@ private struct ProductCardView: View {
 
     @ViewBuilder
     private var productImage: some View {
-        if let imageUrl = product.imageUrl,
-           !imageUrl.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-           let url = URL(string: imageUrl) {
-            GeometryReader { proxy in
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: proxy.size.width, height: proxy.size.height)
-                            .clipped()
-                    default:
-                        imagePlaceholder
-                            .frame(width: proxy.size.width, height: proxy.size.height)
-                    }
-                }
+        if !product.allImageUrls.isEmpty {
+            ProductImageCarousel(imageUrls: product.allImageUrls, height: 140) {
+                imagePlaceholder
             }
             .frame(height: 140)
         } else {
@@ -457,5 +446,190 @@ private struct ProductCardView: View {
 
     private func formattedPrice(_ value: Double) -> String {
         String(format: "₹%.2f", value)
+    }
+}
+
+private struct CorporateProductDetailSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let product: Product
+    let onEdit: () -> Void
+    @State private var selectedVariantId: UUID?
+
+    private var selectedVariant: ProductVariant {
+        if let selectedVariantId,
+           let variant = product.displayVariants.first(where: { $0.id == selectedVariantId }) {
+            return variant
+        }
+
+        return product.displayVariants[0]
+    }
+
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    ProductImageCarousel(imageUrls: selectedVariant.imageUrls, height: 280) {
+                        imagePlaceholder
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(product.name)
+                            .font(.system(size: 24, weight: .bold, design: .serif))
+                            .foregroundColor(CatalogTheme.primaryText)
+
+                        if !product.category.isEmpty {
+                            Text(product.category.uppercased())
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundColor(CatalogTheme.subtleCategory)
+                                .tracking(1.2)
+                        }
+
+                        Text(formattedPrice(product.price))
+                            .font(.system(size: 20, weight: .bold, design: .serif))
+                            .foregroundColor(CatalogTheme.deepAccent)
+                    }
+
+                    if product.displayVariants.count > 1 {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Select Variant")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundColor(CatalogTheme.primaryText)
+
+                            Menu {
+                                ForEach(product.displayVariants) { variant in
+                                    Button(variant.name) {
+                                        selectedVariantId = variant.id
+                                    }
+                                }
+                            } label: {
+                                HStack {
+                                    Text(selectedVariant.name)
+                                        .foregroundColor(CatalogTheme.primaryText)
+                                    Spacer()
+                                    Image(systemName: "chevron.down")
+                                        .foregroundColor(CatalogTheme.secondaryText)
+                                }
+                                .padding(12)
+                                .background(CatalogTheme.card)
+                                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            }
+                        }
+                    }
+
+                    if let info = selectedVariant.infoText?.trimmingCharacters(in: .whitespacesAndNewlines),
+                       !info.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Info")
+                                .font(.headline)
+                                .foregroundColor(CatalogTheme.primaryText)
+
+                            Text(info)
+                                .font(.body)
+                                .foregroundColor(CatalogTheme.secondaryText)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .padding(14)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(CatalogTheme.card)
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    }
+                }
+                .padding(16)
+            }
+            .background(CatalogTheme.background.ignoresSafeArea())
+            .navigationTitle("Product Details")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Done") { dismiss() }
+                }
+
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Edit") {
+                        dismiss()
+                        onEdit()
+                    }
+                }
+            }
+            .onAppear {
+                selectedVariantId = product.displayVariants.first?.id
+            }
+        }
+    }
+
+    private var imagePlaceholder: some View {
+        ZStack {
+            CatalogTheme.imageBackground
+            Image(systemName: "photo")
+                .font(.system(size: 36, weight: .light))
+                .foregroundColor(CatalogTheme.mutedText)
+        }
+    }
+
+    private func formattedPrice(_ value: Double) -> String {
+        String(format: "₹%.2f", value)
+    }
+}
+
+private struct ProductImageCarousel<Placeholder: View>: View {
+    let imageUrls: [String]
+    let height: CGFloat
+    let placeholder: () -> Placeholder
+    @State private var selectedIndex = 0
+
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            if imageUrls.isEmpty {
+                placeholder()
+            } else {
+                TabView(selection: $selectedIndex) {
+                    ForEach(Array(imageUrls.enumerated()), id: \.offset) { index, imageUrl in
+                        carouselImage(imageUrl)
+                            .tag(index)
+                    }
+                }
+                .tabViewStyle(.page(indexDisplayMode: .never))
+            }
+
+            if imageUrls.count > 1 {
+                HStack(spacing: 5) {
+                    ForEach(imageUrls.indices, id: \.self) { index in
+                        Circle()
+                            .fill(index == selectedIndex ? Color.white : Color.white.opacity(0.45))
+                            .frame(width: index == selectedIndex ? 7 : 5, height: index == selectedIndex ? 7 : 5)
+                    }
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 5)
+                .background(Color.black.opacity(0.22))
+                .clipShape(Capsule())
+                .padding(.bottom, 8)
+            }
+        }
+        .frame(height: height)
+    }
+
+    @ViewBuilder
+    private func carouselImage(_ imageUrl: String) -> some View {
+        if let url = URL(string: imageUrl) {
+            GeometryReader { proxy in
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: proxy.size.width, height: proxy.size.height)
+                            .clipped()
+                    default:
+                        placeholder()
+                            .frame(width: proxy.size.width, height: proxy.size.height)
+                    }
+                }
+            }
+        } else {
+            placeholder()
+        }
     }
 }

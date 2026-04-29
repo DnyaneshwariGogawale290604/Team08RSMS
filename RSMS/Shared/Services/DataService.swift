@@ -217,12 +217,13 @@ public actor DataService {
     private static let productColumns = "product_id,name,brand_id,category,price,sku,making_price,image_url,is_active,size_options,tax,total_price"
 
     public func fetchProducts() async throws -> [Product] {
-        return try await client
+        let result: [Product] = try await client
             .from("products")
             .select(DataService.productColumns)
             .eq("is_active", value: true)
             .execute()
             .value
+        return try await attachVariants(to: result)
     }
 
     public func fetchProductsForCurrentBrand() async throws -> [Product] {
@@ -238,7 +239,7 @@ public actor DataService {
             .execute()
             .value
         print("[DataService] fetchProductsForCurrentBrand — fetched \(result.count) products")
-        return result
+        return try await attachVariants(to: result)
     }
 
     /// Fetches ALL products for the brand regardless of is_active — used by Catalog tab.
@@ -254,7 +255,27 @@ public actor DataService {
             .execute()
             .value
         print("[DataService] fetchAllProductsForCurrentBrand — fetched \(result.count) products")
-        return result
+        return try await attachVariants(to: result)
+    }
+
+    private func attachVariants(to products: [Product]) async throws -> [Product] {
+        guard !products.isEmpty else { return products }
+
+        let productIds = products.map { $0.id.uuidString }
+        let variants: [ProductVariant] = try await client
+            .from("product_variants")
+            .select("variant_id,product_id,name,image_urls,info_text,created_at")
+            .in("product_id", values: productIds)
+            .order("created_at", ascending: true)
+            .execute()
+            .value
+
+        let groupedVariants = Dictionary(grouping: variants, by: \.productId)
+        return products.map { product in
+            var copy = product
+            copy.variants = groupedVariants[product.id] ?? []
+            return copy
+        }
     }
 
     // MARK: - Store Inventory
