@@ -204,14 +204,14 @@ struct ProductCard: View {
 
                 // Name
                 Text(product.name)
-                    .font(.system(size: 13, weight: .bold, design: .serif))
-                    .foregroundColor(BoutiqueTheme.primaryText)
+                    .font(.system(size: 18, weight: .bold, design: .serif))
+                    .foregroundColor(CatalogTheme.primaryText)
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
 
                 // Category
                 if !product.category.isEmpty {
-                    Text(product.category.uppercased())
+                    Text(product.category)
                         .font(.system(size: 9, weight: .bold))
                         .foregroundColor(BoutiqueTheme.subtleCategory)
                         .tracking(1.2)
@@ -221,7 +221,7 @@ struct ProductCard: View {
                 // Size selector
                 if let sizes = product.sizeOptions, !sizes.isEmpty {
                     VStack(alignment: .leading, spacing: 5) {
-                        Text("SIZES")
+                        Text("Sizes")
                             .font(.system(size: 8, weight: .bold))
                             .foregroundColor(BoutiqueTheme.mutedText)
                             .tracking(1.5)
@@ -273,7 +273,7 @@ struct ProductCard: View {
                 .foregroundColor(BoutiqueTheme.mutedText)
 
             if !product.category.isEmpty {
-                Text(product.category.uppercased())
+                Text(product.category)
                     .font(.system(size: 8, weight: .semibold))
                     .foregroundColor(BoutiqueTheme.mutedText)
                     .tracking(1.5)
