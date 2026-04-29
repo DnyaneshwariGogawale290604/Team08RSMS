@@ -26,50 +26,52 @@ struct AdminDashboardView: View {
                 CatalogTheme.background.ignoresSafeArea()
 
                 ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 20) {
-
-                        // Gross Sales vs Target Card
+                    VStack(alignment: .leading, spacing: 24) {
+                        
+                        // Summary Section (Graphical)
                         grossSalesCard
 
-
                         if adminViewModel.isLoading || storeViewModel.isLoading || productViewModel.isLoading {
-                            LoadingView(message: "Refreshing dashboard...")
-                                .frame(height: 160)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                        .fill(Color.white)
-                                )
-                                .background(
-                                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                        .fill(Color.white)
-                                )
+                            HStack {
+                                Spacer()
+                                ProgressView("Updating...")
+                                    .tint(CatalogTheme.primary)
+                                Spacer()
+                            }
+                            .padding()
+                            .background(Color.white)
+                            .cornerRadius(20)
                         }
                         
-                        // Category-wise Sales Breakdown
+                        // Category Insights (Moved Up)
                         categorySalesCard
-
-                        // Top Performing Stores
+                        
+                        // Performance Analytics (Moved Down)
                         topPerformingStoresCard
 
-                        // IM-3 & IM-4: Pending Approvals
+                        // Actionable Alerts
                         let pendingVendorOrders = adminViewModel.pendingVendorOrders
                         if !pendingVendorOrders.isEmpty {
-                            VStack(alignment: .leading, spacing: 12) {
-                                Text("Action Required: Pending Approvals")
-                                    .font(.system(size: 20, weight: .bold, design: .serif))
-                                    .foregroundColor(CatalogTheme.primaryText)
+                            VStack(alignment: .leading, spacing: 16) {
+                                HStack {
+                                    Image(systemName: "bell.badge.fill")
+                                        .foregroundColor(CatalogTheme.primary)
+                                    Text("Pending Approvals")
+                                        .font(.system(size: 20, weight: .bold, design: .serif))
+                                        .foregroundColor(CatalogTheme.primaryText)
+                                }
                                 
                                 ForEach(pendingVendorOrders) { demand in
                                     approvalAlertCard(for: demand)
                                 }
                             }
-                            .padding(.top, 10)
+                            .padding(.top, 8)
                         }
                     }
                     .padding(20)
                 }
             }
-            .navigationTitle("Dashboard")
+            .navigationTitle("Overview")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -111,14 +113,6 @@ struct AdminDashboardView: View {
     private var grossSalesCard: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(CatalogTheme.surface)
-                        .frame(width: 40, height: 40)
-                    Image(systemName: "chart.bar.fill")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(CatalogTheme.primary)
-                }
 
                 Text("Gross Sales vs Target")
                     .font(.system(size: 18, weight: .bold, design: .serif))
@@ -133,74 +127,35 @@ struct AdminDashboardView: View {
                 }
             }
 
-            // Revenue / Target / Remaining row
-            HStack(spacing: 0) {
-                salesMetricColumn(
-                    label: "Revenue",
-                    value: formatCurrency(dashboardViewModel.grossSales),
-                    color: CatalogTheme.primary
-                )
-
-                Spacer()
-
-                Rectangle()
-                    .fill(CatalogTheme.divider)
-                    .frame(width: 1, height: 44)
-
-                Spacer()
-
-                salesMetricColumn(
-                    label: "Target",
-                    value: formatCurrency(dashboardViewModel.totalTarget),
-                    color: CatalogTheme.secondaryText
-                )
-
-                Spacer()
-
-                Rectangle()
-                    .fill(CatalogTheme.divider)
-                    .frame(width: 1, height: 44)
-
-                Spacer()
-
-                salesMetricColumn(
-                    label: "Remaining",
-                    value: formatCurrency(dashboardViewModel.remainingTarget),
-                    color: CatalogTheme.deepAccent
-                )
-            }
-
-            // Progress bar
-            VStack(alignment: .leading, spacing: 6) {
-                HStack {
-                    Text("Achievement")
-                        .font(.caption)
-                        .foregroundColor(CatalogTheme.secondaryText)
-                    Spacer()
-                    Text(String(format: "%.1f%%", dashboardViewModel.achievementPercentage * 100))
-                        .font(.caption.bold())
-                        .foregroundColor(CatalogTheme.secondaryText)
+            HStack(spacing: 24) {
+                // Pie Chart for Sales vs Target
+                GrossSalesPieChartView(sales: dashboardViewModel.grossSales, target: dashboardViewModel.totalTarget)
+                    .frame(width: 140, height: 140)
+                
+                VStack(alignment: .leading, spacing: 16) {
+                    salesMetricRow(
+                        label: "Current Sales",
+                        value: formatCurrency(dashboardViewModel.grossSales),
+                        color: CatalogTheme.primary,
+                        icon: "indianrupeesign.circle.fill"
+                    )
+                    
+                    salesMetricRow(
+                        label: "Total Target",
+                        value: formatCurrency(dashboardViewModel.totalTarget),
+                        color: CatalogTheme.secondaryText,
+                        icon: "target"
+                    )
+                    
+                    salesMetricRow(
+                        label: "Remaining",
+                        value: formatCurrency(dashboardViewModel.remainingTarget),
+                        color: CatalogTheme.deepAccent,
+                        icon: "arrow.right.circle.fill"
+                    )
                 }
-
-                GeometryReader { geo in
-                    ZStack(alignment: .leading) {
-                        RoundedRectangle(cornerRadius: 4)
-                            .fill(CatalogTheme.surface)
-                            .frame(height: 8)
-
-                        RoundedRectangle(cornerRadius: 4)
-                            .fill(
-                                LinearGradient(
-                                    colors: [CatalogTheme.primary.opacity(0.8), CatalogTheme.primary],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            )
-                            .frame(width: geo.size.width * min(dashboardViewModel.achievementPercentage, 1.0), height: 8)
-                    }
-                }
-                .frame(height: 8)
             }
+            .padding(.vertical, 8)
         }
         .padding(20)
         .background(
@@ -211,18 +166,23 @@ struct AdminDashboardView: View {
     }
 
     @ViewBuilder
-    private func salesMetricColumn(label: String, value: String, color: Color) -> some View {
-        VStack(spacing: 4) {
-            Text(value)
-                .font(.subheadline.weight(.bold))
+    private func salesMetricRow(label: String, value: String, color: Color, icon: String) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: icon)
+                .font(.system(size: 14))
                 .foregroundColor(color)
-
-            Text(label)
-                .font(.caption2)
-                .foregroundColor(CatalogTheme.secondaryText)
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(value)
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundColor(color)
+                Text(label)
+                    .font(.system(size: 10))
+                    .foregroundColor(CatalogTheme.secondaryText)
+            }
         }
-        .frame(maxWidth: .infinity)
     }
+
 
     private func formatCurrency(_ value: Double) -> String {
         if value >= 10_000_000 {
@@ -240,24 +200,18 @@ struct AdminDashboardView: View {
 
     // MARK: - Category-wise Sales Card
 
+    @State private var selectedStore: StorePerformance? = nil
+
     private var categorySalesCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 20) {
             HStack {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(CatalogTheme.surface)
-                        .frame(width: 40, height: 40)
-                    Image(systemName: "chart.pie.fill")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(CatalogTheme.primary)
-                }
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Sales by Category")
                         .font(.system(size: 18, weight: .bold, design: .serif))
                         .foregroundColor(CatalogTheme.primaryText)
                     Text("Revenue distribution across categories")
-                        .font(.caption)
+                        .font(.system(size: 12, weight: .medium))
                         .foregroundColor(CatalogTheme.secondaryText)
                 }
 
@@ -271,55 +225,33 @@ struct AdminDashboardView: View {
             }
 
             if dashboardViewModel.categorySales.isEmpty && !dashboardViewModel.isCategoryLoading {
-                HStack {
-                    Spacer()
-                    VStack(spacing: 8) {
-                        Image(systemName: "chart.bar.xaxis")
-                            .font(.title2)
-                            .foregroundColor(CatalogTheme.mutedText)
-                        Text("No sales data available")
-                            .font(.subheadline)
-                            .foregroundColor(CatalogTheme.secondaryText)
-                    }
-                    .padding(.vertical, 20)
-                    Spacer()
-                }
+                emptyDataPlaceholder(icon: "chart.bar.xaxis", message: "No sales data available")
             } else {
-                let maxSales = dashboardViewModel.categorySales.first?.totalSales ?? 1
                 let totalAllCategories = dashboardViewModel.categorySales.reduce(0) { $0 + $1.totalSales }
-
-                // Overall gross sales summary
-                HStack {
-                    Text("Total Gross Sales")
-                        .font(.system(size: 15, weight: .bold, design: .serif))
-                        .foregroundColor(CatalogTheme.primaryText)
-                    Spacer()
-                    Text(formatCurrency(totalAllCategories))
-                        .font(.system(size: 16, weight: .bold, design: .serif))
-                        .foregroundColor(CatalogTheme.primary)
-                }
-                .padding(.bottom, 6)
-
-                ForEach(Array(dashboardViewModel.categorySales.enumerated()), id: \.element.id) { index, item in
-                    HStack(spacing: 12) {
-                        Text("\(index + 1)")
-                            .font(.subheadline.bold())
-                            .foregroundColor(CatalogTheme.secondaryText)
-                            .frame(width: 24, alignment: .leading)
-
-                        Text(item.category)
-                            .font(.subheadline)
-                            .foregroundColor(CatalogTheme.primaryText)
-                            .lineLimit(1)
-
-                        Spacer()
-
-                        Text(formatCurrency(item.totalSales))
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundColor(CatalogTheme.deepAccent)
+                
+                HStack(spacing: 24) {
+                    // Pie Chart
+                    CategoryPieChartView(data: dashboardViewModel.categorySales, total: totalAllCategories)
+                        .frame(width: 140, height: 140)
+                    
+                    // Legend
+                    VStack(alignment: .leading, spacing: 10) {
+                        ForEach(Array(dashboardViewModel.categorySales.prefix(5).enumerated()), id: \.element.id) { index, item in
+                            HStack(spacing: 8) {
+                                Circle()
+                                    .fill(categoryColor(at: index))
+                                    .frame(width: 8, height: 8)
+                                
+                                Text(item.category)
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundColor(CatalogTheme.primaryText)
+                                
+                                Spacer()
+                            }
+                        }
                     }
-                    .padding(.vertical, 4)
                 }
+                .padding(.vertical, 10)
             }
         }
         .padding(20)
@@ -333,22 +265,13 @@ struct AdminDashboardView: View {
     private var topPerformingStoresCard: some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack(spacing: 12) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(CatalogTheme.surface)
-                        .frame(width: 44, height: 44)
-                    
-                    Image(systemName: "crown.fill")
-                        .foregroundColor(CatalogTheme.primary)
-                        .font(.system(size: 20))
-                }
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Top Performing Stores")
                         .font(.system(size: 18, weight: .bold, design: .serif))
-                        .foregroundColor(.primary)
-                    Text("Ranked by sales completed this month")
-                        .font(.caption)
+                        .foregroundColor(CatalogTheme.primaryText)
+                    Text("Ranked by target achievement")
+                        .font(.system(size: 12, weight: .medium))
                         .foregroundColor(CatalogTheme.secondaryText)
                 }
 
@@ -361,68 +284,74 @@ struct AdminDashboardView: View {
             }
 
             if dashboardViewModel.topPerformingStores.isEmpty && !dashboardViewModel.isTopStoresLoading {
-                HStack {
-                    Spacer()
-                    VStack(spacing: 8) {
-                        Image(systemName: "storefront")
-                            .font(.title2)
-                            .foregroundColor(CatalogTheme.secondaryText)
-                        Text("No data for current month")
-                            .font(.subheadline)
-                            .foregroundColor(CatalogTheme.secondaryText)
-                    }
-                    .padding(.vertical, 20)
-                    Spacer()
-                }
+                emptyDataPlaceholder(icon: "storefront", message: "No data for current month")
             } else {
-                ForEach(Array(dashboardViewModel.topPerformingStores.prefix(5).enumerated()), id: \.element.id) { index, item in
-                    HStack(spacing: 12) {
-                        Text("\(index + 1)")
-                            .font(.subheadline.bold())
-                            .foregroundColor(index == 0 ? CatalogTheme.deepAccent : CatalogTheme.secondaryText)
-                            .frame(width: 24)
+                // Podium View for Top 3
+                StorePodiumView(stores: Array(dashboardViewModel.topPerformingStores.prefix(3))) { store in
+                    selectedStore = store
+                }
+                .padding(.vertical, 10)
 
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(item.store.name)
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundColor(CatalogTheme.primaryText)
-                            Text(item.store.location)
-                                .font(.caption2)
-                                .foregroundColor(CatalogTheme.secondaryText)
+                if dashboardViewModel.topPerformingStores.count > 3 {
+                    NavigationLink(destination: AllStoresPerformanceView(stores: dashboardViewModel.topPerformingStores)) {
+                        HStack {
+                            Spacer()
+                            Text("Show All Stores")
+                                .font(.subheadline.bold())
+                                .foregroundColor(CatalogTheme.primary)
+                            Image(systemName: "chevron.right")
+                                .font(.caption.bold())
+                                .foregroundColor(CatalogTheme.primary)
+                            Spacer()
                         }
-
-                        Spacer()
-
-                        Text(formatCurrency(item.totalSales))
-                            .font(.subheadline.bold())
-                            .foregroundColor(CatalogTheme.primary)
+                        .padding(.vertical, 12)
+                        .background(CatalogTheme.surface.opacity(0.5))
+                        .cornerRadius(12)
                     }
-                    .padding(.vertical, 8)
-
-                    if index < min(4, dashboardViewModel.topPerformingStores.count - 1) {
-                        Divider()
-                            .background(CatalogTheme.divider)
-                    }
+                    .padding(.top, 8)
                 }
             }
         }
-        .padding(16)
-        .appCardChrome()
+        .padding(20)
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(Color.white)
+        )
+        .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 3)
+        .sheet(item: $selectedStore) { performance in
+            StorePerformanceDetailView(performance: performance)
+        }
     }
 
-    private func categoryColor(for category: String) -> Color {
+    @ViewBuilder
+    private func emptyDataPlaceholder(icon: String, message: String) -> some View {
+        HStack {
+            Spacer()
+            VStack(spacing: 8) {
+                Image(systemName: icon)
+                    .font(.title2)
+                    .foregroundColor(CatalogTheme.secondaryText)
+                Text(message)
+                    .font(.subheadline)
+                    .foregroundColor(CatalogTheme.secondaryText)
+            }
+            .padding(.vertical, 20)
+            Spacer()
+        }
+    }
+
+    private func categoryColor(at index: Int) -> Color {
         let colors: [Color] = [
-            CatalogTheme.primary,
-            CatalogTheme.deepAccent,
-            Color(hex: "#8C6A6E"),
-            Color(hex: "#5C3C40"),
-            Color(hex: "#7A5C60"),
-            Color(hex: "#9E7B7F"),
-            Color(hex: "#634246"),
-            Color(hex: "#4D2D31")
+            Color(hex: "#6E5155"), // Theme Primary
+            Color(hex: "#E67E22"), // Orange
+            Color(hex: "#27AE60"), // Green
+            Color(hex: "#2980B9"), // Blue
+            Color(hex: "#8E44AD"), // Purple
+            Color(hex: "#C0392B"), // Red
+            Color(hex: "#F1C40F"), // Yellow
+            Color(hex: "#16A085")  // Teal
         ]
-        let hash = abs(category.hashValue)
-        return colors[hash % colors.count]
+        return colors[index % colors.count]
     }
 
     @ViewBuilder
@@ -504,9 +433,251 @@ struct AdminDashboardView: View {
     }
 }
 
-struct AdminDashboardView_Previews: PreviewProvider {
-    static var previews: some View {
-        AdminDashboardView(sessionViewModel: SessionViewModel())
+// MARK: - Subviews
+
+struct GrossSalesPieChartView: View {
+    let sales: Double
+    let target: Double
+    
+    var achievementPercentage: Double {
+        guard target > 0 else { return 0 }
+        return min(sales / target, 1.0)
+    }
+    
+    var body: some View {
+        ZStack {
+            // Background Circle (Target)
+            Circle()
+                .fill(CatalogTheme.surface.opacity(0.5))
+            
+            // Progress Segment (Sales)
+            PieSegment(
+                startAngle: .degrees(-90),
+                endAngle: .degrees(-90 + (achievementPercentage * 360))
+            )
+            .fill(
+                LinearGradient(
+                    colors: [CatalogTheme.primary, CatalogTheme.deepAccent],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            
+            // Remaining Segment (if any)
+            if achievementPercentage < 1.0 {
+                PieSegment(
+                    startAngle: .degrees(-90 + (achievementPercentage * 360)),
+                    endAngle: .degrees(270)
+                )
+                .fill(CatalogTheme.surface)
+                .opacity(0.5)
+            }
+            
+            Circle()
+                .fill(Color.white)
+                .frame(width: 115, height: 115)
+                .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
+            
+            VStack(spacing: 2) {
+                Text(String(format: "%.0f%%", achievementPercentage * 100))
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundColor(CatalogTheme.primaryText)
+                Text("Achieved")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(CatalogTheme.secondaryText)
+            }
+        }
+    }
+}
+
+struct CategoryPieChartView: View {
+    let data: [CategorySales]
+    let total: Double
+    
+    // Distinct vibrant color palette
+    private let distinctColors: [Color] = [
+        Color(hex: "#6E5155"), // Theme Primary
+        Color(hex: "#E67E22"), // Orange
+        Color(hex: "#27AE60"), // Green
+        Color(hex: "#2980B9"), // Blue
+        Color(hex: "#8E44AD"), // Purple
+        Color(hex: "#C0392B"), // Red
+        Color(hex: "#F1C40F"), // Yellow
+        Color(hex: "#16A085")  // Teal
+    ]
+    
+    var body: some View {
+        ZStack {
+            ForEach(Array(data.enumerated()), id: \.element.id) { index, item in
+                PieSegment(
+                    startAngle: startAngle(for: index),
+                    endAngle: endAngle(for: index)
+                )
+                .fill(distinctColors[index % distinctColors.count])
+                .overlay(
+                    PieSegment(
+                        startAngle: startAngle(for: index),
+                        endAngle: endAngle(for: index)
+                    )
+                    .stroke(Color.white, lineWidth: 2)
+                )
+            }
+            
+            Circle()
+                .fill(Color.white)
+                .frame(width: 115, height: 115)
+                .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
+            
+            VStack(spacing: 2) {
+                Text("Total")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(CatalogTheme.secondaryText)
+                Text(formatShortCurrency(total))
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundColor(CatalogTheme.primaryText)
+            }
+        }
+    }
+    
+    private func startAngle(for index: Int) -> Angle {
+        let proportion = data.prefix(index).reduce(0) { $0 + $1.totalSales } / total
+        return .degrees(proportion * 360 - 90)
+    }
+    
+    private func endAngle(for index: Int) -> Angle {
+        let proportion = data.prefix(index + 1).reduce(0) { $0 + $1.totalSales } / total
+        return .degrees(proportion * 360 - 90)
+    }
+    
+    private func formatShortCurrency(_ value: Double) -> String {
+        if value >= 10_000_000 {
+            return String(format: "₹%.1fCr", value / 10_000_000)
+        } else if value >= 100_000 {
+            return String(format: "₹%.1fL", value / 100_000)
+        } else if value >= 1_000 {
+            return String(format: "₹%.1fK", value / 1_000)
+        } else {
+            return String(format: "₹%.0f", value)
+        }
+    }
+}
+
+struct PieSegment: Shape {
+    var startAngle: Angle
+    var endAngle: Angle
+    
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let center = CGPoint(x: rect.midX, y: rect.midY)
+        path.move(to: center)
+        path.addArc(center: center, radius: rect.width / 2, startAngle: startAngle, endAngle: endAngle, clockwise: false)
+        return path
+    }
+}
+
+struct StorePodiumView: View {
+    let stores: [StorePerformance]
+    let onSelect: (StorePerformance) -> Void
+    
+    var body: some View {
+        HStack(alignment: .bottom, spacing: 16) {
+            // Rank 2
+            if stores.count > 1 {
+                podiumItem(performance: stores[1], rank: 2, size: 75, color: Color(hex: "#A0A0A0"))
+            } else {
+                Spacer().frame(width: 75)
+            }
+            
+            // Rank 1
+            if stores.count > 0 {
+                podiumItem(performance: stores[0], rank: 1, size: 100, color: Color(hex: "#FFD700"), hasCrown: true)
+            } else {
+                Spacer().frame(width: 100)
+            }
+            
+            // Rank 3
+            if stores.count > 2 {
+                podiumItem(performance: stores[2], rank: 3, size: 75, color: Color(hex: "#CD7F32"))
+            } else {
+                Spacer().frame(width: 75)
+            }
+        }
+        .padding(.top, 20)
+        .frame(maxWidth: .infinity)
+    }
+    
+    private func podiumItem(performance: StorePerformance, rank: Int, size: CGFloat, color: Color, hasCrown: Bool = false) -> some View {
+        Button(action: { onSelect(performance) }) {
+            VStack(spacing: 12) {
+                ZStack(alignment: .top) {
+                    // Avatar Circle
+                    ZStack {
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [CatalogTheme.surface, CatalogTheme.surface.opacity(0.5)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                        
+                        Image(systemName: "person.fill")
+                            .font(.system(size: size * 0.4, weight: .bold))
+                            .foregroundColor(CatalogTheme.primary.opacity(0.7))
+                    }
+                    .frame(width: size, height: size)
+                    .overlay(
+                        Circle()
+                            .stroke(hasCrown ? CatalogTheme.primary : Color.clear, lineWidth: 2)
+                    )
+                    .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
+                    
+                    // Rank Badge
+                    ZStack {
+                        Circle()
+                            .fill(color)
+                            .frame(width: 28, height: 28)
+                        Text("\(rank)")
+                            .font(.system(size: 14, weight: .black))
+                            .foregroundColor(.white)
+                    }
+                    .offset(y: -size * 0.1)
+                    
+                    if hasCrown {
+                        Image(systemName: "crown.fill")
+                            .font(.system(size: 26))
+                            .foregroundColor(.orange)
+                            .shadow(color: .orange.opacity(0.3), radius: 4, x: 0, y: 2)
+                            .offset(y: -size * 0.35)
+                    }
+                }
+                
+                VStack(spacing: 4) {
+                    Text(performance.store.name)
+                        .font(.system(size: 13, weight: .bold, design: .serif))
+                        .foregroundColor(CatalogTheme.primaryText)
+                        .lineLimit(1)
+                        .multilineTextAlignment(.center)
+                    
+                    Text(formatShortCurrency(performance.totalSales))
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(CatalogTheme.primary)
+                }
+            }
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+    
+    private func formatShortCurrency(_ value: Double) -> String {
+        if value >= 10_000_000 {
+            return String(format: "₹%.2fCr", value / 10_000_000)
+        } else if value >= 100_000 {
+            return String(format: "₹%.2fL", value / 100_000)
+        } else if value >= 1_000 {
+            return String(format: "₹%.2fK", value / 1_000)
+        } else {
+            return String(format: "₹%.0f", value)
+        }
     }
 }
 
