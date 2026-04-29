@@ -166,18 +166,25 @@ struct AdminDashboardView: View {
 
     @ViewBuilder
     private func salesMetricRow(label: String, value: String, color: Color, icon: String) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: icon)
-                .font(.system(size: 14))
-                .foregroundColor(color)
-            
-            VStack(alignment: .leading, spacing: 2) {
-                Text(value)
-                    .font(.system(size: 15, weight: .bold))
+        HStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(color.opacity(0.08))
+                    .frame(width: 36, height: 36)
+                Image(systemName: icon)
+                    .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(color)
+            }
+            
+            VStack(alignment: .leading, spacing: 1) {
+                Text(value)
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(CatalogTheme.primaryText)
                 Text(label)
-                    .font(.system(size: 10))
+                    .font(.system(size: 10, weight: .bold))
                     .foregroundColor(CatalogTheme.secondaryText)
+                    .textCase(.uppercase)
+                    .tracking(0.5)
             }
         }
     }
