@@ -288,6 +288,7 @@
 				DEVELOPMENT_TEAM = R48J2485DY;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleURLTypes = "{\n    CFBundleTypeRole = Editor;\n    CFBundleURLName = \"com.rsms.deep\";\n    CFBundleURLSchemes =     (\n        rsms\n    );\n}";
 				INFOPLIST_KEY_NSCameraUsageDescription = "RSMS needs camera access to scan barcodes and RFID tags for inventory management.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -321,6 +322,7 @@
 				DEVELOPMENT_TEAM = R48J2485DY;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleURLTypes = "{\n    CFBundleTypeRole = Editor;\n    CFBundleURLName = \"com.rsms.deep\";\n    CFBundleURLSchemes =     (\n        rsms\n    );\n}";
 				INFOPLIST_KEY_NSCameraUsageDescription = "RSMS needs camera access to scan barcodes and RFID tags for inventory management.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;

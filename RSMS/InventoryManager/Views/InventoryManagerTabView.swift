@@ -25,18 +25,26 @@ public struct InventoryManagerTabView: View {
             .tag(0)
 
             NavigationView {
+                RequestsTabView(selectedTab: $selectedTab, prefilledSKUMagic: $prefilledSKUMagic)
+            }
+            .tabItem {
+                Label("Requests", systemImage: "tray.full")
+            }
+            .tag(1)
+
+            NavigationView {
                 TransfersTabView(selectedTab: $selectedTab, prefilledSKUMagic: $prefilledSKUMagic)
             }
             .tabItem {
                 Label("Workflows", systemImage: "arrow.left.arrow.right")
             }
-            .tag(1)
+            .tag(2)
 
             ItemsTabView(categoryFilterMagic: $categoryFilterMagic)
                 .tabItem {
                     Label("Items", systemImage: "shippingbox")
                 }
-                .tag(2)
+                .tag(3)
         }
         .accentColor(Color(hex: "#6E5155"))
         .onAppear {

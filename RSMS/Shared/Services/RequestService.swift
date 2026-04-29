@@ -138,7 +138,24 @@ public final class RequestService: @unchecked Sendable {
                 .eq("request_id", value: id)
                 .execute()
         } catch {
-            print("updateRequestStatus ERROR: \(error)")
+            print("❌ Failed to update request status: \(error.localizedDescription)")
+            throw error
+        }
+    }
+
+    public func updateRequestQuantity(id: UUID, quantity: Int) async throws {
+        struct QuantityUpdate: Encodable {
+            let quantity: Int
+        }
+        let payload = QuantityUpdate(quantity: quantity)
+        do {
+            try await SupabaseManager.shared.client
+                .from("product_requests")
+                .update(payload)
+                .eq("request_id", value: id)
+                .execute()
+        } catch {
+            print("❌ Failed to update request quantity: \(error.localizedDescription)")
             throw error
         }
     }

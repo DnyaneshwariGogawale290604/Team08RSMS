@@ -1,67 +1,131 @@
 import SwiftUI
 
-/// Sheet presented to Inventory Manager when they want to ship an approved request.
+/// A grouped pick-list unit: one or more requests for the same product → same boutique.
+struct PickListGroup: Identifiable {
+    var id: UUID { requests.first!.id }          // stable – first request acts as primary
+    let requests: [ProductRequest]               // all requests in this group
+
+    var productId: UUID?    { requests.first?.productId }
+    var storeId: UUID?      { requests.first?.storeId }
+    var product: Product?   { requests.first?.product }
+    var store: Store?       { requests.first?.store }
+
+    /// Combined quantity across all requests in the group.
+    var totalQuantity: Int  { requests.reduce(0) { $0 + $1.requestedQuantity } }
+}
+
+// MARK: - Sheet
+
+/// Sheet presented to Inventory Manager when they want to ship an approved request (or group).
 /// Collects carrier/tracking/ETA details and generates an ASN on submit.
 struct ShipmentDetailsSheet: View {
     @Environment(\.dismiss) private var dismiss
-    let request: ProductRequest
-    let onShipped: (String) -> Void  // called with generated ASN number
+    let group: PickListGroup
+    let onShipped: (String) -> Void   // called with generated ASN number
 
     @StateObject private var viewModel = TransfersViewModel()
     @State private var carrier: String = ""
     @State private var trackingNumber: String = ""
     @State private var estimatedDelivery: Date = Date().addingTimeInterval(3 * 86400)
+    @State private var dispatchQuantityText: String = ""
     @State private var notes: String = ""
-    @State private var showSuccess = false
-    @State private var generatedASN: String = ""
     @State private var showErrorAlert = false
+    @State private var generatedASN: String = ""
+    @State private var showSuccess = false
 
     private var isFormValid: Bool {
+        (Int(dispatchQuantityText) ?? 0) > 0 &&
         !carrier.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
         !trackingNumber.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     private let dateFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd"
-        return f
-    }()
-
-    private let displayFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateStyle = .medium
-        return f
+        let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; return f
     }()
 
     var body: some View {
         NavigationView {
-            ScrollView(showsIndicators: false) {
-                VStack(spacing: 20) {
-
-                    // Request Summary Card
-                    requestSummaryCard
-
-                    // Shipment Details Card
-                    shipmentDetailsCard
-
-                    // Notes Card
-                    notesCard
-
-                    // Ship Button
-                    shipButton
-
+            Form {
+                // MARK: Order Summary
+                Section {
+                    LabeledContent("Product") {
+                        Text(group.product?.name ?? "Unknown Product")
+                            .foregroundColor(.primary)
+                            .multilineTextAlignment(.trailing)
+                    }
+                    LabeledContent("Boutique") {
+                        Text(group.store?.name ?? "Unknown Boutique")
+                            .foregroundColor(.primary)
+                            .multilineTextAlignment(.trailing)
+                    }
+                    LabeledContent("Qty to Dispatch") {
+                        TextField("Units", text: $dispatchQuantityText)
+                            .multilineTextAlignment(.trailing)
+                            .keyboardType(.numberPad)
+                            .onChange(of: dispatchQuantityText) { newValue in
+                                dispatchQuantityText = newValue.filter { $0.isNumber }
+                            }
+                    }
+                    if group.requests.count > 1 {
+                        HStack(spacing: 6) {
+                            Image(systemName: "info.circle")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Text("\(group.requests.count) requests merged · total \(group.totalQuantity) units")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                } header: {
+                    Text("Order Summary")
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 16)
-                .padding(.bottom, 40)
+
+                // MARK: Carrier & Tracking
+                Section {
+                    TextField("e.g. FedEx, DHL, Blue Dart", text: $carrier)
+                        .autocorrectionDisabled()
+                    TextField("Tracking number", text: $trackingNumber)
+                        .autocorrectionDisabled()
+                        .keyboardType(.asciiCapable)
+                    DatePicker("Est. Delivery", selection: $estimatedDelivery,
+                               in: Date()..., displayedComponents: .date)
+                } header: {
+                    Text("Carrier & Tracking")
+                }
+
+                // MARK: Notes
+                Section {
+                    TextEditor(text: $notes)
+                        .frame(minHeight: 80)
+                } header: {
+                    Text("Notes (Optional)")
+                }
+
+                // MARK: Submit
+                Section {
+                    Button {
+                        Task { await submitShipment() }
+                    } label: {
+                        HStack {
+                            Spacer()
+                            if viewModel.isLoading {
+                                ProgressView()
+                            } else {
+                                Label("Confirm & Generate ASN", systemImage: "shippingbox.fill")
+                                    .fontWeight(.semibold)
+                            }
+                            Spacer()
+                        }
+                    }
+                    .foregroundColor(isFormValid && !viewModel.isLoading ? .green : .secondary)
+                    .disabled(!isFormValid || viewModel.isLoading)
+                }
             }
-            .background(Color.appBackground.ignoresSafeArea())
             .navigationTitle("Shipment Details")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
-                        .foregroundColor(.appAccent)
                 }
             }
             .overlay {
@@ -71,159 +135,39 @@ struct ShipmentDetailsSheet: View {
                 }
             }
             .alert("Error Creating Shipment", isPresented: $showErrorAlert) {
-                Button("OK", role: .cancel) {
-                    viewModel.errorMessage = nil
-                }
+                Button("OK", role: .cancel) { viewModel.errorMessage = nil }
             } message: {
                 Text(viewModel.errorMessage ?? "An unknown error occurred.")
             }
         }
-    }
-
-    // MARK: - Sub-views
-
-    private var requestSummaryCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Label("Order Summary", systemImage: "doc.text")
-                .font(.caption.weight(.semibold))
-                .foregroundColor(.appSecondaryText)
-
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(request.product?.name ?? "Unknown Product")
-                        .font(.headline)
-                        .foregroundColor(.appPrimaryText)
-                    Text("From: \(request.store?.name ?? "Unknown Boutique")")
-                        .font(.subheadline)
-                        .foregroundColor(.appSecondaryText)
-                }
-                Spacer()
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text("\(request.requestedQuantity)")
-                        .font(.title2.bold())
-                        .foregroundColor(.appAccent)
-                    Text("units")
-                        .font(.caption2.weight(.medium))
-                        .foregroundColor(.appSecondaryText)
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(Color.appAccent.opacity(0.1))
-                .cornerRadius(8)
-            }
+        .onAppear {
+            dispatchQuantityText = "\(group.totalQuantity)"
         }
-        .padding(16)
-        .background(Color.appCard)
-        .cornerRadius(14)
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.appBorder, lineWidth: 0.8))
     }
 
-    private var shipmentDetailsCard: some View {
-        VStack(spacing: 0) {
-            Label("Carrier & Tracking", systemImage: "shippingbox")
-                .font(.caption.weight(.semibold))
-                .foregroundColor(.appSecondaryText)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 16)
-                .padding(.top, 14)
-                .padding(.bottom, 10)
-
-            Divider().padding(.horizontal, 16)
-
-            fieldRow(label: "Carrier") {
-                TextField("e.g. FedEx, DHL, Blue Dart", text: $carrier)
-                    .multilineTextAlignment(.trailing)
-                    .foregroundColor(.appPrimaryText)
-            }
-
-            Divider().padding(.horizontal, 16)
-
-            fieldRow(label: "Tracking No.") {
-                TextField("Enter tracking number", text: $trackingNumber)
-                    .multilineTextAlignment(.trailing)
-                    .foregroundColor(.appPrimaryText)
-            }
-
-            Divider().padding(.horizontal, 16)
-
-            HStack {
-                Text("Est. Delivery")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(.appSecondaryText)
-                Spacer()
-                DatePicker("", selection: $estimatedDelivery, in: Date()..., displayedComponents: .date)
-                    .labelsHidden()
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
-        }
-        .background(Color.appCard)
-        .cornerRadius(14)
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.appBorder, lineWidth: 0.8))
-    }
-
-    private var notesCard: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label("Notes (optional)", systemImage: "note.text")
-                .font(.caption.weight(.semibold))
-                .foregroundColor(.appSecondaryText)
-            TextEditor(text: $notes)
-                .frame(minHeight: 80, maxHeight: 120)
-                .font(.system(size: 14))
-                .foregroundColor(.appPrimaryText)
-                .padding(8)
-                .background(Color.appBackground)
-                .cornerRadius(10)
-        }
-        .padding(16)
-        .background(Color.appCard)
-        .cornerRadius(14)
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.appBorder, lineWidth: 0.8))
-    }
-
-    private var shipButton: some View {
-        Button {
-            Task { await submitShipment() }
-        } label: {
-            Group {
-                if viewModel.isLoading {
-                    ProgressView().tint(.white)
-                } else {
-                    HStack(spacing: 8) {
-                        Image(systemName: "shippingbox.fill")
-                        Text("Confirm & Generate ASN")
-                            .font(.system(size: 16, weight: .semibold))
-                    }
-                    .foregroundColor(.white)
-                }
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 16)
-        }
-        .background(
-            RoundedRectangle(cornerRadius: 50)
-                .fill(isFormValid && !viewModel.isLoading ? Color.appAccent : Color.appBorder)
-        )
-        .disabled(!isFormValid || viewModel.isLoading)
-    }
+    // MARK: - Success Banner
 
     private var asnSuccessBanner: some View {
         VStack {
             VStack(spacing: 10) {
                 Image(systemName: "checkmark.seal.fill")
-                    .font(.system(size: 36))
+                    .font(.system(size: 40))
                     .foregroundColor(.green)
                 Text("Shipment Created!")
                     .font(.headline)
                 Text(generatedASN)
                     .font(.system(.title3, design: .monospaced).bold())
-                    .foregroundColor(.appAccent)
+                    .foregroundColor(.accentColor)
                 Text("ASN Number — share with boutique")
                     .font(.caption)
-                    .foregroundColor(.appSecondaryText)
+                    .foregroundColor(.secondary)
+                Text("Tap anywhere to continue")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                    .padding(.top, 4)
             }
-            .padding(24)
-            .background(Color.appCard)
+            .padding(28)
+            .background(.regularMaterial)
             .cornerRadius(20)
             .shadow(radius: 20)
             .padding(.horizontal, 32)
@@ -243,34 +187,31 @@ struct ShipmentDetailsSheet: View {
 
     private func submitShipment() async {
         let etaString = dateFormatter.string(from: estimatedDelivery)
+        let finalQty = Int(dispatchQuantityText) ?? group.totalQuantity
+        let primaryRequest = group.requests[0]
+
         if let asn = await viewModel.shipRequest(
-            request: request,
+            request: primaryRequest,
+            quantity: finalQty,
             carrier: carrier.trimmingCharacters(in: .whitespacesAndNewlines),
             trackingNumber: trackingNumber.trimmingCharacters(in: .whitespacesAndNewlines),
             estimatedDelivery: etaString,
             notes: notes.trimmingCharacters(in: .whitespacesAndNewlines)
         ) {
+            for req in group.requests.dropFirst() {
+                _ = await viewModel.shipRequest(
+                    request: req,
+                    quantity: req.requestedQuantity,
+                    carrier: carrier.trimmingCharacters(in: .whitespacesAndNewlines),
+                    trackingNumber: trackingNumber.trimmingCharacters(in: .whitespacesAndNewlines),
+                    estimatedDelivery: etaString,
+                    notes: "Merged with primary shipment \(asn)"
+                )
+            }
             generatedASN = asn
             withAnimation(.spring()) { showSuccess = true }
         } else if viewModel.errorMessage != nil {
             showErrorAlert = true
         }
-    }
-
-    // MARK: - Helpers
-
-    @ViewBuilder
-    private func fieldRow<Content: View>(label: String, @ViewBuilder content: () -> Content) -> some View {
-        HStack(spacing: 12) {
-            Text(label)
-                .font(.system(size: 14, weight: .medium))
-                .foregroundColor(.appSecondaryText)
-                .frame(minWidth: 80, alignment: .leading)
-            Spacer()
-            content()
-                .font(.system(size: 14))
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
     }
 }

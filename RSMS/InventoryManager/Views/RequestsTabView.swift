@@ -73,7 +73,7 @@ public struct RequestsTabView: View {
                 Text(viewModel.errorMessage ?? "An unknown error occurred.")
             }
             .sheet(item: $requestPendingShipment) { req in
-                ShipmentDetailsSheet(request: req) { asn in
+                ShipmentDetailsSheet(group: PickListGroup(requests: [req])) { asn in
                     lastASN = asn
                     withAnimation { showASNBanner = true }
                     DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
@@ -339,7 +339,7 @@ public struct RequestsTabView: View {
         }()
 
         let statusColor: Color = {
-            if rawStatus == "in_transit" { return .orange }
+            if rawStatus == "in_transit" { return .blue }
             if rawStatus == "delivered" { return .green }
             return .gray
         }()

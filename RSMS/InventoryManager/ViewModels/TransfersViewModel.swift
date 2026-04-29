@@ -115,6 +115,7 @@ public final class TransfersViewModel: ObservableObject {
     @discardableResult
     public func shipRequest(
         request: ProductRequest,
+        quantity: Int,
         carrier: String,
         trackingNumber: String,
         estimatedDelivery: String,
@@ -123,6 +124,10 @@ public final class TransfersViewModel: ObservableObject {
         isLoading = true
         defer { isLoading = false }
         do {
+            if quantity != request.requestedQuantity {
+                try await RequestService.shared.updateRequestQuantity(id: request.id, quantity: quantity)
+            }
+            
             let asn = try await RequestService.shared.createShipmentWithASN(
                 requestId: request.id,
                 storeId: request.storeId,
@@ -135,7 +140,7 @@ public final class TransfersViewModel: ObservableObject {
             // Decrement warehouse stock (non-fatal — RLS may block this in dev)
             if let productId = request.productId {
                 do {
-                    try await decrementWarehouseStock(productId: productId, deductQuantity: request.requestedQuantity)
+                    try await decrementWarehouseStock(productId: productId, deductQuantity: quantity)
                 } catch {
                     print("⚠️ Stock decrement skipped (RLS or network): \(error.localizedDescription)")
                 }
