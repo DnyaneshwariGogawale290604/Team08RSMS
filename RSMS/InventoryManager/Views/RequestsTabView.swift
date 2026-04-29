@@ -15,6 +15,8 @@ public struct RequestsTabView: View {
     @State private var showASNBanner = false
     @State private var showErrorAlert = false
     @State private var selectedVendorOrder: VendorOrder? = nil
+    @State private var incomingStatusFilter: String? = nil   // nil = All
+    @State private var outgoingStatusFilter: String? = nil   // nil = All
 
     @Binding var selectedTab: Int
     @Binding var prefilledSKUMagic: String?
@@ -113,25 +115,88 @@ public struct RequestsTabView: View {
 
     // MARK: - Incoming Requests Section
 
+    private let incomingStatuses: [(label: String, value: String?)] = [
+        ("All", nil),
+        ("Pending", "pending"),
+        ("Approved", "approved"),
+        ("Shipped", "shipped"),
+        ("Rejected", "rejected")
+    ]
+
+    private let outgoingStatuses: [(label: String, value: String?)] = [
+        ("All", nil),
+        ("Pending", "pending"),
+        ("In Transit", "in_transit"),
+        ("Delivered", "delivered")
+    ]
+
     @ViewBuilder
-    private func incomingRequestsSection() -> some View {
-        let incoming = viewModel.pendingRequests
-        if incoming.isEmpty {
-            Spacer()
-            EmptyStateView(icon: "tray", title: "No Pending Requests", message: "All boutique requests have been actioned. Check Workflows → Pick Lists for approved ones.")
-            Spacer()
-        } else {
-            List {
-                ForEach(incoming) { request in
-                    incomingRequestCard(request: request)
-                        .listRowInsets(EdgeInsets())
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
-                        .padding(.vertical, 6)
-                        .padding(.horizontal, 16)
+    private func filterChipsRow(
+        statuses: [(label: String, value: String?)],
+        selected: Binding<String?>
+    ) -> some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(statuses, id: \.label) { chip in
+                    let isSelected = selected.wrappedValue == chip.value
+                    Button {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            selected.wrappedValue = chip.value
+                        }
+                    } label: {
+                        Text(chip.label)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(isSelected ? .white : .appAccent)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(
+                                Capsule()
+                                    .fill(isSelected ? Color.appAccent : Color.white)
+                                    .shadow(color: Color.black.opacity(isSelected ? 0.12 : 0.04),
+                                            radius: isSelected ? 4 : 2, x: 0, y: 2)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
                 }
             }
-            .listStyle(.plain)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+        }
+    }
+
+    @ViewBuilder
+    private func incomingRequestsSection() -> some View {
+        let all = viewModel.pendingRequests
+        let filtered = incomingStatusFilter == nil
+            ? all
+            : all.filter { $0.status == incomingStatusFilter }
+
+        VStack(spacing: 0) {
+            filterChipsRow(statuses: incomingStatuses, selected: $incomingStatusFilter)
+            Divider().padding(.bottom, 4)
+
+            if filtered.isEmpty {
+                Spacer()
+                EmptyStateView(
+                    icon: "tray",
+                    title: "No Requests",
+                    message: "No requests match the selected status filter."
+                )
+                Spacer()
+            } else {
+                List {
+                    ForEach(filtered) { request in
+                        incomingRequestCard(request: request)
+                            .listRowInsets(EdgeInsets())
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                            .padding(.vertical, 6)
+                            .padding(.horizontal, 16)
+                    }
+                }
+                .listStyle(.plain)
+            }
         }
     }
 
@@ -308,23 +373,36 @@ public struct RequestsTabView: View {
 
     @ViewBuilder
     private func outgoingRequestsSection() -> some View {
-        let outgoing = viewModel.vendorOrders
-        if outgoing.isEmpty {
-            Spacer()
-            EmptyStateView(icon: "shippingbox", title: "No Vendor Orders", message: "No outgoing purchase orders yet. Go to Workflows → Purchase Orders to create one.")
-            Spacer()
-        } else {
-            List {
-                ForEach(outgoing) { order in
-                    vendorOrderCard(for: order)
-                        .listRowInsets(EdgeInsets())
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
-                        .padding(.vertical, 6)
-                        .padding(.horizontal, 16)
+        let all = viewModel.vendorOrders
+        let filtered = outgoingStatusFilter == nil
+            ? all
+            : all.filter { ($0.status ?? "").lowercased() == outgoingStatusFilter }
+
+        VStack(spacing: 0) {
+            filterChipsRow(statuses: outgoingStatuses, selected: $outgoingStatusFilter)
+            Divider().padding(.bottom, 4)
+
+            if filtered.isEmpty {
+                Spacer()
+                EmptyStateView(
+                    icon: "shippingbox",
+                    title: "No Vendor Orders",
+                    message: "No orders match the selected status filter."
+                )
+                Spacer()
+            } else {
+                List {
+                    ForEach(filtered) { order in
+                        vendorOrderCard(for: order)
+                            .listRowInsets(EdgeInsets())
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                            .padding(.vertical, 6)
+                            .padding(.horizontal, 16)
+                    }
                 }
+                .listStyle(.plain)
             }
-            .listStyle(.plain)
         }
     }
 

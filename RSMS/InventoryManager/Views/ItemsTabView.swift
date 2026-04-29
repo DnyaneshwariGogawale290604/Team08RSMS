@@ -162,19 +162,6 @@ public struct ItemsTabView: View {
                         AppToolbarGlyph(systemImage: "arrow.clockwise")
                     }
                     .buttonStyle(.plain)
-
-                    Menu {
-                        ForEach(RepairFilter.allCases, id: \.self) { filter in
-                            Button {
-                                repairFilter = filter
-                            } label: {
-                                Label(filter.rawValue, systemImage: filter.systemImage)
-                            }
-                        }
-                    } label: {
-                        AppToolbarGlyph(systemImage: "line.3.horizontal.decrease.circle")
-                    }
-                    .buttonStyle(.plain)
                 }
             }
             .task {
@@ -243,36 +230,67 @@ public struct ItemsTabView: View {
     }
 
     private var activeFiltersRow: some View {
-        HStack(spacing: 10) {
-            Label(repairFilter.rawValue, systemImage: repairFilter.systemImage)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(.appAccent)
-                .padding(.horizontal, 14)
+        VStack(spacing: 0) {
+            // ── Status filter chips ────────────────────────────
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(RepairFilter.allCases, id: \.self) { filter in
+                        let isActive = repairFilter == filter
+                        Button {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                repairFilter = filter
+                            }
+                        } label: {
+                            HStack(spacing: 5) {
+                                Image(systemName: filter.systemImage)
+                                    .font(.system(size: 11, weight: .bold))
+                                Text(filter.rawValue)
+                                    .font(.system(size: 13, weight: .semibold))
+                            }
+                            .foregroundColor(isActive ? .white : .appAccent)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .background(
+                                Capsule()
+                                    .fill(isActive ? Color.appAccent : Color.white)
+                                    .shadow(
+                                        color: Color.black.opacity(isActive ? 0.14 : 0.05),
+                                        radius: isActive ? 4 : 2, x: 0, y: 2
+                                    )
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isActive)
+                    }
+                }
+                .padding(.horizontal, 16)
                 .padding(.vertical, 8)
-                .background(Color.white)
-                .clipShape(Capsule())
-
-            if let categoryFilterMagic {
-                Text(categoryFilterMagic)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(.appPrimaryText)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
-                    .background(Color.luxurySurface)
-                    .clipShape(Capsule())
             }
 
-            Spacer()
-
-            if categoryFilterMagic != nil {
-                Button("Clear") {
-                    categoryFilterMagic = nil
+            // ── Active category chip + clear ──────────────────
+            if let cat = categoryFilterMagic {
+                HStack(spacing: 8) {
+                    Image(systemName: "folder.fill")
+                        .font(.caption2.bold())
+                        .foregroundColor(.appAccent)
+                    Text(cat)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.appPrimaryText)
+                    Spacer()
+                    Button {
+                        categoryFilterMagic = nil
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 14))
+                            .foregroundColor(.appSecondaryText)
+                    }
+                    .buttonStyle(.plain)
                 }
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(.appSecondaryText)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 8)
+                .background(Color.luxurySurface)
             }
         }
-        .padding(.horizontal, 16)
     }
 
     private func categoryCard(for category: String) -> some View {
@@ -385,25 +403,25 @@ public struct ItemsListFilteredView: View {
                     await viewModel.loadDashboardData()
                 }
             }
-            .navigationTitle(category)
-            .navigationBarTitleDisplayMode(.inline)
-            .navigationBarBackButtonHidden(true)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button(action: { presentationMode.wrappedValue.dismiss() }) {
-                        AppToolbarGlyph(systemImage: "chevron.left", backgroundColor: .appAccent)
-                    }
-                    .buttonStyle(.plain)
+        }
+        .navigationTitle(category)
+        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(true)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button(action: { presentationMode.wrappedValue.dismiss() }) {
+                    AppToolbarGlyph(systemImage: "chevron.left", backgroundColor: .appAccent)
                 }
+                .buttonStyle(.plain)
+            }
 
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        Task { await viewModel.loadDashboardData() }
-                    } label: {
-                        AppToolbarGlyph(systemImage: "arrow.clockwise", backgroundColor: .appAccent)
-                    }
-                    .buttonStyle(.plain)
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button {
+                    Task { await viewModel.loadDashboardData() }
+                } label: {
+                    AppToolbarGlyph(systemImage: "arrow.clockwise", backgroundColor: .appAccent)
                 }
+                .buttonStyle(.plain)
             }
         }
     }
