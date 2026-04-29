@@ -48,9 +48,14 @@ public final class ProductViewModel: ObservableObject {
 
     @discardableResult
     public func addProduct(_ product: Product, image: UIImage?) async -> Bool {
+        await addProduct(product, image: image, variants: [])
+    }
+
+    @discardableResult
+    public func addProduct(_ product: Product, image: UIImage?, variants: [ProductVariantDraftInput]) async -> Bool {
         isLoading = true
         do {
-            let newProduct = try await service.addProduct(product, image: image)
+            let newProduct = try await service.addProduct(product, image: image, variants: variants)
             products.insert(newProduct, at: 0)
             errorMessage = nil
             isLoading = false
@@ -71,6 +76,36 @@ public final class ProductViewModel: ObservableObject {
             if let index = products.firstIndex(where: { $0.id == product.id }) {
                 products[index] = product
             }
+            errorMessage = nil
+            isLoading = false
+            return true
+        } catch {
+            print("ERROR:", error)
+            errorMessage = error.localizedDescription
+            isLoading = false
+            return false
+        }
+    }
+
+    @discardableResult
+    public func updateProduct(_ product: Product, variants: [ProductVariantDraftInput]) async -> Bool {
+        isLoading = true
+        do {
+            try await service.updateProduct(product, variants: variants)
+            if let index = products.firstIndex(where: { $0.id == product.id }) {
+                var updatedProduct = product
+                updatedProduct.variants = variants.map {
+                    ProductVariant(
+                        id: $0.id,
+                        productId: product.id,
+                        name: $0.name,
+                        imageUrls: $0.existingImageUrls,
+                        infoText: $0.infoText
+                    )
+                }
+                products[index] = updatedProduct
+            }
+            await fetchProducts()
             errorMessage = nil
             isLoading = false
             return true

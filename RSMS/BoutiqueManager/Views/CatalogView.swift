@@ -2,6 +2,7 @@ import SwiftUI
 
 public struct CatalogView: View {
     @StateObject private var catalogVM = CatalogViewModel()
+    @State private var selectedProduct: Product?
     
     private let columns = [
         GridItem(.flexible(), spacing: 16),
@@ -76,7 +77,9 @@ public struct CatalogView: View {
                         ScrollView {
                             LazyVGrid(columns: columns, spacing: 16) {
                                 ForEach(catalogVM.filteredProducts) { product in
-                                    ProductCard(product: product)
+                                    ProductCard(product: product) {
+                                        selectedProduct = product
+                                    }
                                 }
                             }
                             .padding(16)
@@ -90,6 +93,9 @@ public struct CatalogView: View {
             
             .onAppear {
                 catalogVM.fetchProducts()
+            }
+            .sheet(item: $selectedProduct) { product in
+                BoutiqueProductDetailSheet(product: product)
             }
         }
     }
@@ -120,6 +126,7 @@ struct CategoryPill: View {
 
 struct ProductCard: View {
     let product: Product
+    let onTap: () -> Void
     @State private var isPressed = false
     @State private var selectedSize: String? = nil
 
@@ -132,29 +139,9 @@ struct ProductCard: View {
                     .frame(maxWidth: .infinity)
                     .frame(height: 130)
 
-                if let imageUrl = product.imageUrl,
-                   !imageUrl.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-                   let url = URL(string: imageUrl) {
-                    GeometryReader { proxy in
-                        AsyncImage(url: url) { phase in
-                            switch phase {
-                            case .empty:
-                                ProgressView()
-                                    .frame(width: proxy.size.width, height: proxy.size.height)
-                            case .success(let image):
-                                image
-                                    .resizable()
-                                    .scaledToFill()
-                                    .frame(width: proxy.size.width, height: proxy.size.height)
-                                    .clipped()
-                            case .failure:
-                                fallbackIcon(for: product)
-                                    .frame(width: proxy.size.width, height: proxy.size.height)
-                            @unknown default:
-                                fallbackIcon(for: product)
-                                    .frame(width: proxy.size.width, height: proxy.size.height)
-                            }
-                        }
+                if !product.allImageUrls.isEmpty {
+                    BoutiqueProductImageCarousel(imageUrls: product.allImageUrls, height: 130) {
+                        fallbackIcon(for: product)
                     }
                     .frame(height: 130)
                 } else {
@@ -227,6 +214,9 @@ struct ProductCard: View {
         .onLongPressGesture(minimumDuration: 0.01, pressing: { pressing in
             isPressed = pressing
         }, perform: {})
+        .onTapGesture {
+            onTap()
+        }
     }
 
     @ViewBuilder
@@ -327,3 +317,192 @@ struct SizeChip: View {
     }
 }
 
+private struct BoutiqueProductDetailSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let product: Product
+    @State private var selectedVariantId: UUID?
+
+    private var selectedVariant: ProductVariant {
+        if let selectedVariantId,
+           let variant = product.displayVariants.first(where: { $0.id == selectedVariantId }) {
+            return variant
+        }
+
+        return product.displayVariants[0]
+    }
+
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    BoutiqueProductImageCarousel(imageUrls: selectedVariant.imageUrls, height: 280) {
+                        detailPlaceholder
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(product.name)
+                            .font(.system(size: 24, weight: .bold, design: .serif))
+                            .foregroundColor(BoutiqueTheme.primaryText)
+
+                        if !product.category.isEmpty {
+                            Text(product.category.uppercased())
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundColor(BoutiqueTheme.subtleCategory)
+                                .tracking(1.2)
+                        }
+
+                        if product.price > 0 {
+                            Text(formatPrice(product.price))
+                                .font(.system(size: 20, weight: .bold))
+                                .foregroundColor(BoutiqueTheme.deepAccent)
+                        }
+                    }
+
+                    if product.displayVariants.count > 1 {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Select Variant")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundColor(BoutiqueTheme.primaryText)
+
+                            Menu {
+                                ForEach(product.displayVariants) { variant in
+                                    Button(variant.name) {
+                                        selectedVariantId = variant.id
+                                    }
+                                }
+                            } label: {
+                                HStack {
+                                    Text(selectedVariant.name)
+                                        .foregroundColor(BoutiqueTheme.primaryText)
+                                    Spacer()
+                                    Image(systemName: "chevron.down")
+                                        .foregroundColor(BoutiqueTheme.secondaryText)
+                                }
+                                .padding(12)
+                                .background(BoutiqueTheme.card)
+                                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            }
+                        }
+                    }
+
+                    if let info = selectedVariant.infoText?.trimmingCharacters(in: .whitespacesAndNewlines),
+                       !info.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Info")
+                                .font(.headline)
+                                .foregroundColor(BoutiqueTheme.primaryText)
+
+                            Text(info)
+                                .font(.body)
+                                .foregroundColor(BoutiqueTheme.secondaryText)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .padding(14)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(BoutiqueTheme.card)
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .stroke(BoutiqueTheme.divider, lineWidth: 0.5)
+                        )
+                    }
+                }
+                .padding(16)
+            }
+            .background(BoutiqueTheme.background.ignoresSafeArea())
+            .navigationTitle("Product Details")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }
+                }
+            }
+            .onAppear {
+                selectedVariantId = product.displayVariants.first?.id
+            }
+        }
+    }
+
+    private var detailPlaceholder: some View {
+        ZStack {
+            BoutiqueTheme.imageBackground
+            Image(systemName: "photo")
+                .font(.system(size: 36, weight: .light))
+                .foregroundColor(BoutiqueTheme.mutedText)
+        }
+    }
+
+    private func formatPrice(_ value: Double) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.currencyCode = "INR"
+        formatter.maximumFractionDigits = 0
+        return formatter.string(from: NSNumber(value: value)) ?? "₹\(Int(value))"
+    }
+}
+
+private struct BoutiqueProductImageCarousel<Placeholder: View>: View {
+    let imageUrls: [String]
+    let height: CGFloat
+    let placeholder: () -> Placeholder
+    @State private var selectedIndex = 0
+
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            if imageUrls.isEmpty {
+                placeholder()
+            } else {
+                TabView(selection: $selectedIndex) {
+                    ForEach(Array(imageUrls.enumerated()), id: \.offset) { index, imageUrl in
+                        carouselImage(imageUrl)
+                            .tag(index)
+                    }
+                }
+                .tabViewStyle(.page(indexDisplayMode: .never))
+            }
+
+            if imageUrls.count > 1 {
+                HStack(spacing: 5) {
+                    ForEach(imageUrls.indices, id: \.self) { index in
+                        Circle()
+                            .fill(index == selectedIndex ? Color.white : Color.white.opacity(0.45))
+                            .frame(width: index == selectedIndex ? 7 : 5, height: index == selectedIndex ? 7 : 5)
+                    }
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 5)
+                .background(Color.black.opacity(0.22))
+                .clipShape(Capsule())
+                .padding(.bottom, 8)
+            }
+        }
+        .frame(height: height)
+    }
+
+    @ViewBuilder
+    private func carouselImage(_ imageUrl: String) -> some View {
+        if let url = URL(string: imageUrl) {
+            GeometryReader { proxy in
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .empty:
+                        ProgressView()
+                            .frame(width: proxy.size.width, height: proxy.size.height)
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: proxy.size.width, height: proxy.size.height)
+                            .clipped()
+                    default:
+                        placeholder()
+                            .frame(width: proxy.size.width, height: proxy.size.height)
+                    }
+                }
+            }
+        } else {
+            placeholder()
+        }
+    }
+}
