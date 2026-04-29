@@ -36,3 +36,4 @@ playground.xcworkspace
 
 # macOS
 .DS_Store
+*.xcworkspace/xcshareddata/swiftpm/Package.resolved
