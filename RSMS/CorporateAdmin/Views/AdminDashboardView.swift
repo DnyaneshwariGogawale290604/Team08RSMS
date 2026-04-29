@@ -113,23 +113,10 @@ struct AdminDashboardView: View {
     private var grossSalesCard: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
-
                 Text("Gross Sales vs Target")
                     .font(.system(size: 18, weight: .bold, design: .serif))
                     .foregroundColor(CatalogTheme.primaryText)
                 
-                Spacer()
-                
-                Picker("Time Range", selection: $dashboardViewModel.selectedTimeRange) {
-                    Text("Monthly").tag("monthly")
-                    Text("Yearly").tag("yearly")
-                }
-                .pickerStyle(.segmented)
-                .frame(width: 160)
-                .onChange(of: dashboardViewModel.selectedTimeRange) { _ in
-                    Task { await dashboardViewModel.fetchDashboardData() }
-                }
-
                 Spacer()
 
                 if dashboardViewModel.isSalesLoading {
@@ -602,7 +589,7 @@ struct StorePodiumView: View {
             
             // Rank 1
             if stores.count > 0 {
-                podiumItem(performance: stores[0], rank: 1, size: 100, color: Color(hex: "#FFD700"), hasCrown: true)
+                podiumItem(performance: stores[0], rank: 1, size: 100, color: Color(hex: "#FFD700"))
             } else {
                 Spacer().frame(width: 100)
             }
@@ -618,7 +605,7 @@ struct StorePodiumView: View {
         .frame(maxWidth: .infinity)
     }
     
-    private func podiumItem(performance: StorePerformance, rank: Int, size: CGFloat, color: Color, hasCrown: Bool = false) -> some View {
+    private func podiumItem(performance: StorePerformance, rank: Int, size: CGFloat, color: Color) -> some View {
         Button(action: { onSelect(performance) }) {
             VStack(spacing: 12) {
                 ZStack(alignment: .top) {
@@ -638,10 +625,6 @@ struct StorePodiumView: View {
                             .foregroundColor(CatalogTheme.primary.opacity(0.7))
                     }
                     .frame(width: size, height: size)
-                    .overlay(
-                        Circle()
-                            .stroke(hasCrown ? CatalogTheme.primary : Color.clear, lineWidth: 2)
-                    )
                     .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
                     
                     // Rank Badge
@@ -654,14 +637,6 @@ struct StorePodiumView: View {
                             .foregroundColor(.white)
                     }
                     .offset(y: -size * 0.1)
-                    
-                    if hasCrown {
-                        Image(systemName: "crown.fill")
-                            .font(.system(size: 26))
-                            .foregroundColor(.orange)
-                            .shadow(color: .orange.opacity(0.3), radius: 4, x: 0, y: 2)
-                            .offset(y: -size * 0.35)
-                    }
                 }
                 
                 VStack(spacing: 4) {

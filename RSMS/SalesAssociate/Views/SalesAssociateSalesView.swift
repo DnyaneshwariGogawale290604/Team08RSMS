@@ -1624,10 +1624,24 @@ struct ProductRequestSheet: View {
                             ForEach(vm.products) { p in Text(p.name).tag(Optional(p)) }
                         }
                     }
-                    Section("Quantity Needed") { Stepper("\(quantity) unit\(quantity == 1 ? "" : "s")", value: $quantity, in: 1...100) }
+                    Section("Quantity Needed") {
+                        HStack {
+                            Text("Quantity")
+                            Spacer()
+                            TextField("1-100", value: $quantity, format: .number)
+                                .keyboardType(.numberPad)
+                                .multilineTextAlignment(.trailing)
+                                .frame(width: 80)
+                        }
+                    }
                     Section {
                         Button("Raise Request to Manager") {
                             guard let p = selectedProduct else { return }
+                            // Validation: Ensure quantity is between 1 and 100
+                            if quantity < 1 || quantity > 100 {
+                                vm.errorMessage = "Quantity must be between 1 and 100."
+                                return
+                            }
                             let id = UUID()
                             Task {
                                 await vm.raiseProductRequest(product: p, quantity: quantity, associateId: id, storeId: nil)

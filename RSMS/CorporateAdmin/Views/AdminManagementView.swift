@@ -21,6 +21,8 @@ public struct AdminManagementView: View {
 
                 VStack(spacing: 0) {
                     rolePicker
+                    
+                    searchBar
 
                     if viewModel.isLoading && isCurrentListEmpty {
                         LoadingView(message: loadingMessage)
@@ -33,22 +35,38 @@ public struct AdminManagementView: View {
                                 : "There are no users assigned to this role yet."
                         )
                     } else {
-                        ScrollView(showsIndicators: false) {
-                            LazyVStack(spacing: 16) {
-                                if viewModel.selectedRole == .vendor {
-                                    ForEach(viewModel.vendors) { vendor in
-                                        vendorCard(for: vendor)
-                                    }
-                                } else {
-                                    ForEach(viewModel.visibleStaff) { user in
-                                        staffCard(for: user)
-                                    }
+                        List {
+                            if viewModel.selectedRole == .vendor {
+                                ForEach(viewModel.visibleVendors) { vendor in
+                                    vendorCard(for: vendor)
+                                        .listRowInsets(EdgeInsets(top: 8, leading: 20, bottom: 8, trailing: 20))
+                                        .listRowSeparator(.hidden)
+                                        .listRowBackground(Color.clear)
+                                        .swipeActions(edge: .trailing) {
+                                            Button(role: .destructive) {
+                                                Task { await viewModel.deleteVendor(vendor) }
+                                            } label: {
+                                                Label("Delete", systemImage: "trash")
+                                            }
+                                        }
+                                }
+                            } else {
+                                ForEach(viewModel.visibleStaff) { item in
+                                    staffCard(for: item)
+                                        .listRowInsets(EdgeInsets(top: 8, leading: 20, bottom: 8, trailing: 20))
+                                        .listRowSeparator(.hidden)
+                                        .listRowBackground(Color.clear)
+                                        .swipeActions(edge: .trailing) {
+                                            Button(role: .destructive) {
+                                                Task { await viewModel.deleteStaffMember(item) }
+                                            } label: {
+                                                Label("Delete", systemImage: "trash")
+                                            }
+                                        }
                                 }
                             }
-                            .padding(.horizontal, 20)
-                            .padding(.top, 20)
-                            .padding(.bottom, 100)
                         }
+                        .listStyle(.plain)
                         .refreshable { await viewModel.fetchStaff(for: viewModel.selectedRole) }
                     }
                 }
@@ -129,6 +147,21 @@ public struct AdminManagementView: View {
         }
     }
 
+    private var searchBar: some View {
+        HStack {
+            Image(systemName: "magnifyingglass")
+                .foregroundColor(CatalogTheme.mutedText)
+            TextField("Search by name, ID or assignment...", text: $viewModel.searchQuery)
+                .font(.system(size: 15, design: .serif))
+                .foregroundColor(CatalogTheme.primaryText)
+        }
+        .padding(12)
+        .background(Color.white)
+        .cornerRadius(12)
+        .padding(.horizontal, 20)
+        .padding(.bottom, 12)
+    }
+
     @Namespace private var tabNamespace
 
 
@@ -147,9 +180,19 @@ public struct AdminManagementView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(item.user.displayName)
-                        .font(.system(size: 16, weight: .bold, design: .serif))
-                        .foregroundColor(CatalogTheme.primaryText)
+                    HStack(spacing: 8) {
+                        Text(item.user.displayName)
+                            .font(.system(size: 16, weight: .bold, design: .serif))
+                            .foregroundColor(CatalogTheme.primaryText)
+                        
+                        Text(item.employeeId)
+                            .font(.system(size: 10, weight: .bold, design: .monospaced))
+                            .foregroundColor(CatalogTheme.deepAccent)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(CatalogTheme.surface)
+                            .clipShape(Capsule())
+                    }
 
                     Text("\(item.role.assignmentLabel): \(item.assignmentName)")
                         .font(.system(size: 14, design: .serif))
@@ -745,6 +788,7 @@ private struct StaffCreationSheet: View {
         let request = StaffCreationRequest(
             role: role,
             employeeId: employeeUUID,
+            employeeNumber: viewModel.nextEmployeeNumber,
             name: name.trimmingCharacters(in: .whitespacesAndNewlines),
             phone: phone.trimmingCharacters(in: .whitespacesAndNewlines),
             email: email.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -854,7 +898,7 @@ private struct StaffDetailSheet: View {
 
                     // Details Card
                     VStack(spacing: 0) {
-                        detailRow(icon: "number", label: "Employee ID", value: item.user.id.uuidString.prefix(8).uppercased(), isEditable: false)
+                        detailRow(icon: "number", label: "Employee ID", value: item.employeeId, isEditable: false)
                         sheetDivider.padding(.leading, 44)
                         
                         detailRow(icon: "envelope.fill", label: "Email", value: editedEmail, isEditable: isEditing, textBinding: $editedEmail)

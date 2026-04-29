@@ -15,6 +15,7 @@ public final class AdminViewModel: ObservableObject {
     @Published public var isLoading = false
     @Published public var errorMessage: String?
     @Published public var successMessage: String?
+    @Published public var searchQuery: String = ""
 
     public var nextEmployeeNumber: String {
         let total = boutiqueManagers.count + inventoryManagers.count + 1
@@ -22,8 +23,12 @@ public final class AdminViewModel: ObservableObject {
     }
 
     public var availableStores: [Store] {
-        let assignedStoreIds = Set(boutiqueManagers.compactMap { $0.assignmentId })
-        return stores.filter { !assignedStoreIds.contains($0.id) }
+        let storeManagerCounts = boutiqueManagers.reduce(into: [UUID: Int]()) { counts, item in
+            if let id = item.assignmentId {
+                counts[id, default: 0] += 1
+            }
+        }
+        return stores.filter { (storeManagerCounts[$0.id] ?? 0) < 2 }
     }
 
     public var availableWarehouses: [Warehouse] {
@@ -36,13 +41,34 @@ public final class AdminViewModel: ObservableObject {
     public init() {}
 
     public var visibleStaff: [StaffListItem] {
+        let baseList: [StaffListItem]
         switch selectedRole {
         case .boutiqueManager:
-            return boutiqueManagers
+            baseList = boutiqueManagers
         case .inventoryManager:
-            return inventoryManagers
+            baseList = inventoryManagers
         case .vendor:
-            return []
+            baseList = []
+        }
+        
+        if searchQuery.isEmpty {
+            return baseList
+        } else {
+            let query = searchQuery.lowercased()
+            return baseList.filter {
+                $0.user.displayName.lowercased().contains(query) ||
+                $0.employeeId.lowercased().contains(query) ||
+                $0.assignmentName.lowercased().contains(query)
+            }
+        }
+    }
+    
+    public var visibleVendors: [Vendor] {
+        if searchQuery.isEmpty {
+            return vendors
+        } else {
+            let query = searchQuery.lowercased()
+            return vendors.filter { $0.name.lowercased().contains(query) }
         }
     }
 
@@ -62,7 +88,7 @@ public final class AdminViewModel: ObservableObject {
             switch role {
             case .boutiqueManager:
                 let rows = try await service.fetchBoutiqueManagers()
-                boutiqueManagers = rows.compactMap { row in
+                boutiqueManagers = rows.enumerated().compactMap { index, row in
                     guard let user = row.user else { return nil }
                     return StaffListItem(
                         id: row.id,
@@ -70,13 +96,14 @@ public final class AdminViewModel: ObservableObject {
                         user: user,
                         assignmentId: row.storeId,
                         assignmentName: row.store?.displayName ?? "Unassigned Store",
-                        assignmentDetail: row.store?.location ?? "No location"
+                        assignmentDetail: row.store?.location ?? "No location",
+                        employeeId: String(format: "BM-%04d", index + 1)
                     )
                 }
 
             case .inventoryManager:
                 let rows = try await service.fetchInventoryManagers()
-                inventoryManagers = rows.compactMap { row in
+                inventoryManagers = rows.enumerated().compactMap { index, row in
                     guard let user = row.user else { return nil }
                     return StaffListItem(
                         id: row.id,
@@ -84,7 +111,8 @@ public final class AdminViewModel: ObservableObject {
                         user: user,
                         assignmentId: row.warehouseId,
                         assignmentName: row.warehouse?.displayLabel ?? "Unassigned Warehouse",
-                        assignmentDetail: row.warehouse?.location ?? "No location"
+                        assignmentDetail: row.warehouse?.location ?? "No location",
+                        employeeId: String(format: "IM-%04d", index + 1)
                     )
                 }
 
