@@ -1,7 +1,7 @@
 import SwiftUI
 
 public extension Color {
-    static let appBackground = Color(hex: "#F5EFEF")
+    static let appBackground = Color(hex: "#F5EFEF") // Soft Grey-Pink
     static let appCard = Color.white
     static let appBorder = Color.black.opacity(0.08)
     static let appSecondaryText = Color(hex: "#6B5B5B")
