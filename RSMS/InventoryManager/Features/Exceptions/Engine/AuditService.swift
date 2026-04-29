@@ -91,6 +91,7 @@ public final class AuditService: ObservableObject {
 
         // Notify observers to trigger refresh (e.g., dashboard)
         NotificationCenter.default.post(name: NSNotification.Name("ExceptionResolved"), object: nil)
+        NotificationCenter.default.post(name: .inventoryManagerDataDidChange, object: nil)
         
         return updated
     }
@@ -128,6 +129,8 @@ public final class AuditService: ObservableObject {
     public func refreshItemAuthenticity(item: InventoryItem) async throws -> InventoryItem {
         let certifications = try await DataService.shared.fetchCertifications(for: item.id)
         var updated = item
+        let primaryCertificateNumber = certifications.first?.certificateNumber
+        updated.certificateId = primaryCertificateNumber
         
         if certifications.isEmpty {
             updated.authenticityStatus = .pending
@@ -152,10 +155,12 @@ public final class AuditService: ObservableObject {
         try await DataService.shared.updateInventoryItemAuthenticity(
             id: updated.id,
             status: updated.authenticityStatus,
-            certificationIds: certifications.map { $0.id }
+            certificationIds: certifications.map { $0.id },
+            primaryCertificateId: primaryCertificateNumber
         )
+
+        NotificationCenter.default.post(name: .inventoryManagerDataDidChange, object: nil)
         
         return updated
     }
 }
-

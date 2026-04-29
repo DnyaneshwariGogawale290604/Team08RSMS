@@ -58,6 +58,10 @@ public class ReportsViewModel: ObservableObject {
 
     public var lostItemsCount: Int { scrappedCount + confirmedMissingCount }
 
+    public var lostItems: [InventoryItem] {
+        inventoryItems.filter { $0.status == .scrapped || $0.isFlaggedMissing }
+    }
+
     public var shrinkPercentage: Double {
         guard totalItemsCount > 0 else { return 0 }
         return Double(lostItemsCount) / Double(totalItemsCount) * 100
@@ -67,12 +71,24 @@ public class ReportsViewModel: ObservableObject {
         inventoryItems.filter { $0.status == .underRepair }.count
     }
 
+    public var underRepairItems: [InventoryItem] {
+        inventoryItems.filter { $0.status == .underRepair }
+    }
+
     /// Items previously flagged missing that were found again (scanned with "Found" metadata)
     public var recoveredCount: Int {
         auditLogs.filter {
             $0.action == .scanned &&
             ($0.metadata?.lowercased().contains("found") == true)
         }.count
+    }
+
+    public var recoveredItems: [InventoryItem] {
+        let recoveredIds = Set(auditLogs.filter {
+            $0.action == .scanned &&
+            ($0.metadata?.lowercased().contains("found") == true)
+        }.map { $0.itemId })
+        return inventoryItems.filter { recoveredIds.contains($0.id) }
     }
 
     // ─── Shrink Trend (last 30 days, capped to 7 shown data points) ─────────────

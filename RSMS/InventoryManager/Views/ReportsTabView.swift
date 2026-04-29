@@ -143,34 +143,49 @@ public struct ReportsTabView: View {
                 columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)],
                 spacing: 12
             ) {
-                ReportKPICard(
-                    title: "Shrink Rate",
-                    value: String(format: "%.1f%%", vm.shrinkPercentage),
-                    systemImage: "chart.pie.fill",
-                    tint: .red,
-                    subtitle: "\(vm.lostItemsCount) of \(vm.totalItemsCount) items"
-                )
-                ReportKPICard(
-                    title: "Lost Items",
-                    value: "\(vm.lostItemsCount)",
-                    systemImage: "exclamationmark.shield.fill",
-                    tint: .orange,
-                    subtitle: "\(vm.scrappedCount) scrapped · \(vm.confirmedMissingCount) missing"
-                )
-                ReportKPICard(
-                    title: "Under Repair",
-                    value: "\(vm.underRepairCount)",
-                    systemImage: "wrench.and.screwdriver.fill",
-                    tint: Color.appAccent,
-                    subtitle: "Active repair tickets"
-                )
-                ReportKPICard(
-                    title: "Recovered",
-                    value: "\(vm.recoveredCount)",
-                    systemImage: "arrow.uturn.left.circle.fill",
-                    tint: .green,
-                    subtitle: "Previously missing, found"
-                )
+                NavigationLink(destination: ReportDetailListView(title: "Lost Items", items: vm.lostItems)) {
+                    ReportKPICard(
+                        title: "Shrink Rate",
+                        value: String(format: "%.1f%%", vm.shrinkPercentage),
+                        systemImage: "chart.pie.fill",
+                        tint: .red,
+                        subtitle: "\(vm.lostItemsCount) of \(vm.totalItemsCount) items"
+                    )
+                }
+                .buttonStyle(.plain)
+
+                NavigationLink(destination: ReportDetailListView(title: "Lost Items", items: vm.lostItems)) {
+                    ReportKPICard(
+                        title: "Lost Items",
+                        value: "\(vm.lostItemsCount)",
+                        systemImage: "exclamationmark.shield.fill",
+                        tint: .orange,
+                        subtitle: "\(vm.scrappedCount) scrapped · \(vm.confirmedMissingCount) missing"
+                    )
+                }
+                .buttonStyle(.plain)
+
+                NavigationLink(destination: ReportDetailListView(title: "Under Repair", items: vm.underRepairItems)) {
+                    ReportKPICard(
+                        title: "Under Repair",
+                        value: "\(vm.underRepairCount)",
+                        systemImage: "wrench.and.screwdriver.fill",
+                        tint: Color.appAccent,
+                        subtitle: "Active repair tickets"
+                    )
+                }
+                .buttonStyle(.plain)
+
+                NavigationLink(destination: ReportDetailListView(title: "Recovered Items", items: vm.recoveredItems)) {
+                    ReportKPICard(
+                        title: "Recovered",
+                        value: "\(vm.recoveredCount)",
+                        systemImage: "arrow.uturn.left.circle.fill",
+                        tint: .green,
+                        subtitle: "Previously missing, found"
+                    )
+                }
+                .buttonStyle(.plain)
             }
         }
     }
@@ -580,4 +595,27 @@ private struct ReportEmptyPlaceholder: View {
 // MARK: - Preview
 struct ReportsTabView_Previews: PreviewProvider {
     static var previews: some View { ReportsTabView() }
+}
+
+public struct ReportDetailListView: View {
+    let title: String
+    let items: [InventoryItem]
+    @StateObject private var dashboardViewModel = InventoryDashboardViewModel()
+
+    public var body: some View {
+        List {
+            if items.isEmpty {
+                Text("No items to display")
+                    .foregroundColor(.appSecondaryText)
+            } else {
+                ForEach(items) { item in
+                    NavigationLink(destination: ItemDetailSupabaseView(item: item, viewModel: dashboardViewModel)) {
+                        ItemRowCard(item: item, isScanning: false, onScan: {})
+                    }
+                }
+            }
+        }
+        .navigationTitle(title)
+        .navigationBarTitleDisplayMode(.inline)
+    }
 }

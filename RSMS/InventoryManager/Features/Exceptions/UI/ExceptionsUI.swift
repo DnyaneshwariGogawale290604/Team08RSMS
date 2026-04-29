@@ -141,6 +141,10 @@ struct ExceptionRow: View {
                     Text("Certification expired or invalid")
                         .font(.caption2)
                         .foregroundColor(.appSecondaryText)
+                @unknown default:
+                    Text("Unknown exception type")
+                        .font(.caption2)
+                        .foregroundColor(.appSecondaryText)
                 }
                 
                 Divider()
@@ -182,6 +186,8 @@ struct ExceptionRow: View {
             ActionButton(title: "Dismiss", color: .gray) {
                 resolve(.ignoreDuplicate)
             }
+        @unknown default:
+            EmptyView()
         }
     }
     
@@ -202,6 +208,7 @@ struct ExceptionRow: View {
         case .high: return .red
         case .medium: return .orange
         case .low: return .yellow
+        @unknown default: return .gray
         }
     }
 }

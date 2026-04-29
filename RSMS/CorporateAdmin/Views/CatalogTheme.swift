@@ -21,13 +21,14 @@ enum CatalogTheme {
     static let brandDeep = deepAccent
     static let brandOffWhite = background
 
-    static let cardCornerRadius: CGFloat = 16
+    static let cardCornerRadius: CGFloat = 20
     static let standardPadding: CGFloat = 20
 
     static let searchField = surface
     static let imageBackground = surface
     static let subtleCategory = Color(hex: "#8C7A7A")
     static let subtext = Color(hex: "#B5A5A5")
+    static let elevatedCard = Color(hex: "#EFE6E6")
 
     static let statsIconBackground = surface
     static let statsIconColor = primary

@@ -186,20 +186,42 @@ public final class InventoryDashboardViewModel: ObservableObject {
         }
         return activeOrders.reduce(0) { $0 + ($1.quantity ?? 0) }
     }
+
+    public func isRecent(_ item: InventoryItem) -> Bool {
+        let recentCutoff = Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date()
+        let referenceDate = item.lastScannedAt ?? item.timestamp
+        return referenceDate >= recentCutoff
+    }
+
+    public func matches(_ item: InventoryItem, filter: ItemsTabView.RepairFilter) -> Bool {
+        guard item.status != .scrapped else { return false }
+
+        switch filter {
+        case .all:
+            return true
+        case .available:
+            return item.status == .available
+        case .reserved:
+            return item.status == .reserved
+        case .inTransit:
+            return item.status == .inTransit
+        case .underRepair:
+            return item.status == .underRepair
+        case .missingScan:
+            return item.scanStatus == .overdue
+        case .recent:
+            return isRecent(item)
+        case .sold:
+            return item.status == .sold
+        }
+    }
     
     public func filteredItemCount(for category: String, filter: ItemsTabView.RepairFilter) -> Int {
         return inventoryItems.filter { item in
             let cat = item.category.isEmpty ? "General" : item.category
             guard cat == category else { return false }
-            
-            guard item.status != .scrapped else { return false }
-            
-            switch filter {
-            case .all: return item.status != .scrapped
-            case .available: return item.status == .available
-            case .underRepair: return item.status == .underRepair
-            case .missingScan: return item.scanStatus == .overdue
-            }
+
+            return matches(item, filter: filter)
         }.count
     }
     
