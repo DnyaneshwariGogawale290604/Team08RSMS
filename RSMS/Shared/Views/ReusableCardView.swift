@@ -8,6 +8,7 @@ public extension Color {
     static let appPrimaryText = Color(hex: "#1A1A1A")
     static let appAccent = Color(hex: "#6E5155")
     static let appMaroon = Color(hex: "#6E5155")
+    static let appBrown = Color(hex: "#8D6E63") // Warm brown for cycle counts
 
     static let brandOffWhite = appBackground
     static let brandLinen = appCard
@@ -63,7 +64,7 @@ public enum BrandFont {
 }
 
 public enum AppTheme {
-    public static let cardCornerRadius: CGFloat = 16
+    public static let cardCornerRadius: CGFloat = 20
     public static let buttonCornerRadius: CGFloat = 12
     public static let sectionSpacing: CGFloat = 24
     public static let contentSpacing: CGFloat = 16
@@ -128,6 +129,32 @@ public struct AppPlusIconButton: View {
             .background(CatalogTheme.brandDeep)
             .clipShape(Circle())
             .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
+    }
+}
+
+public struct AppToolbarGlyph: View {
+    let systemImage: String
+    let enabled: Bool
+    let backgroundColor: Color
+
+    public init(
+        systemImage: String,
+        enabled: Bool = true,
+        backgroundColor: Color = CatalogTheme.deepAccent
+    ) {
+        self.systemImage = systemImage
+        self.enabled = enabled
+        self.backgroundColor = backgroundColor
+    }
+
+    public var body: some View {
+        Image(systemName: systemImage)
+            .font(.system(size: 13, weight: .bold))
+            .foregroundColor(.white)
+            .frame(width: 34, height: 34)
+            .background(enabled ? backgroundColor : CatalogTheme.inactiveBadge)
+            .clipShape(Circle())
+            .opacity(enabled ? 1 : 0.7)
     }
 }
 

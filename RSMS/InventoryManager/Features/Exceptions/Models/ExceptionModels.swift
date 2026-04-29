@@ -6,7 +6,10 @@ public enum ExceptionType: String, Codable {
     case mismatch = "Location Mismatch"
     case damaged = "Damaged Goods"
     case shortage = "Partial Shipment"
+    case certificationMissing = "Missing Certification"
+    case certificationExpired = "Expired Certification"
 }
+
 
 public enum ExceptionSeverity: String, Codable {
     case high = "High"       // Missing items
@@ -30,7 +33,10 @@ public enum ExceptionResolutionAction {
     case fileInsuranceClaim
     case markAsScrapped
     case approveShortage
+    case uploadCertificate
+    case renewCertificate
 }
+
 
 public struct ExceptionRecord: Identifiable {
     public let id = UUID()

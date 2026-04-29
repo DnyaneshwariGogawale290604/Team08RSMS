@@ -9,11 +9,11 @@ enum CatalogTheme {
     static let primaryText = Color(hex: "#1A1A1A")
     static let secondaryText = Color(hex: "#6B5B5B")
     static let mutedText = Color(hex: "#9A8A8A")
-    static let divider = Color.black.opacity(0.1)
+    static let divider = Color.black.opacity(0.08)
 
     static let error = deepAccent
     static let card = Color.white
-    static let chipInactiveText = secondaryText
+    static let chipInactiveText = deepAccent
     static let inactiveBadge = Color(hex: "#D8C6C6")
     static let inactiveBadgeText = secondaryText
 
@@ -21,14 +21,16 @@ enum CatalogTheme {
     static let brandDeep = deepAccent
     static let brandOffWhite = background
 
-    static let cardCornerRadius: CGFloat = 16
+    static let cardCornerRadius: CGFloat = 20
     static let standardPadding: CGFloat = 20
 
     static let searchField = surface
     static let imageBackground = surface
-    static let subtleCategory = mutedText
+    static let subtleCategory = Color(hex: "#8C7A7A")
+    static let subtext = Color(hex: "#B5A5A5")
+    static let elevatedCard = Color(hex: "#EFE6E6")
 
-    static let statsIconBackground = primary.opacity(0.1)
+    static let statsIconBackground = surface
     static let statsIconColor = primary
-    static let categoryText = secondaryText
+    static let categoryText = Color(hex: "#8C7A7A")
 }

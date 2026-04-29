@@ -39,6 +39,12 @@ public struct InventoryManagerMainView: View {
                     Text("Requests")
                 }
                 .tag(3)
+            ReportsTabView()
+                .tabItem {
+                    Image(systemName: "chart.bar.doc.horizontal")
+                    Text("Reports")
+                }
+                .tag(4)
         }
         .tint(.appAccent)
     }

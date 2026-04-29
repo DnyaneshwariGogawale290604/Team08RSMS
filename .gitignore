@@ -36,3 +36,14 @@ playground.xcworkspace
 
 # macOS
 .DS_Store
+
+# Build Artifacts
+.deriveddata/
+.buildhome/
+build_log.txt
+build_output.log
+build_output.txt
+
+# Media
+screen.png
+screenshot.png

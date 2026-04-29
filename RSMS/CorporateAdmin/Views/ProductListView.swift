@@ -67,7 +67,20 @@ public struct ProductListView: View {
                 }
 
 
+                Button {
+                    showingAddProduct = true
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 24, weight: .semibold))
+                        .foregroundColor(.white)
+                        .frame(width: 56, height: 56)
+                        .background(CatalogTheme.deepAccent)
+                        .clipShape(Circle())
+                        .shadow(color: Color.black.opacity(0.15), radius: 8, x: 0, y: 4)
+                }
+                .padding(20)
             }
+
             .navigationTitle("Catalog")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
@@ -145,7 +158,7 @@ public struct ProductListView: View {
         .padding(.horizontal, 14)
         .frame(height: 44)
         .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(CatalogTheme.searchField)
         )
     }
@@ -262,27 +275,27 @@ private struct StatsCardView: View {
         VStack(alignment: .leading, spacing: 8) {
             ZStack {
                 Circle()
-                    .fill(Color(hex: "#EDE6E3").opacity(0.15))
+                    .fill(CatalogTheme.statsIconBackground)
                     .frame(width: 28, height: 28)
-
+                
                 Image(systemName: icon)
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(Color(hex: "#EDE6E3"))
+                    .foregroundColor(CatalogTheme.statsIconColor)
             }
 
             Text(value)
                 .font(.system(size: 20, weight: .bold))
-                .foregroundColor(Color(hex: "#EDE6E3"))
+                .foregroundColor(CatalogTheme.primaryText)
 
             Text(title)
                 .font(.system(size: 12, weight: .regular))
-                .foregroundColor(Color(hex: "#EDE6E3").opacity(0.9))
+                .foregroundColor(CatalogTheme.secondaryText)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
         .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(Color(hex: "#632C2C"))
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(CatalogTheme.card)
         )
         .shadow(color: Color.black.opacity(0.06), radius: 6, x: 0, y: 3)
     }
@@ -301,7 +314,7 @@ private struct FilterChipView: View {
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
                 .background(
-                    Capsule(style: .continuous)
+                    Capsule()
                         .fill(isSelected ? CatalogTheme.primary : CatalogTheme.surface)
                 )
         }
@@ -327,7 +340,7 @@ private struct ProductCardView: View {
                 .frame(maxWidth: .infinity)
                 .frame(height: 140)
                 .clipped()
-                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
 
             VStack(alignment: .leading, spacing: 4) {
@@ -370,7 +383,7 @@ private struct ProductCardView: View {
         .frame(maxWidth: .infinity)
         .frame(height: 250, alignment: .top)
         .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(CatalogTheme.card)
         )
         .grayscale(product.isActive ?? true ? 0 : 1.0)
@@ -395,7 +408,7 @@ private struct ProductCardView: View {
                 }
             }
         )
-        .shadow(color: Color.black.opacity(0.03), radius: 4, x: 0, y: 2)
+        .shadow(color: Color.black.opacity(0.02), radius: 6, x: 0, y: 3)
         .scaleEffect(isPressed ? 1.02 : 1)
         .animation(.easeInOut(duration: 0.25), value: isPressed)
         .onTapGesture {
@@ -448,7 +461,7 @@ private struct ProductCardView: View {
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
             .background(
-                Capsule(style: .continuous)
+                Capsule()
                     .fill(isActive ? CatalogTheme.primary : CatalogTheme.inactiveBadge)
             )
     }
