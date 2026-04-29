@@ -50,14 +50,9 @@ struct SalesAssociateAppointmentsView: View {
                     }
                 }
             }
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationTitle("Appointments")
+            .navigationBarTitleDisplayMode(.large)
             .toolbar {
-                ToolbarItem(placement: .principal) {
-                    Text("APPOINTMENTS")
-                        .font(.system(size: 13, weight: .semibold))
-                        .kerning(2)
-                        .foregroundStyle(Color.luxuryPrimaryText)
-                }
                 ToolbarItem(placement: .topBarTrailing) {
                     SalesAssociateProfileButton(sessionViewModel: sessionViewModel)
                 }
@@ -145,9 +140,8 @@ struct AppointmentCard: View {
                 Spacer()
                 VStack(alignment: .trailing, spacing: 4) {
                     if let cat = appointment.customer?.customerCategory {
-                        Text(cat.uppercased())
+                        Text(cat)
                             .font(.system(size: 9, weight: .bold))
-                            .kerning(0.8)
                             .foregroundStyle(Color(hex: "#C8913A"))
                             .padding(.horizontal, 7)
                             .padding(.vertical, 3)

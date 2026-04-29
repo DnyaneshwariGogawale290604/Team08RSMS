@@ -10,9 +10,8 @@ struct QRCodeView: View {
         VStack(spacing: 24) {
             // Header
             HStack {
-                Text("SCAN TO PAY")
+                Text("Scan to Pay")
                     .font(.system(size: 13, weight: .semibold))
-                    .kerning(2)
                     .foregroundStyle(Color.luxuryPrimaryText)
                 
                 Spacer()

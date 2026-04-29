@@ -89,10 +89,9 @@ struct RatingPromptSheet: View {
 
                             // Feedback field
                             VStack(alignment: .leading, spacing: 8) {
-                                Text("FEEDBACK (OPTIONAL)")
-                                    .font(.system(size: 10, weight: .semibold))
-                                    .kerning(1.2)
-                                    .foregroundStyle(Color.luxurySecondaryText)
+                                Text("Feedback (Optional)")
+                                    .font(.system(size: 18, weight: .bold, design: .serif))
+                                    .foregroundColor(CatalogTheme.primaryText)
                                     .padding(.horizontal, 16)
 
                                 TextField("Add notes about the visit...", text: $feedback, axis: .vertical)
@@ -152,14 +151,15 @@ struct RatingPromptSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {
-                    Text("RATE EXPERIENCE")
+                    Text("Rate Experience")
                         .font(.system(size: 13, weight: .semibold))
-                        .kerning(2)
                         .foregroundStyle(Color.luxuryPrimaryText)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Close") { dismiss() }
-                        .foregroundStyle(Color.luxurySecondaryText)
+                    Button { dismiss() } label: {
+                        Image(systemName: "checkmark").font(.system(size: 14, weight: .semibold))
+                    }
+                    .foregroundStyle(Color.luxuryPrimaryText)
                 }
             }
         }

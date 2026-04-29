@@ -80,11 +80,11 @@ struct SalesAssociateAccountSheet: View {
             .navigationTitle("Account")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Close") {
-                        dismiss()
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { dismiss() } label: {
+                        Image(systemName: "checkmark").font(.system(size: 14, weight: .semibold))
                     }
-                    .foregroundStyle(Color.luxuryPrimary)
+                    .foregroundStyle(Color.luxuryPrimaryText)
                 }
             }
         }

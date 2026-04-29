@@ -1,6 +1,123 @@
 {
-  "originHash" : "213d601ab432d98c61923149e777d982d3919486151c23871ebc140e1c30717a",
+  "originHash" : "68832a29e280c2aadc7c5c469fcbf954d9c7d536b5cf4de2d9a636a3f91a9c0f",
   "pins" : [
+    {
+      "identity" : "core-ios-sdk",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/cashfree/core-ios-sdk.git",
+      "state" : {
+        "revision" : "bcf6be4a0d8a4da55600ab6a9ad1368039b31917",
+        "version" : "2.5.5"
+      }
+    },
+    {
+      "identity" : "ios-custom-browser",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/payu-intrepos/iOS-Custom-Browser.git",
+      "state" : {
+        "revision" : "bad324f2952f96dbaa8c2ca3471268fdbc1b8c71",
+        "version" : "11.3.0"
+      }
+    },
+    {
+      "identity" : "ios-sdk",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/payu-intrepos/iOS-SDK.git",
+      "state" : {
+        "revision" : "643cd9f8acae663c966257ec5256bff170fae052",
+        "version" : "12.2.1"
+      }
+    },
+    {
+      "identity" : "payu-params-ios",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/payu-intrepos/payu-params-iOS.git",
+      "state" : {
+        "revision" : "b0732d901e516bbf3d54515d391d64f2368690dd",
+        "version" : "7.2.0"
+      }
+    },
+    {
+      "identity" : "payu-upi-ios-sdk",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/payu-intrepos/payu-upi-ios-sdk.git",
+      "state" : {
+        "revision" : "4fa66a0ba25b3fb230e358742f80ca87117e07ab",
+        "version" : "11.2.1"
+      }
+    },
+    {
+      "identity" : "payuanalytics-ios",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/payu-intrepos/PayUAnalytics-iOS.git",
+      "state" : {
+        "revision" : "5531c51a199d25780459f3285b198dfc13f3f990",
+        "version" : "4.0.2"
+      }
+    },
+    {
+      "identity" : "payuassetlibrary-ios",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/payu-intrepos/PayUAssetLibrary-iOS.git",
+      "state" : {
+        "revision" : "1d08333eac46436555731ecf2efe6f453218e532",
+        "version" : "4.0.1"
+      }
+    },
+    {
+      "identity" : "payucheckoutpro-ios",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/payu-intrepos/PayUCheckoutPro-iOS.git",
+      "state" : {
+        "revision" : "2d032df5d6f7182712cf55d4514242b7140cff53",
+        "version" : "9.3.1"
+      }
+    },
+    {
+      "identity" : "payucommonui-ios",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/payu-intrepos/PayUCommonUI-iOS",
+      "state" : {
+        "revision" : "3c3b67d5a3284bfdb5d7ff0aa8422edd713bac32",
+        "version" : "2.3.3"
+      }
+    },
+    {
+      "identity" : "payucrashreporter-ios",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/payu-intrepos/PayUCrashReporter-iOS.git",
+      "state" : {
+        "revision" : "bd8e6c99af9221077d71aea531446e14bdb6a1fa",
+        "version" : "4.0.3"
+      }
+    },
+    {
+      "identity" : "payuindia-cardscanner-ios",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/payu-intrepos/PayUIndia-CardScanner-iOS.git",
+      "state" : {
+        "revision" : "3a508eb3db5f4d2753ec4f23d6f7a897c9d8f889",
+        "version" : "2.1.0"
+      }
+    },
+    {
+      "identity" : "payunativeotpassist-ios",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/payu-intrepos/PayUNativeOtpAssist-iOS.git",
+      "state" : {
+        "revision" : "4a0bd83b03b5d311596e9a5f14632962a9bf731e",
+        "version" : "5.0.1"
+      }
+    },
+    {
+      "identity" : "payunetworkreachability-ios",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/payu-intrepos/PayUNetworkReachability-iOS.git",
+      "state" : {
+        "revision" : "2c4e108fa7654cfca2dbb4f96f176a5788470d18",
+        "version" : "2.1.1"
+      }
+    },
     {
       "identity" : "razorpay-pod",
       "kind" : "remoteSourceControl",

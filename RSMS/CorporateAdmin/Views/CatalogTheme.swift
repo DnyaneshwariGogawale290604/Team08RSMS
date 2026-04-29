@@ -25,7 +25,7 @@ enum CatalogTheme {
     static let cardCornerRadius: CGFloat = 16
     static let standardPadding: CGFloat = 20
 
-    static let searchField = surface
+    static let searchField = Color.white
     static let imageBackground = surface
     static let subtleCategory = mutedText
 

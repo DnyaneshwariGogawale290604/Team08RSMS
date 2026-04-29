@@ -49,15 +49,15 @@ struct AppointmentDetailSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {
-                    Text("APPOINTMENT")
+                    Text("Appointment")
                         .font(.system(size: 13, weight: .semibold))
-                        .kerning(2)
                         .foregroundStyle(Color.luxuryPrimaryText)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Close") { dismiss() }
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Color.luxuryPrimaryText)
+                    Button { dismiss() } label: {
+                        Image(systemName: "checkmark").font(.system(size: 14, weight: .semibold))
+                    }
+                    .foregroundStyle(Color.luxuryPrimaryText)
                 }
             }
             .confirmationDialog("Are you sure?", isPresented: $showCancelConfirm, titleVisibility: .visible) {
@@ -100,7 +100,7 @@ struct AppointmentDetailSheet: View {
                 .fill(Color(hex: "#C8913A").opacity(0.15))
                 .frame(width: 72, height: 72)
                 .overlay(
-                    Text(String((appointment.customer?.name ?? "?").prefix(1)).uppercased())
+                    Text(String((appointment.customer?.name ?? "?").prefix(1)))
                         .font(.system(size: 28, weight: .semibold, design: .serif))
                         .foregroundStyle(Color.luxuryPrimaryText)
                 )
@@ -108,8 +108,8 @@ struct AppointmentDetailSheet: View {
                 .font(.system(size: 22, weight: .semibold, design: .serif))
                 .foregroundStyle(Color.luxuryPrimaryText)
             if let cat = appointment.customer?.customerCategory {
-                Text(cat.uppercased())
-                    .font(.system(size: 9, weight: .bold)).kerning(1)
+                Text(cat)
+                    .font(.system(size: 9, weight: .bold))
                     .foregroundStyle(Color(hex: "#C8913A"))
                     .padding(.horizontal, 10).padding(.vertical, 4)
                     .background(Color(hex: "#C8913A").opacity(0.12))
@@ -135,9 +135,10 @@ struct AppointmentDetailSheet: View {
 
     private func productsSection(_ products: [AppointmentProductItem]) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("PRODUCTS OF INTEREST")
-                .font(.system(size: 11, weight: .semibold)).kerning(1.2)
-                .foregroundStyle(Color.luxurySecondaryText)
+            Text("Products of Interest")
+                .font(.system(size: 18, weight: .bold, design: .serif))
+                .foregroundColor(CatalogTheme.primaryText)
+                .frame(maxWidth: .infinity, alignment: .leading)
             VStack(spacing: 0) {
                 ForEach(Array(products.enumerated()), id: \.element.id) { idx, item in
                     HStack(spacing: 12) {
@@ -171,7 +172,7 @@ struct AppointmentDetailSheet: View {
                     }
                 }
             }
-            .background(Color.luxurySurface)
+            .background(Color.white)
             .clipShape(RoundedRectangle(cornerRadius: 16))
             .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.luxuryDivider, lineWidth: 0.5))
         }
@@ -179,9 +180,10 @@ struct AppointmentDetailSheet: View {
 
     private func notesSection(_ notes: String) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("NOTES")
-                .font(.system(size: 11, weight: .semibold)).kerning(1.2)
-                .foregroundStyle(Color.luxurySecondaryText)
+            Text("Notes")
+                .font(.system(size: 18, weight: .bold, design: .serif))
+                .foregroundColor(CatalogTheme.primaryText)
+                .frame(maxWidth: .infinity, alignment: .leading)
             Text(notes)
                 .font(BrandFont.body(14))
                 .foregroundStyle(Color.luxuryPrimaryText)

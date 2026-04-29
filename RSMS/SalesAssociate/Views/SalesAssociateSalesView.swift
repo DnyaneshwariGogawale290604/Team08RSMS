@@ -77,7 +77,7 @@ struct SalesAssociateSalesView: View {
                         .padding(.vertical, 14)
                         .background(
                             RoundedRectangle(cornerRadius: Radius.lg)
-                                .fill(Color.luxurySurface)
+                                .fill(Color.white)
                                 .shadow(color: Color.black.opacity(0.08), radius: 12, y: 4)
                         )
                         .overlay(
@@ -101,11 +101,13 @@ struct SalesAssociateSalesView: View {
                         Button {
                             dismiss()
                         } label: {
-                            HStack(spacing: 4) {
-                                Image(systemName: "xmark")
-                                    .font(.system(size: 13, weight: .semibold))
-                            }
-                            .foregroundStyle(Color.luxuryPrimaryText)
+                            Image(systemName: "xmark")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundStyle(Color.luxuryPrimaryText)
+                                .frame(width: 32, height: 32)
+                                .background(Color.white)
+                                .clipShape(Circle())
+                                .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
                         }
                     }
                 } else if vm.selectedCustomer != nil {
@@ -116,11 +118,13 @@ struct SalesAssociateSalesView: View {
                                 vm.clearCart()
                             }
                         } label: {
-                            HStack(spacing: 4) {
-                                Image(systemName: "chevron.left")
-                                    .font(.system(size: 13, weight: .semibold))
-                            }
-                            .foregroundStyle(Color.luxuryPrimaryText)
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundStyle(Color.luxuryPrimaryText)
+                                .frame(width: 32, height: 32)
+                                .background(Color.white)
+                                .clipShape(Circle())
+                                .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
                         }
                     }
                 }
@@ -210,9 +214,13 @@ struct SalesAssociateSalesView: View {
                 // the "Change" button inside the card handles switching.
                 if vm.selectedCustomer == nil {
                     Button { vm.showCustomerSheet = true } label: {
-                        Image(systemName: "plus.circle.fill")
-                            .font(.system(size: 28))
+                        Image(systemName: "plus")
+                            .font(.system(size: 14, weight: .bold))
                             .foregroundStyle(Color.luxuryPrimaryText)
+                            .frame(width: 32, height: 32)
+                            .background(Color.white)
+                            .clipShape(Circle())
+                            .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
                     }
                     .padding(.trailing, Spacing.md)
                 }
@@ -245,7 +253,7 @@ struct SalesAssociateSalesView: View {
                     }
                 }
                 .padding(Spacing.md)
-                .background(Color.luxurySurface)
+                .background(Color.white)
                 .clipShape(RoundedRectangle(cornerRadius: Radius.lg))
                 .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.luxuryDivider, lineWidth: 0.5))
                 .padding(.horizontal, Spacing.md)
@@ -257,7 +265,7 @@ struct SalesAssociateSalesView: View {
                             .font(BrandFont.body(13)).foregroundStyle(Color.luxurySecondaryText)
                     }
                     .padding(Spacing.md).frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.luxurySurface)
+                    .background(Color.white)
                     .clipShape(RoundedRectangle(cornerRadius: Radius.lg))
                     .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.luxuryDivider, lineWidth: 0.5))
                     .padding(.horizontal, Spacing.md)
@@ -289,7 +297,7 @@ struct SalesAssociateSalesView: View {
                             if index < vm.customers.prefix(8).count - 1 { BrandDivider().padding(.leading, Spacing.md) }
                         }
                     }
-                    .background(Color.luxurySurface)
+                    .background(Color.white)
                     .clipShape(RoundedRectangle(cornerRadius: Radius.lg))
                     .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.luxuryDivider, lineWidth: 0.5))
                     .padding(.horizontal, Spacing.md)
@@ -314,7 +322,7 @@ struct SalesAssociateSalesView: View {
                         Spacer()
                         Image(systemName: "chevron.right").font(.system(size: 11)).foregroundStyle(Color.luxuryDivider)
                     }
-                    .padding(Spacing.md).background(Color.luxurySurface)
+                    .padding(Spacing.md).background(Color.white)
                     .clipShape(RoundedRectangle(cornerRadius: Radius.lg))
                     .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.luxuryDivider, lineWidth: 0.5))
                 }
@@ -344,7 +352,7 @@ struct SalesAssociateSalesView: View {
                         Text("₹\(formatINR(vm.cartTotal))").font(.system(size: 20, weight: .semibold, design: .serif)).foregroundStyle(Color.luxuryDeepAccent)
                     }.padding(Spacing.md)
                 }
-                .background(Color.luxurySurface)
+                .background(Color.white)
                 .clipShape(RoundedRectangle(cornerRadius: Radius.lg))
                 .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.luxuryDivider, lineWidth: 0.5))
                 .padding(.horizontal, Spacing.md)
@@ -367,7 +375,7 @@ struct SalesAssociateSalesView: View {
                     Spacer()
                     Image(systemName: "chevron.right").font(.system(size: 11)).foregroundStyle(Color.luxuryDivider)
                 }
-                .padding(Spacing.md).background(Color.luxurySurface)
+                .padding(Spacing.md).background(Color.white)
                 .clipShape(RoundedRectangle(cornerRadius: Radius.lg))
                 .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.luxuryDivider, lineWidth: 0.5))
             }
@@ -585,18 +593,31 @@ struct CustomerSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {
-                    Text(mode == .list ? "SELECT CUSTOMER" : "NEW CUSTOMER")
-                        .font(.system(size: 13, weight: .semibold)).kerning(2).foregroundStyle(Color.luxuryPrimaryText)
+                    Text(mode == .list ? "Select Customer" : "New Customer")
+                        .font(.system(size: 13, weight: .semibold)).foregroundStyle(Color.luxuryPrimaryText)
                 }
                 ToolbarItem(placement: .topBarLeading) {
-                    Button(mode == .list ? "Done" : "Back") {
+                    Button {
                         if mode == .create { withAnimation { mode = .list } } else { dismiss() }
-                    }.font(BrandFont.body(14)).foregroundStyle(Color.luxuryPrimaryText)
+                    } label: {
+                        if mode == .list {
+                            Image(systemName: "checkmark").font(.system(size: 14, weight: .semibold))
+                        } else {
+                            Image(systemName: "chevron.left").font(.system(size: 14, weight: .semibold))
+                        }
+                    }
+                    .foregroundStyle(Color.luxuryPrimaryText)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     if mode == .list {
                         Button { withAnimation { mode = .create } } label: {
-                            Image(systemName: "plus.circle.fill").font(.system(size: 22)).foregroundStyle(Color.luxuryPrimaryText)
+                            Image(systemName: "plus")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundStyle(Color.luxuryPrimaryText)
+                                .frame(width: 30, height: 30)
+                                .background(Color.white)
+                                .clipShape(Circle())
+                                .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
                         }
                     }
                 }
@@ -610,7 +631,7 @@ struct CustomerSheet: View {
                 Image(systemName: "magnifyingglass").foregroundStyle(Color.luxurySecondaryText).font(.system(size: 14))
                 TextField("Search by name or phone...", text: $searchText).font(BrandFont.body(14))
             }
-            .padding(Spacing.md).background(Color.luxurySurface)
+            .padding(Spacing.md).background(Color.white)
             .clipShape(RoundedRectangle(cornerRadius: Radius.md))
             .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(Color.luxuryDivider, lineWidth: 0.5))
             .padding(Spacing.md)
@@ -648,7 +669,7 @@ struct CustomerSheet: View {
                             if index < filteredCustomers.count - 1 { BrandDivider().padding(.leading, Spacing.md) }
                         }
                     }
-                    .background(Color.luxurySurface).clipShape(RoundedRectangle(cornerRadius: Radius.lg))
+                    .background(Color.white).clipShape(RoundedRectangle(cornerRadius: Radius.lg))
                     .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.luxuryDivider, lineWidth: 0.5))
                     .padding(.horizontal, Spacing.md)
                 }
@@ -694,8 +715,11 @@ struct CustomerSheet: View {
     @ViewBuilder
     private func formSection(title: String, @ViewBuilder content: () -> some View) -> some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
-            Text(title.uppercased()).font(.system(size: 10, weight: .semibold)).kerning(1.2).foregroundStyle(Color.luxurySecondaryText).padding(.horizontal, Spacing.md)
-            VStack(spacing: 0) { content() }.background(Color.luxurySurface).clipShape(RoundedRectangle(cornerRadius: Radius.lg))
+            Text(title)
+                .font(.system(size: 18, weight: .bold, design: .serif))
+                .foregroundColor(CatalogTheme.primaryText)
+                .padding(.horizontal, Spacing.md)
+            VStack(spacing: 0) { content() }.background(Color.white).clipShape(RoundedRectangle(cornerRadius: Radius.lg))
                 .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.luxuryDivider, lineWidth: 0.5)).padding(.horizontal, Spacing.md)
         }
     }
@@ -747,7 +771,7 @@ struct ProductPickerSheet: View {
                         TextField("Search products...", text: $vm.productSearch).font(BrandFont.body(14))
                             .onChange(of: vm.productSearch) { new in Task { await vm.fetchProducts(search: new) } }
                     }
-                    .padding(Spacing.md).background(Color.luxurySurface)
+                    .padding(Spacing.md).background(Color.white)
                     .clipShape(RoundedRectangle(cornerRadius: Radius.md))
                     .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(Color.luxuryDivider, lineWidth: 0.5))
                     .padding(Spacing.md)
@@ -774,8 +798,13 @@ struct ProductPickerSheet: View {
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .principal) { Text("ADD PRODUCTS").font(.system(size: 13, weight: .semibold)).kerning(2).foregroundStyle(Color.luxuryPrimaryText) }
-                ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() }.font(BrandFont.body(14, weight: .semibold)).foregroundStyle(Color.luxuryPrimaryText) }
+                ToolbarItem(placement: .principal) { Text("Add Products").font(.system(size: 13, weight: .semibold)).foregroundStyle(Color.luxuryPrimaryText) }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { dismiss() } label: {
+                        Image(systemName: "checkmark").font(.system(size: 14, weight: .semibold))
+                    }
+                    .foregroundStyle(Color.luxuryPrimaryText)
+                }
             }
         }
     }
@@ -845,7 +874,7 @@ struct PaymentSheet: View {
 
     private var availableMethods: [(String, String, String)] {
         let allMethods: [(String, String, String)] = [
-            ("upi", "qrcode", "UPI"),
+            ("upi", "qrcode", "Upi"),
             ("cash", "banknote", "Cash"),
             ("netbanking", "building.columns", "Net Banking")
         ]
@@ -917,13 +946,15 @@ struct PaymentSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {
-                    Text("PAYMENT")
+                    Text("Payment")
                         .font(.system(size: 13, weight: .semibold))
-                        .kerning(2)
                         .foregroundStyle(Color.luxuryPrimaryText)
                 }
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("Cancel") { dismiss() }
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark").font(.system(size: 14, weight: .semibold))
+                    }
+                    .foregroundStyle(Color.luxuryPrimaryText)
                         .foregroundStyle(Color.luxurySecondaryText)
                 }
             }
@@ -988,10 +1019,9 @@ struct PaymentSheet: View {
 
     private var paymentMethods: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
-            Text("PAYMENT METHOD")
-                .font(.system(size: 10, weight: .semibold))
-                .kerning(1.2)
-                .foregroundStyle(Color.luxurySecondaryText)
+            Text("Payment Method")
+                .font(.system(size: 18, weight: .bold, design: .serif))
+                .foregroundColor(CatalogTheme.primaryText)
                 .padding(.horizontal, Spacing.md)
 
             if vm.gatewayConfigured {
@@ -1086,10 +1116,9 @@ struct PaymentSheet: View {
             amountCard(label: "Amount Due", value: "₹\(formatAmount(amountDue))")
 
             VStack(alignment: .leading, spacing: Spacing.sm) {
-                Text("QUICK ADD")
-                    .font(.system(size: 10, weight: .semibold))
-                    .kerning(1.2)
-                    .foregroundStyle(Color.luxurySecondaryText)
+                Text("Quick Add")
+                    .font(.system(size: 18, weight: .bold, design: .serif))
+                    .foregroundColor(CatalogTheme.primaryText)
 
                 HStack(spacing: Spacing.sm) {
                     cashChip(title: "+₹500") { vm.cashTendered += 500 }
@@ -1100,10 +1129,9 @@ struct PaymentSheet: View {
             }
 
             VStack(alignment: .leading, spacing: Spacing.sm) {
-                Text("TENDERED AMOUNT")
-                    .font(.system(size: 10, weight: .semibold))
-                    .kerning(1.2)
-                    .foregroundStyle(Color.luxurySecondaryText)
+                Text("Tendered Amount")
+                    .font(.system(size: 18, weight: .bold, design: .serif))
+                    .foregroundColor(CatalogTheme.primaryText)
 
                 TextField("Enter amount received", text: cashTenderedText)
                     .keyboardType(.decimalPad)
@@ -1130,10 +1158,9 @@ struct PaymentSheet: View {
             .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.luxuryDivider, lineWidth: 0.5))
 
             VStack(alignment: .leading, spacing: Spacing.sm) {
-                Text("NOTE (OPTIONAL)")
-                    .font(.system(size: 10, weight: .semibold))
-                    .kerning(1.2)
-                    .foregroundStyle(Color.luxurySecondaryText)
+                Text("Note (Optional)")
+                    .font(.system(size: 18, weight: .bold, design: .serif))
+                    .foregroundColor(CatalogTheme.primaryText)
                 TextField("Cash note...", text: $vm.cashNote, axis: .vertical)
                     .lineLimit(2...4)
                     .font(BrandFont.body(14))
@@ -1229,7 +1256,7 @@ struct PaymentSheet: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, Spacing.md)
-            .background(vm.paymentMethod == id ? Color.luxuryPrimaryText : Color.luxurySurface)
+            .background(vm.paymentMethod == id ? Color.luxurySelection : Color.luxurySurface)
             .foregroundStyle(vm.paymentMethod == id ? Color.white : Color.luxuryDeepAccent)
             .clipShape(RoundedRectangle(cornerRadius: Radius.md))
             .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(Color.luxuryDivider, lineWidth: 0.5))
@@ -1252,7 +1279,7 @@ struct PaymentSheet: View {
                         .padding(.horizontal, 14)
                         .padding(.vertical, 10)
                         .frame(maxWidth: .infinity)
-                        .background(selection.wrappedValue == option.0 ? Color.luxuryPrimary : Color.luxurySurface)
+                        .background(selection.wrappedValue == option.0 ? Color.luxurySelection : Color.luxurySurface)
                         .clipShape(RoundedRectangle(cornerRadius: Radius.md))
                         .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(Color.luxuryDivider, lineWidth: 0.5))
                 }
@@ -1314,10 +1341,9 @@ struct PaymentSheet: View {
 
     private func phoneField(title: String, text: Binding<String>) -> some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
-            Text(title.uppercased())
-                .font(.system(size: 10, weight: .semibold))
-                .kerning(1.2)
-                .foregroundStyle(Color.luxurySecondaryText)
+            Text(title)
+                .font(.system(size: 18, weight: .bold, design: .serif))
+                .foregroundColor(CatalogTheme.primaryText)
             TextField("Enter customer phone number", text: text)
                 .keyboardType(.phonePad)
                 .font(BrandFont.body(14))
@@ -1330,10 +1356,9 @@ struct PaymentSheet: View {
 
     private func amountCard(label: String, value: String) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(label.uppercased())
-                .font(.system(size: 10, weight: .semibold))
-                .kerning(1.2)
-                .foregroundStyle(Color.luxurySecondaryText)
+            Text(label)
+                .font(.system(size: 18, weight: .bold, design: .serif))
+                .foregroundColor(CatalogTheme.primaryText)
             Text(value)
                 .font(.system(size: 24, weight: .semibold, design: .serif))
                 .foregroundStyle(Color.luxuryPrimaryText)
@@ -1366,7 +1391,7 @@ struct PaymentSheet: View {
                 .foregroundStyle(isSelected ? Color.white : Color.luxuryDeepAccent)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
-                .background(isSelected ? Color.luxuryPrimary : Color.luxurySurface)
+                .background(isSelected ? Color.luxurySelection : Color.luxurySurface)
                 .clipShape(Capsule())
                 .overlay(Capsule().stroke(Color.luxuryDivider, lineWidth: 0.5))
         }
@@ -1391,9 +1416,8 @@ struct PaymentSheet: View {
 
     private func sectionTitle(_ title: String) -> some View {
         Text(title)
-            .font(.system(size: 10, weight: .semibold))
-            .kerning(1.2)
-            .foregroundStyle(Color.luxurySecondaryText)
+            .font(.system(size: 18, weight: .bold, design: .serif))
+            .foregroundColor(CatalogTheme.primaryText)
     }
 
     private func formatAmount(_ value: Double) -> String {
@@ -1451,7 +1475,7 @@ struct ReceiptSheet: View {
                         if let p = placed {
                             VStack(spacing: 0) {
                                 VStack(spacing: 4) {
-                                    Text("RECEIPT").font(.system(size: 11, weight: .semibold)).kerning(2).foregroundStyle(Color.luxurySecondaryText)
+                                    Text("Receipt").font(.system(size: 18, weight: .bold, design: .serif)).foregroundColor(CatalogTheme.primaryText)
                                     Text(p.createdAt.formatted(date: .long, time: .shortened)).font(BrandFont.body(11)).foregroundStyle(Color.luxurySecondaryText)
                                 }
                                 .frame(maxWidth: .infinity).padding(Spacing.md)
@@ -1486,7 +1510,7 @@ struct ReceiptSheet: View {
                                     Text("₹\(Int(p.totalAmount))").font(.system(size: 20, weight: .semibold, design: .serif)).foregroundStyle(Color.luxuryDeepAccent)
                                 }.padding(Spacing.md)
                             }
-                            .background(Color.luxurySurface).clipShape(RoundedRectangle(cornerRadius: Radius.lg))
+                            .background(Color.white).clipShape(RoundedRectangle(cornerRadius: Radius.lg))
                             .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.luxuryDivider, lineWidth: 0.5))
                             .padding(.horizontal, Spacing.md)
                         }
@@ -1505,7 +1529,7 @@ struct ReceiptSheet: View {
                                 Text("Download / Share Receipt").font(BrandFont.body(14, weight: .medium))
                             }
                             .foregroundStyle(Color.luxuryPrimaryText).frame(maxWidth: .infinity).padding(.vertical, 14)
-                            .background(Color.luxurySurface).clipShape(RoundedRectangle(cornerRadius: Radius.lg))
+                            .background(Color.white).clipShape(RoundedRectangle(cornerRadius: Radius.lg))
                             .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.luxuryDivider, lineWidth: 0.5))
                         }
                         .buttonStyle(.plain).padding(.horizontal, Spacing.md)
@@ -1513,7 +1537,9 @@ struct ReceiptSheet: View {
                         // ── Rating section
                         if !ratingSubmitted {
                             VStack(alignment: .leading, spacing: Spacing.md) {
-                                Text("RATE THIS SERVICE").font(.system(size: 10, weight: .semibold)).kerning(1.2).foregroundStyle(Color.luxurySecondaryText)
+                                Text("Rate this service")
+                                    .font(.system(size: 18, weight: .bold, design: .serif))
+                                    .foregroundColor(CatalogTheme.primaryText)
                                 HStack(spacing: 10) {
                                     ForEach(1...5, id: \.self) { star in
                                         Button { rating = Double(star) } label: {
@@ -1537,7 +1563,7 @@ struct ReceiptSheet: View {
                                 .frame(maxWidth: .infinity).padding(.vertical, 12)
                                 .background(Color(hex: "#C8913A").opacity(0.1)).clipShape(RoundedRectangle(cornerRadius: Radius.md))
                             }
-                            .padding(Spacing.md).background(Color.luxurySurface).clipShape(RoundedRectangle(cornerRadius: Radius.lg))
+                            .padding(Spacing.md).background(Color.white).clipShape(RoundedRectangle(cornerRadius: Radius.lg))
                             .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.luxuryDivider, lineWidth: 0.5))
                             .padding(.horizontal, Spacing.md)
                         } else {
@@ -1565,7 +1591,7 @@ struct ReceiptSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {
-                    Text("ORDER CONFIRMED").font(.system(size: 13, weight: .semibold)).kerning(2).foregroundStyle(Color.luxuryPrimaryText)
+                    Text("Order Confirmed").font(.system(size: 13, weight: .semibold)).foregroundStyle(Color.luxuryPrimaryText)
                 }
             }
             .interactiveDismissDisabled()
@@ -1589,13 +1615,13 @@ struct ReceiptSheet: View {
     private func buildReceiptText(placed p: PlacedOrder) -> String {
         var lines = [
             "══════════════════════════",
-            "         RECEIPT          ",
+            "         Receipt          ",
             "══════════════════════════",
             "Order #: \(p.orderNumber)",
             "Date:    \(p.createdAt.formatted(date: .long, time: .shortened))",
             "Status:  Pending",
             "──────────────────────────",
-            "CUSTOMER",
+            "Customer",
             "Name:    \(p.customer.name)"
         ]
         if let phone = p.customer.phone  { lines.append("Phone:   \(phone)") }
@@ -1604,9 +1630,9 @@ struct ReceiptSheet: View {
         if let cat   = p.customer.customerCategory { lines.append("Category: \(cat)") }
         lines += [
             "──────────────────────────",
-            "SERVED BY: \(p.associateName)",
+            "Served By: \(p.associateName)",
             "──────────────────────────",
-            "ITEMS"
+            "Items"
         ]
         for item in p.items {
             var line = "• \(item.product.name)"
@@ -1616,7 +1642,7 @@ struct ReceiptSheet: View {
         }
         lines += [
             "──────────────────────────",
-            "TOTAL:   ₹\(Int(p.totalAmount))",
+            "Total:   ₹\(Int(p.totalAmount))",
             "══════════════════════════",
             "Thank you for your purchase!"
         ]
@@ -1681,8 +1707,13 @@ struct ProductRequestSheet: View {
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .principal) { Text("PRODUCT REQUEST").font(.system(size: 13, weight: .semibold)).kerning(2).foregroundStyle(Color.luxuryPrimaryText) }
-                ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() }.foregroundStyle(Color.luxurySecondaryText) }
+                ToolbarItem(placement: .principal) { Text("Product Request").font(.system(size: 13, weight: .semibold)).foregroundStyle(Color.luxuryPrimaryText) }
+                ToolbarItem(placement: .topBarLeading) {
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark").font(.system(size: 14, weight: .semibold))
+                    }
+                    .foregroundStyle(Color.luxurySecondaryText)
+                }
             }
         }
     }
