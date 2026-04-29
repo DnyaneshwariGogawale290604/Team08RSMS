@@ -385,25 +385,25 @@ public struct ItemsListFilteredView: View {
                     await viewModel.loadDashboardData()
                 }
             }
-            .navigationTitle(category)
-            .navigationBarTitleDisplayMode(.inline)
-            .navigationBarBackButtonHidden(true)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button(action: { presentationMode.wrappedValue.dismiss() }) {
-                        AppToolbarGlyph(systemImage: "chevron.left", backgroundColor: .appAccent)
-                    }
-                    .buttonStyle(.plain)
+        }
+        .navigationTitle(category)
+        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(true)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button(action: { presentationMode.wrappedValue.dismiss() }) {
+                    AppToolbarGlyph(systemImage: "chevron.left", backgroundColor: .appAccent)
                 }
+                .buttonStyle(.plain)
+            }
 
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        Task { await viewModel.loadDashboardData() }
-                    } label: {
-                        AppToolbarGlyph(systemImage: "arrow.clockwise", backgroundColor: .appAccent)
-                    }
-                    .buttonStyle(.plain)
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button {
+                    Task { await viewModel.loadDashboardData() }
+                } label: {
+                    AppToolbarGlyph(systemImage: "arrow.clockwise", backgroundColor: .appAccent)
                 }
+                .buttonStyle(.plain)
             }
         }
     }
@@ -1056,7 +1056,6 @@ public struct RepairInputView: View {
                 }
             }
             .navigationTitle("Mark for Repair")
-<<<<<<< HEAD
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
