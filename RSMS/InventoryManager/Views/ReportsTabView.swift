@@ -1,10 +1,14 @@
 import SwiftUI
 import Charts
+import UIKit
 
 // MARK: - Reports Tab View
 
 public struct ReportsTabView: View {
     @StateObject private var vm = ReportsViewModel()
+    @State private var exportFileURL: URL?
+    @State private var isPreparingExport = false
+    @State private var exportError: String?
 
     public init() {}
 
@@ -25,8 +29,52 @@ public struct ReportsTabView: View {
             }
             .navigationTitle("Reports")
             .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItemGroup(placement: .navigationBarTrailing) {
+                    Button {
+                        Task { await vm.fetchData() }
+                    } label: {
+                        AppToolbarGlyph(systemImage: "arrow.clockwise")
+                    }
+                    .buttonStyle(.plain)
+
+                    Button {
+                        exportPDF()
+                    } label: {
+                        AppToolbarGlyph(
+                            systemImage: isPreparingExport ? "hourglass" : "doc.richtext",
+                            enabled: !isPreparingExport
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isPreparingExport)
+                }
+            }
             .task { await vm.fetchData() }
             .refreshable { await vm.fetchData() }
+            .sheet(
+                isPresented: Binding(
+                    get: { exportFileURL != nil },
+                    set: { if !$0 { exportFileURL = nil } }
+                )
+            ) {
+                if let exportFileURL {
+                    InventoryActivityShareSheet(items: [exportFileURL])
+                }
+            }
+            .alert(
+                "Export Failed",
+                isPresented: Binding(
+                    get: { exportError != nil },
+                    set: { if !$0 { exportError = nil } }
+                )
+            ) {
+                Button("OK", role: .cancel) {
+                    exportError = nil
+                }
+            } message: {
+                Text(exportError ?? "Unable to export report.")
+            }
         }
     }
 
@@ -439,6 +487,27 @@ public struct ReportsTabView: View {
             .shadow(color: .black.opacity(0.04), radius: 10, x: 0, y: 4)
         }
     }
+
+    private func exportPDF() {
+        guard !isPreparingExport else { return }
+        isPreparingExport = true
+
+        Task {
+            do {
+                let exporter = InventoryReportsPDFExporter(viewModel: vm)
+                let url = try exporter.export()
+                await MainActor.run {
+                    exportFileURL = url
+                    isPreparingExport = false
+                }
+            } catch {
+                await MainActor.run {
+                    exportError = error.localizedDescription
+                    isPreparingExport = false
+                }
+            }
+        }
+    }
 }
 
 // MARK: - Private Supporting Views
@@ -589,6 +658,135 @@ private struct ReportEmptyPlaceholder: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 24)
+    }
+}
+
+private struct InventoryActivityShareSheet: UIViewControllerRepresentable {
+    let items: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+}
+
+private struct InventoryReportsPDFExporter {
+    let viewModel: ReportsViewModel
+
+    func export() throws -> URL {
+        let pageRect = CGRect(x: 0, y: 0, width: 595, height: 842)
+        let renderer = UIGraphicsPDFRenderer(bounds: pageRect)
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "inventory-report-\(Int(Date().timeIntervalSince1970)).pdf"
+        )
+
+        let data = renderer.pdfData { context in
+            var y: CGFloat = 32
+
+            func beginPage() {
+                context.beginPage()
+                y = 32
+            }
+
+            func drawText(
+                _ text: String,
+                font: UIFont,
+                color: UIColor,
+                indent: CGFloat = 0,
+                spacingAfter: CGFloat = 8
+            ) {
+                let maxWidth = pageRect.width - 64 - indent
+                let boundingRect = NSString(string: text).boundingRect(
+                    with: CGSize(width: maxWidth, height: .greatestFiniteMagnitude),
+                    options: [.usesLineFragmentOrigin, .usesFontLeading],
+                    attributes: [.font: font],
+                    context: nil
+                )
+
+                if y + boundingRect.height > pageRect.height - 42 {
+                    beginPage()
+                }
+
+                NSString(string: text).draw(
+                    in: CGRect(x: 32 + indent, y: y, width: maxWidth, height: boundingRect.height),
+                    withAttributes: [
+                        .font: font,
+                        .foregroundColor: color
+                    ]
+                )
+                y += boundingRect.height + spacingAfter
+            }
+
+            beginPage()
+
+            drawText(
+                "Inventory Performance Report",
+                font: .systemFont(ofSize: 24, weight: .bold),
+                color: UIColor(Color.appPrimaryText),
+                spacingAfter: 4
+            )
+            drawText(
+                Date().formatted(date: .abbreviated, time: .shortened),
+                font: .systemFont(ofSize: 12, weight: .medium),
+                color: UIColor(Color.appSecondaryText),
+                spacingAfter: 18
+            )
+
+            drawText("Summary", font: .systemFont(ofSize: 18, weight: .bold), color: UIColor(Color.appAccent), spacingAfter: 10)
+            reportLines().forEach { line in
+                drawText(line, font: .systemFont(ofSize: 13), color: UIColor(Color.appPrimaryText), spacingAfter: 6)
+            }
+
+            drawText("Category Breakdown", font: .systemFont(ofSize: 18, weight: .bold), color: UIColor(Color.appAccent), spacingAfter: 10)
+            if viewModel.categoryShrinkData.isEmpty {
+                drawText("No shrink data available by category.", font: .systemFont(ofSize: 13), color: UIColor(Color.appSecondaryText))
+            } else {
+                viewModel.categoryShrinkData.forEach { entry in
+                    drawText(
+                        "\(entry.category): \(entry.count) item\(entry.count == 1 ? "" : "s")",
+                        font: .systemFont(ofSize: 13),
+                        color: UIColor(Color.appPrimaryText),
+                        spacingAfter: 6
+                    )
+                }
+            }
+
+            drawText("Shrink Trend", font: .systemFont(ofSize: 18, weight: .bold), color: UIColor(Color.appAccent), spacingAfter: 10)
+            if viewModel.shrinkTrendData.isEmpty {
+                drawText("No recent shrink events recorded.", font: .systemFont(ofSize: 13), color: UIColor(Color.appSecondaryText))
+            } else {
+                viewModel.shrinkTrendData.forEach { point in
+                    drawText(
+                        "\(point.date.formatted(date: .abbreviated, time: .omitted)): \(point.count)",
+                        font: .systemFont(ofSize: 13),
+                        color: UIColor(Color.appPrimaryText),
+                        spacingAfter: 6
+                    )
+                }
+            }
+        }
+
+        try data.write(to: url, options: .atomic)
+        return url
+    }
+
+    private func reportLines() -> [String] {
+        [
+            "Health Score: \(viewModel.healthScore)/100 (\(viewModel.healthLabel))",
+            "Total Items: \(viewModel.totalItemsCount)",
+            "Shrink Rate: \(String(format: "%.1f%%", viewModel.shrinkPercentage))",
+            "Lost Items: \(viewModel.lostItemsCount)",
+            "Under Repair: \(viewModel.underRepairCount)",
+            "Recovered Items: \(viewModel.recoveredCount)",
+            "Scan Compliance: \(String(format: "%.0f%%", viewModel.compliancePercentage))",
+            "Certification Compliance: \(String(format: "%.0f%%", viewModel.certCompliancePercentage))",
+            "Variance: \(viewModel.varianceCount)",
+            "Overdue Scans: \(viewModel.overdueCount)",
+            "Verified Certifications: \(viewModel.verifiedCount)",
+            "Pending Certifications: \(viewModel.certPendingCount)",
+            "Failed Certifications: \(viewModel.certFailedCount)"
+        ]
     }
 }
 

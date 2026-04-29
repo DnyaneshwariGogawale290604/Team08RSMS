@@ -753,7 +753,7 @@ public struct ItemDetailSupabaseView: View {
                         destination: RepairTicketDetailView(item: $item, viewModel: viewModel)
                     ) {
                         Label("View Repair Ticket", systemImage: "doc.text.viewfinder")
-                            .foregroundColor(.blue)
+                            .foregroundColor(.appAccent)
                     }
                 } else if item.status == .sold {
                     Button(action: { showingReturnSheet = true }) {
@@ -838,7 +838,7 @@ public struct ItemDetailSupabaseView: View {
                             Spacer()
                             Text(cert.status.rawValue)
                                 .font(.caption2.bold())
-                                .foregroundColor(cert.status == .valid ? .green : .red)
+                                .foregroundColor(cert.status == .valid ? .appAccent : .red)
                         }
 
                         Text("No: \(cert.certificateNumber)")
@@ -935,6 +935,7 @@ public struct ItemDetailSupabaseView: View {
                 try await DataService.shared.updateInventoryItem(item: updatedItem)
                 await viewModel.loadDashboardData()
                 self.item = updatedItem
+                NotificationCenter.default.post(name: .inventoryManagerDataDidChange, object: nil)
             } catch {
                 print("Failed to update item: \(error)")
             }
@@ -1278,6 +1279,7 @@ public struct RepairTicketDetailView: View {
                 }
                 await viewModel.loadDashboardData()
                 self.item = updatedItem
+                NotificationCenter.default.post(name: .inventoryManagerDataDidChange, object: nil)
                 if newStatus == .completed || newStatus == .scrapped {
                     presentationMode.wrappedValue.dismiss()
                 }
@@ -1289,9 +1291,9 @@ public struct RepairTicketDetailView: View {
 
     private func color(for status: RepairStatus) -> Color {
         switch status {
-        case .completed: return .green
+        case .completed: return .appAccent
         case .failed, .scrapped: return .red
-        default: return .blue
+        default: return .luxuryDeepAccent
         }
     }
 }
@@ -1535,19 +1537,21 @@ public struct AddItemManualView: View {
                     Button {
                         presentationMode.wrappedValue.dismiss()
                     } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(.primary)
+                        AppToolbarGlyph(systemImage: "xmark", backgroundColor: .appAccent)
                     }
+                    .buttonStyle(.plain)
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
                         saveItem()
                     } label: {
-                        Image(systemName: "checkmark")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(canSave ? .primary : Color.gray)
+                        AppToolbarGlyph(
+                            systemImage: "checkmark",
+                            enabled: canSave,
+                            backgroundColor: .appAccent
+                        )
                     }
+                    .buttonStyle(.plain)
                     .disabled(!canSave)
                 }
             }
@@ -1586,6 +1590,7 @@ public struct AddItemManualView: View {
                     try await DataService.shared.insertInventoryItem(item: newItem)
 
                     await viewModel.loadDashboardData()
+                    NotificationCenter.default.post(name: .inventoryManagerDataDidChange, object: nil)
                     presentationMode.wrappedValue.dismiss()
                 } else {
                     errorText = "Please select a product."

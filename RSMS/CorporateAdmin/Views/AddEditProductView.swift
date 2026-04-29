@@ -42,7 +42,7 @@ public struct AddEditProductView: View {
                                 }
                             } label: {
                                 Image(systemName: "chevron.down.circle")
-                                    .foregroundColor(.accentColor)
+                                    .foregroundColor(CatalogTheme.primary)
                             }
                         }
                     }
@@ -112,7 +112,7 @@ public struct AddEditProductView: View {
                                 .foregroundColor(CatalogTheme.secondaryText)
                             Spacer()
                             Text(String(format: "₹%.2f", total))
-                                .foregroundColor(.accentColor)
+                                .foregroundColor(CatalogTheme.deepAccent)
                                 .fontWeight(.bold)
                         }
                     }
@@ -121,29 +121,36 @@ public struct AddEditProductView: View {
 
                 Section {
                     Toggle("Active Status", isOn: $isActive)
-                        .tint(.accentColor)
+                        .tint(CatalogTheme.primary)
                 }
                 .listRowBackground(CatalogTheme.card)
             }
             .scrollContentBackground(.hidden)
             .background(CatalogTheme.background.ignoresSafeArea())
-            .tint(.accentColor)
+            .tint(CatalogTheme.primary)
             .navigationTitle(editingProduct == nil ? "Add Product" : "Edit Product")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("Cancel") { dismiss() }
-                        .foregroundColor(CatalogTheme.secondaryText)
+                    Button { dismiss() } label: {
+                        AppToolbarGlyph(systemImage: "xmark", backgroundColor: CatalogTheme.deepAccent)
+                    }
+                    .buttonStyle(.plain)
                 }
 
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button(editingProduct == nil ? "Add" : "Save") {
+                    Button {
                         guard !isSaving else { return }
                         isSaving = true
                         save()
+                    } label: {
+                        AppToolbarGlyph(
+                            systemImage: "checkmark",
+                            enabled: !(name.isEmpty || price.isEmpty || isSaving),
+                            backgroundColor: CatalogTheme.deepAccent
+                        )
                     }
-                    .font(.body.weight(.semibold))
-                    .foregroundColor(name.isEmpty || price.isEmpty || isSaving ? CatalogTheme.secondaryText : .accentColor)
+                    .buttonStyle(.plain)
                     .disabled(name.isEmpty || price.isEmpty || isSaving)
                 }
             }
@@ -328,7 +335,7 @@ private struct VariantEditorRow: View {
                 if isBaseModel {
                     Text("Base")
                         .font(.caption.weight(.semibold))
-                        .foregroundColor(.accentColor)
+                        .foregroundColor(CatalogTheme.primary)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
                         .background(CatalogTheme.imageBackground)
@@ -370,7 +377,7 @@ private struct VariantEditorRow: View {
                                 Text("Images")
                                     .font(.caption2)
                             }
-                            .foregroundColor(.accentColor)
+                            .foregroundColor(CatalogTheme.primary)
                             .frame(width: 64, height: 64)
                             .background(CatalogTheme.imageBackground)
                             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))

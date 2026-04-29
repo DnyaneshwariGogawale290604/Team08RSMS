@@ -88,9 +88,6 @@ public final class AuditService: ObservableObject {
             ExceptionEngine.shared.injectTimeBasedExceptions([certException])
         }
 
-
-        // Notify observers to trigger refresh (e.g., dashboard)
-        NotificationCenter.default.post(name: NSNotification.Name("ExceptionResolved"), object: nil)
         NotificationCenter.default.post(name: .inventoryManagerDataDidChange, object: nil)
         
         return updated

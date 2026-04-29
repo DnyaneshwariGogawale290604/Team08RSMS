@@ -59,6 +59,11 @@ public struct DashboardTabView: View {
                     await viewModel.loadDashboardData()
                 }
             }
+            .onReceive(NotificationCenter.default.publisher(for: .inventoryManagerDataDidChange)) { _ in
+                Task {
+                    await viewModel.loadDashboardData()
+                }
+            }
         }
     }
     

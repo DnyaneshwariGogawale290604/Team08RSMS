@@ -47,13 +47,13 @@ public struct ExceptionsDashboardView: View {
                 }
             }
             .navigationTitle("Exception Queue")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button { presentationMode.wrappedValue.dismiss() } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(.primary)
+                        AppToolbarGlyph(systemImage: "xmark", backgroundColor: .appAccent)
                     }
+                    .buttonStyle(.plain)
                 }
             }
         }
