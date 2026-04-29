@@ -81,8 +81,10 @@ struct SalesAssociateAccountSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("Close") {
+                    Button {
                         dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
                     }
                     .foregroundStyle(Color.luxuryPrimary)
                 }

@@ -45,6 +45,19 @@ public struct Store: Identifiable, Codable, Hashable, Sendable {
         case address
     }
 
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        name = (try? container.decodeIfPresent(String.self, forKey: .name)) ?? ""
+        location = (try? container.decodeIfPresent(String.self, forKey: .location)) ?? ""
+        brandId = try? container.decodeIfPresent(UUID.self, forKey: .brandId)
+        salesTarget = try? container.decodeIfPresent(Double.self, forKey: .salesTarget)
+        createdAt = try? container.decodeIfPresent(String.self, forKey: .createdAt)
+        openingDate = try? container.decodeIfPresent(String.self, forKey: .openingDate)
+        status = try? container.decodeIfPresent(String.self, forKey: .status)
+        address = try? container.decodeIfPresent(String.self, forKey: .address)
+    }
+
     public var displayName: String {
         if !name.isEmpty {
             return name

@@ -72,8 +72,10 @@ struct GRNFormSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                        .foregroundColor(.appAccent)
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark")
+                    }
+                    .foregroundColor(.appAccent)
                 }
             }
             .overlay {

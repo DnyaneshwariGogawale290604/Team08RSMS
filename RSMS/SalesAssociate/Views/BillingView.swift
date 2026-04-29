@@ -74,8 +74,10 @@ struct BillingView: View {
                         .foregroundStyle(Color.luxuryPrimaryText)
                 }
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("Cancel") { dismiss() }
-                        .foregroundStyle(Color.luxurySecondaryText)
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark")
+                    }
+                    .foregroundStyle(Color.luxurySecondaryText)
                 }
             }
             .safeAreaInset(edge: .bottom) {

@@ -69,8 +69,10 @@ struct NewAppointmentSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("Cancel") { dismiss() }
-                        .foregroundStyle(Color.luxuryPrimaryText)
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark")
+                    }
+                    .foregroundStyle(Color.luxuryPrimaryText)
                 }
                 ToolbarItem(placement: .principal) {
                     Text("NEW APPOINTMENT")
@@ -377,8 +379,10 @@ struct NewAppointmentSheet: View {
                         .foregroundStyle(Color.luxuryPrimaryText)
                 }
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("Cancel") { showCustomerPicker = false }
-                        .foregroundStyle(Color.luxuryPrimaryText)
+                    Button { showCustomerPicker = false } label: {
+                        Image(systemName: "xmark")
+                    }
+                    .foregroundStyle(Color.luxuryPrimaryText)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {

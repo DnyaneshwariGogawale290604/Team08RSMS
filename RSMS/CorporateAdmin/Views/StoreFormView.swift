@@ -73,12 +73,18 @@ public struct StoreFormView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") { dismiss() }
-                        .foregroundColor(CatalogTheme.primaryText)
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                    }
+                    .foregroundColor(CatalogTheme.primaryText)
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Save") {
+                    Button {
                         Task { await saveStore() }
+                    } label: {
+                        Image(systemName: "checkmark")
                     }
                     .foregroundColor(canSave ? CatalogTheme.primaryText : Color.gray)
                     .disabled(!canSave)
@@ -523,8 +529,10 @@ private struct StoreProductPickerSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") {
+                    Button {
                         dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
                     }
                 }
             }

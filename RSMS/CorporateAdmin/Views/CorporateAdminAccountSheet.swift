@@ -15,7 +15,9 @@ public struct CorporateAdminAccountSheet: View {
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .navigationBarLeading) {
-                        Button("Close") { dismiss() }
+                        Button { dismiss() } label: {
+                            Image(systemName: "xmark")
+                        }
                     }
                 }
         }
@@ -56,6 +58,16 @@ private struct CorporateAdminAccountView: View {
                             title: "Payment Gateway Setup",
                             subtitle: "Manage all supported gateways",
                             icon: "creditcard.fill"
+                        )
+                    }
+
+                    NavigationLink {
+                        DiscountListView()
+                    } label: {
+                        accountActionRow(
+                            title: "Discounts & Promotions",
+                            subtitle: "Create coupons and marketing offers",
+                            icon: "tag.fill"
                         )
                     }
 

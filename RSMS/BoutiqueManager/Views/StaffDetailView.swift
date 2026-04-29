@@ -84,9 +84,13 @@ public struct StaffDetailView: View {
             }
             .navigationTitle("Staff Profile")
             .navigationBarTitleDisplayMode(.inline)
-            .navigationBarItems(trailing: Button("Done") {
-                presentationMode.wrappedValue.dismiss()
-            })
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { presentationMode.wrappedValue.dismiss() } label: {
+                        Image(systemName: "xmark")
+                    }
+                }
+            }
             .onAppear { loadData() }
         }
     }

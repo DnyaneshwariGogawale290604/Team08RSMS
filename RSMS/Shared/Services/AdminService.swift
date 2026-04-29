@@ -706,8 +706,8 @@ public final class AdminService: @unchecked Sendable {
         let storeIds = stores.map { $0.id }
         
         struct InventoryRow: Decodable {
-            let productId: UUID
-            let quantity: Int
+            let productId: UUID?
+            let quantity: Int?
             
             enum CodingKeys: String, CodingKey {
                 case productId = "product_id"
@@ -726,7 +726,9 @@ public final class AdminService: @unchecked Sendable {
                 .value
             
             for row in storeInventories {
-                stocks[row.productId, default: 0] += row.quantity
+                if let pid = row.productId {
+                    stocks[pid, default: 0] += row.quantity ?? 0
+                }
             }
         }
         
@@ -742,7 +744,9 @@ public final class AdminService: @unchecked Sendable {
                 .value
                 
             for row in warehouseInventories {
-                stocks[row.productId, default: 0] += row.quantity
+                if let pid = row.productId {
+                    stocks[pid, default: 0] += row.quantity ?? 0
+                }
             }
         }
         
