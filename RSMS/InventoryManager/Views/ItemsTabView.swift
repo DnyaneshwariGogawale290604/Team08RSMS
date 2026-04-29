@@ -162,19 +162,6 @@ public struct ItemsTabView: View {
                         AppToolbarGlyph(systemImage: "arrow.clockwise")
                     }
                     .buttonStyle(.plain)
-
-                    Menu {
-                        ForEach(RepairFilter.allCases, id: \.self) { filter in
-                            Button {
-                                repairFilter = filter
-                            } label: {
-                                Label(filter.rawValue, systemImage: filter.systemImage)
-                            }
-                        }
-                    } label: {
-                        AppToolbarGlyph(systemImage: "line.3.horizontal.decrease.circle")
-                    }
-                    .buttonStyle(.plain)
                 }
             }
             .task {
@@ -243,36 +230,67 @@ public struct ItemsTabView: View {
     }
 
     private var activeFiltersRow: some View {
-        HStack(spacing: 10) {
-            Label(repairFilter.rawValue, systemImage: repairFilter.systemImage)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(.appAccent)
-                .padding(.horizontal, 14)
+        VStack(spacing: 0) {
+            // ── Status filter chips ────────────────────────────
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(RepairFilter.allCases, id: \.self) { filter in
+                        let isActive = repairFilter == filter
+                        Button {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                repairFilter = filter
+                            }
+                        } label: {
+                            HStack(spacing: 5) {
+                                Image(systemName: filter.systemImage)
+                                    .font(.system(size: 11, weight: .bold))
+                                Text(filter.rawValue)
+                                    .font(.system(size: 13, weight: .semibold))
+                            }
+                            .foregroundColor(isActive ? .white : .appAccent)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .background(
+                                Capsule()
+                                    .fill(isActive ? Color.appAccent : Color.white)
+                                    .shadow(
+                                        color: Color.black.opacity(isActive ? 0.14 : 0.05),
+                                        radius: isActive ? 4 : 2, x: 0, y: 2
+                                    )
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isActive)
+                    }
+                }
+                .padding(.horizontal, 16)
                 .padding(.vertical, 8)
-                .background(Color.white)
-                .clipShape(Capsule())
-
-            if let categoryFilterMagic {
-                Text(categoryFilterMagic)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(.appPrimaryText)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
-                    .background(Color.luxurySurface)
-                    .clipShape(Capsule())
             }
 
-            Spacer()
-
-            if categoryFilterMagic != nil {
-                Button("Clear") {
-                    categoryFilterMagic = nil
+            // ── Active category chip + clear ──────────────────
+            if let cat = categoryFilterMagic {
+                HStack(spacing: 8) {
+                    Image(systemName: "folder.fill")
+                        .font(.caption2.bold())
+                        .foregroundColor(.appAccent)
+                    Text(cat)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.appPrimaryText)
+                    Spacer()
+                    Button {
+                        categoryFilterMagic = nil
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 14))
+                            .foregroundColor(.appSecondaryText)
+                    }
+                    .buttonStyle(.plain)
                 }
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(.appSecondaryText)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 8)
+                .background(Color.luxurySurface)
             }
         }
-        .padding(.horizontal, 16)
     }
 
     private func categoryCard(for category: String) -> some View {
@@ -753,7 +771,7 @@ public struct ItemDetailSupabaseView: View {
                         destination: RepairTicketDetailView(item: $item, viewModel: viewModel)
                     ) {
                         Label("View Repair Ticket", systemImage: "doc.text.viewfinder")
-                            .foregroundColor(.blue)
+                            .foregroundColor(.appAccent)
                     }
                 } else if item.status == .sold {
                     Button(action: { showingReturnSheet = true }) {
@@ -838,7 +856,7 @@ public struct ItemDetailSupabaseView: View {
                             Spacer()
                             Text(cert.status.rawValue)
                                 .font(.caption2.bold())
-                                .foregroundColor(cert.status == .valid ? .green : .red)
+                                .foregroundColor(cert.status == .valid ? .appAccent : .red)
                         }
 
                         Text("No: \(cert.certificateNumber)")
@@ -935,6 +953,7 @@ public struct ItemDetailSupabaseView: View {
                 try await DataService.shared.updateInventoryItem(item: updatedItem)
                 await viewModel.loadDashboardData()
                 self.item = updatedItem
+                NotificationCenter.default.post(name: .inventoryManagerDataDidChange, object: nil)
             } catch {
                 print("Failed to update item: \(error)")
             }
@@ -1277,6 +1296,7 @@ public struct RepairTicketDetailView: View {
                 }
                 await viewModel.loadDashboardData()
                 self.item = updatedItem
+                NotificationCenter.default.post(name: .inventoryManagerDataDidChange, object: nil)
                 if newStatus == .completed || newStatus == .scrapped {
                     presentationMode.wrappedValue.dismiss()
                 }
@@ -1288,9 +1308,9 @@ public struct RepairTicketDetailView: View {
 
     private func color(for status: RepairStatus) -> Color {
         switch status {
-        case .completed: return .green
+        case .completed: return .appAccent
         case .failed, .scrapped: return .red
-        default: return .blue
+        default: return .luxuryDeepAccent
         }
     }
 }
@@ -1534,19 +1554,21 @@ public struct AddItemManualView: View {
                     Button {
                         presentationMode.wrappedValue.dismiss()
                     } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(.primary)
+                        AppToolbarGlyph(systemImage: "xmark", backgroundColor: .appAccent)
                     }
+                    .buttonStyle(.plain)
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
                         saveItem()
                     } label: {
-                        Image(systemName: "checkmark")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(canSave ? .primary : Color.gray)
+                        AppToolbarGlyph(
+                            systemImage: "checkmark",
+                            enabled: canSave,
+                            backgroundColor: .appAccent
+                        )
                     }
+                    .buttonStyle(.plain)
                     .disabled(!canSave)
                 }
             }
@@ -1585,6 +1607,7 @@ public struct AddItemManualView: View {
                     try await DataService.shared.insertInventoryItem(item: newItem)
 
                     await viewModel.loadDashboardData()
+                    NotificationCenter.default.post(name: .inventoryManagerDataDidChange, object: nil)
                     presentationMode.wrappedValue.dismiss()
                 } else {
                     errorText = "Please select a product."

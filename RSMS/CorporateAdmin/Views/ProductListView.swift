@@ -20,7 +20,11 @@ public struct ProductListView: View {
                     .ignoresSafeArea()
 
                 ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 20) {
+                    VStack(alignment: .leading, spacing: 22) {
+                        Text("Manage your product library")
+                            .font(.system(size: 15, weight: .regular))
+                            .foregroundColor(CatalogTheme.secondaryText)
+
                         searchBar
                         statsRow
                         filtersRow
@@ -76,22 +80,26 @@ public struct ProductListView: View {
                         .frame(width: 56, height: 56)
                         .background(CatalogTheme.deepAccent)
                         .clipShape(Circle())
-                        .shadow(color: Color.black.opacity(0.15), radius: 8, x: 0, y: 4)
+                        .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 4)
                 }
                 .padding(20)
             }
 
-            .navigationTitle("Catalog")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text("Catalog")
+                        .font(.system(size: 18, weight: .bold, design: .serif))
+                        .foregroundColor(CatalogTheme.primaryText)
+                }
+
                 ToolbarItemGroup(placement: .navigationBarTrailing) {
                     Button {
                         showingAddProduct = true
                     } label: {
-                        Image(systemName: "plus")
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundColor(CatalogTheme.primaryText)
+                        AppToolbarGlyph(systemImage: "plus", backgroundColor: CatalogTheme.deepAccent)
                     }
+                    .buttonStyle(.plain)
                 }
             }
             .task {
@@ -156,7 +164,7 @@ public struct ProductListView: View {
                 .tint(CatalogTheme.deepAccent)
         }
         .padding(.horizontal, 14)
-        .frame(height: 44)
+        .frame(height: 48)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(CatalogTheme.searchField)
@@ -194,7 +202,11 @@ public struct ProductListView: View {
     }
     
     private var allFilters: [String] {
-        ["All"] + availableCategories
+        var filters = ["All", "Active", "Inactive"]
+        for category in availableCategories where !filters.contains(category) {
+            filters.append(category)
+        }
+        return filters
     }
 
     private var filtersRow: some View {
@@ -233,6 +245,10 @@ public struct ProductListView: View {
         switch selectedFilter {
         case "All":
             base = searchFilteredProducts
+        case "Active":
+            base = searchFilteredProducts.filter { $0.isActive ?? true }
+        case "Inactive":
+            base = searchFilteredProducts.filter { !($0.isActive ?? true) }
         default:
             base = searchFilteredProducts.filter { $0.category == selectedFilter }
         }
@@ -276,15 +292,15 @@ private struct StatsCardView: View {
             ZStack {
                 Circle()
                     .fill(CatalogTheme.statsIconBackground)
-                    .frame(width: 28, height: 28)
+                    .frame(width: 32, height: 32)
                 
                 Image(systemName: icon)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(CatalogTheme.statsIconColor)
             }
 
             Text(value)
-                .font(.system(size: 20, weight: .bold))
+                .font(.system(size: 22, weight: .bold))
                 .foregroundColor(CatalogTheme.primaryText)
 
             Text(title)
@@ -292,12 +308,12 @@ private struct StatsCardView: View {
                 .foregroundColor(CatalogTheme.secondaryText)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
+        .padding(14)
         .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(CatalogTheme.card)
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(title == "Inactive" ? CatalogTheme.elevatedCard : Color.white)
         )
-        .shadow(color: Color.black.opacity(0.06), radius: 6, x: 0, y: 3)
+        .shadow(color: Color.black.opacity(0.03), radius: 8, x: 0, y: 4)
     }
 }
 
@@ -312,13 +328,15 @@ private struct FilterChipView: View {
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundColor(isSelected ? .white : CatalogTheme.chipInactiveText)
                 .padding(.horizontal, 14)
-                .padding(.vertical, 8)
+                .padding(.vertical, 9)
                 .background(
                     Capsule()
                         .fill(isSelected ? CatalogTheme.primary : CatalogTheme.surface)
                 )
         }
         .buttonStyle(.plain)
+        .scaleEffect(isSelected ? 1.02 : 1)
+        .animation(.easeInOut(duration: 0.25), value: isSelected)
     }
 }
 
@@ -340,7 +358,10 @@ private struct ProductCardView: View {
                 .frame(maxWidth: .infinity)
                 .frame(height: 140)
                 .clipped()
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+
+                statusBadge
+                    .padding(12)
             }
 
             VStack(alignment: .leading, spacing: 4) {
@@ -368,12 +389,12 @@ private struct ProductCardView: View {
                         Text("\(product.stockQuantity ?? 0)")
                             .font(.system(size: 12, weight: .bold))
                     }
-                    .foregroundColor(product.stockStatus == .urgent ? .red : (product.stockStatus == .low ? .orange : CatalogTheme.secondaryText))
+                    .foregroundColor(stockBadgeForeground)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .background(
                         RoundedRectangle(cornerRadius: 8)
-                            .fill(product.stockStatus == .urgent ? Color.red.opacity(0.1) : (product.stockStatus == .low ? Color.orange.opacity(0.1) : Color.gray.opacity(0.1)))
+                            .fill(stockBadgeBackground)
                     )
                 }
             }
@@ -383,32 +404,11 @@ private struct ProductCardView: View {
         .frame(maxWidth: .infinity)
         .frame(height: 250, alignment: .top)
         .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .fill(CatalogTheme.card)
         )
-        .grayscale(product.isActive ?? true ? 0 : 1.0)
-        .opacity(product.isActive ?? true ? 1 : 0.4)
-        .overlay(
-            Group {
-                if !(product.isActive ?? true) {
-                    VStack {
-                        HStack {
-                            Spacer()
-                            Text("Inactive")
-                                .font(.system(size: 11, weight: .bold))
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 5)
-                                .background(Color.red)
-                                .clipShape(Capsule())
-                                .padding(12)
-                        }
-                        Spacer()
-                    }
-                }
-            }
-        )
-        .shadow(color: Color.black.opacity(0.02), radius: 6, x: 0, y: 3)
+        .opacity(product.isActive ?? true ? 1 : 0.82)
+        .shadow(color: Color.black.opacity(0.03), radius: 8, x: 0, y: 4)
         .scaleEffect(isPressed ? 1.02 : 1)
         .animation(.easeInOut(duration: 0.25), value: isPressed)
         .onTapGesture {
@@ -466,6 +466,28 @@ private struct ProductCardView: View {
             )
     }
 
+    private var stockBadgeForeground: Color {
+        switch product.stockStatus {
+        case .urgent:
+            return CatalogTheme.deepAccent
+        case .low:
+            return CatalogTheme.primary
+        case .normal:
+            return CatalogTheme.secondaryText
+        }
+    }
+
+    private var stockBadgeBackground: Color {
+        switch product.stockStatus {
+        case .urgent:
+            return CatalogTheme.surface
+        case .low:
+            return CatalogTheme.elevatedCard
+        case .normal:
+            return CatalogTheme.surface.opacity(0.6)
+        }
+    }
+
     private var makingPriceText: String {
         if let makingPrice = product.makingPrice {
             return "Making: \(formattedPrice(makingPrice))"
@@ -500,7 +522,7 @@ private struct CorporateProductDetailSheet: View {
                     ProductImageCarousel(imageUrls: selectedVariant.imageUrls, height: 280) {
                         imagePlaceholder
                     }
-                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
 
                     VStack(alignment: .leading, spacing: 8) {
                         Text(product.name)
@@ -541,7 +563,7 @@ private struct CorporateProductDetailSheet: View {
                                 }
                                 .padding(12)
                                 .background(CatalogTheme.card)
-                                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
                             }
                         }
                     }
@@ -561,7 +583,7 @@ private struct CorporateProductDetailSheet: View {
                         .padding(14)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .background(CatalogTheme.card)
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
                     }
                 }
                 .padding(16)
@@ -571,18 +593,20 @@ private struct CorporateProductDetailSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button {
-                        dismiss()
-                    } label: {
-                        Image(systemName: "checkmark")
+                    Button { dismiss() } label: {
+                        AppToolbarGlyph(systemImage: "checkmark", backgroundColor: CatalogTheme.deepAccent)
                     }
+                    .buttonStyle(.plain)
                 }
 
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Edit") {
+                    Button {
                         dismiss()
                         onEdit()
+                    } label: {
+                        AppToolbarGlyph(systemImage: "pencil", backgroundColor: CatalogTheme.deepAccent)
                     }
+                    .buttonStyle(.plain)
                 }
             }
             .onAppear {

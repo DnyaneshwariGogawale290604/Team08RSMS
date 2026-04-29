@@ -53,7 +53,7 @@ INSERT INTO public.certifications (
 SELECT
   ii.id,
   'Authenticity',
-  'CERT-' || regexp_replace(ii.id, '[^A-Za-z0-9]+', '', 'g'),
+  'CERT-' || right(regexp_replace(ii.id, '[^A-Za-z0-9]+', '', 'g'), 6) || '-' || EXTRACT(YEAR FROM now())::text,
   'RSMS Certification Authority',
   now() - interval '7 days',
   now() + interval '358 days',
