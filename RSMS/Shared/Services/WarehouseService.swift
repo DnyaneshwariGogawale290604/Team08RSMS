@@ -3,8 +3,8 @@ import Supabase
 import PostgREST
 
 public final class WarehouseService: @unchecked Sendable {
-    nonisolated(unsafe) public static let shared = WarehouseService()
-    nonisolated(unsafe) private let client = SupabaseManager.shared.client
+    public static let shared = WarehouseService()
+    private let client = SupabaseManager.shared.client
     
     private init() {}
     

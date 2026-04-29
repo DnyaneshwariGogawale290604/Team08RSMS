@@ -82,6 +82,10 @@ struct StorePerformanceDetailView: View {
                                             .foregroundColor(CatalogTheme.primaryText)
                                         
                                         Spacer()
+                                        
+                                        Text(formatCurrency(item.totalSales))
+                                            .font(.system(size: 13, weight: .bold))
+                                            .foregroundColor(CatalogTheme.primaryText)
                                     }
                                 }
                             }
@@ -227,14 +231,11 @@ struct StorePerformanceDetailView: View {
     
     private func categoryColor(at index: Int) -> Color {
         let colors: [Color] = [
-            Color(hex: "#6E5155"), // Theme Primary
-            Color(hex: "#E67E22"), // Orange
-            Color(hex: "#27AE60"), // Green
-            Color(hex: "#2980B9"), // Blue
-            Color(hex: "#8E44AD"), // Purple
-            Color(hex: "#C0392B"), // Red
-            Color(hex: "#F1C40F"), // Yellow
-            Color(hex: "#16A085")  // Teal
+            Color(hex: "#6E5155"), // Deep Maroon
+            Color(hex: "#958184"), // Muted Rose
+            Color(hex: "#B9A9AB"), // Soft Taupe
+            Color(hex: "#D2C7C8"), // Light Stone
+            Color(hex: "#EAE3E4")  // Off White
         ]
         return colors[index % colors.count]
     }

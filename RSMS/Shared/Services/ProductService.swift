@@ -4,8 +4,8 @@ import PostgREST
 import UIKit
 
 public final class ProductService: @unchecked Sendable {
-    nonisolated(unsafe) public static let shared = ProductService()
-    nonisolated(unsafe) private let client = SupabaseManager.shared.client
+    public static let shared = ProductService()
+    private let client = SupabaseManager.shared.client
     private let productImageBucket = "products"
 
     private init() {}

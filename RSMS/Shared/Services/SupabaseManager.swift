@@ -13,10 +13,10 @@ enum SupabaseConfiguration {
 }
 
 public final class SupabaseManager: @unchecked Sendable {
-    nonisolated(unsafe) public static let shared = SupabaseManager()
+    public static let shared = SupabaseManager()
 
-    nonisolated(unsafe) public let client: SupabaseClient
-    nonisolated(unsafe) public let serviceRoleClient: SupabaseClient
+    public let client: SupabaseClient
+    public let serviceRoleClient: SupabaseClient
 
     private init() {
         self.client = SupabaseClient(

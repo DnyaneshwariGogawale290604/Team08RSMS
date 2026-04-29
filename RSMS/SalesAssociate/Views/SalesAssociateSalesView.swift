@@ -589,9 +589,17 @@ struct CustomerSheet: View {
                         .font(.system(size: 13, weight: .semibold)).kerning(2).foregroundStyle(Color.luxuryPrimaryText)
                 }
                 ToolbarItem(placement: .topBarLeading) {
-                    Button(mode == .list ? "Done" : "Back") {
+                    Button {
                         if mode == .create { withAnimation { mode = .list } } else { dismiss() }
-                    }.font(BrandFont.body(14)).foregroundStyle(Color.luxuryPrimaryText)
+                    } label: {
+                        if mode == .list {
+                            Image(systemName: "checkmark")
+                        } else {
+                            Text("Back")
+                        }
+                    }
+                    .font(BrandFont.body(14))
+                    .foregroundStyle(Color.luxuryPrimaryText)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     if mode == .list {

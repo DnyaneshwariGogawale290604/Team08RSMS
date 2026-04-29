@@ -207,16 +207,18 @@ struct GRNItemRegistrationSheet: View {
                     .foregroundColor(.appSecondaryText)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal)
-                Button("Done") {
+                Button {
                     onDone()
                     dismiss()
+                } label: {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 40)
+                        .padding(.vertical, 14)
+                        .background(Color.green)
+                        .clipShape(Capsule())
                 }
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundColor(.white)
-                .padding(.horizontal, 40)
-                .padding(.vertical, 14)
-                .background(Color.green)
-                .clipShape(Capsule())
                 .padding(.top, 8)
             }
             .padding(32)
