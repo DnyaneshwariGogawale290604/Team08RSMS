@@ -69,8 +69,7 @@ public struct RFIDScannerView: View {
                         ReusableCardView {
                             VStack(alignment: .leading, spacing: 14) {
                                 Label("Scanner Configuration", systemImage: "gear")
-                                    .font(.headline)
-                                    .foregroundColor(.appPrimaryText)
+                                    .headingStyle()
                                 
                                 Divider()
                                 
@@ -109,8 +108,7 @@ public struct RFIDScannerView: View {
                         ReusableCardView {
                             VStack(alignment: .leading, spacing: 12) {
                                 Label("Enter RFID Tag", systemImage: "wave.3.right.circle.fill")
-                                    .font(.headline)
-                                    .foregroundColor(.appPrimaryText)
+                                    .headingStyle()
                                 
                                 Text("Type or scan an RFID tag ID and press Return. The system will look it up in the database instantly.")
                                     .font(.caption)
@@ -191,10 +189,11 @@ public struct RFIDScannerView: View {
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") {
-                        presentationMode.wrappedValue.dismiss()
+                    Button { presentationMode.wrappedValue.dismiss() } label: {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.primary)
                     }
-                    .foregroundColor(CatalogTheme.primaryText)
                 }
             }
             .task {

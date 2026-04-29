@@ -77,7 +77,7 @@ struct ShipmentDetailsSheet: View {
                         }
                     }
                 } header: {
-                    Text("Order Summary")
+                    Text("Order Summary").headingStyle()
                 }
 
                 // MARK: Carrier & Tracking
@@ -90,7 +90,7 @@ struct ShipmentDetailsSheet: View {
                     DatePicker("Est. Delivery", selection: $estimatedDelivery,
                                in: Date()..., displayedComponents: .date)
                 } header: {
-                    Text("Carrier & Tracking")
+                    Text("Carrier & Tracking").headingStyle()
                 }
 
                 // MARK: Notes
@@ -98,7 +98,7 @@ struct ShipmentDetailsSheet: View {
                     TextEditor(text: $notes)
                         .frame(minHeight: 80)
                 } header: {
-                    Text("Notes (Optional)")
+                    Text("Notes (Optional)").headingStyle()
                 }
 
                 // MARK: Submit
@@ -125,7 +125,11 @@ struct ShipmentDetailsSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.primary)
+                    }
                 }
             }
             .overlay {
@@ -157,7 +161,7 @@ struct ShipmentDetailsSheet: View {
                     .font(.headline)
                 Text(generatedASN)
                     .font(.system(.title3, design: .monospaced).bold())
-                    .foregroundColor(.accentColor)
+                    .foregroundColor(Color.appAccent)
                 Text("ASN Number — share with boutique")
                     .font(.caption)
                     .foregroundColor(.secondary)
@@ -168,7 +172,7 @@ struct ShipmentDetailsSheet: View {
             }
             .padding(28)
             .background(.regularMaterial)
-            .cornerRadius(20)
+            .cornerRadius(AppTheme.cardCornerRadius)
             .shadow(radius: 20)
             .padding(.horizontal, 32)
             Spacer()

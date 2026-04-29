@@ -229,7 +229,7 @@ public struct ItemsListFilteredView: View {
     
     private func statusColor(for status: ItemStatus) -> Color {
         switch status {
-        case .available: return .black // or CatalogTheme.primary, let's use appPrimaryText
+        case .available: return .green
         case .reserved: return .orange
         case .underRepair: return .red
         case .inTransit: return .blue
@@ -247,7 +247,7 @@ public struct ItemDetailSupabaseView: View {
     
     public var body: some View {
         Form {
-            Section(header: Text("Item Details")) {
+            Section(header: Text("Item Details").headingStyle()) {
                 LabeledContent("Name", value: item.productName)
                 LabeledContent("Category", value: item.category)
                 LabeledContent("RFID Tag", value: item.id)
@@ -262,7 +262,7 @@ public struct ItemDetailSupabaseView: View {
             }
             
             if let ticket = item.activeTicket {
-                Section(header: Text("Repair Information")) {
+                Section(header: Text("Repair Information").headingStyle()) {
                     LabeledContent("Issue", value: ticket.issueType)
                     LabeledContent("Ticket Status", value: ticket.status.rawValue)
                     if let assigned = ticket.assignedTo {
@@ -358,7 +358,7 @@ public struct RepairInputView: View {
     public var body: some View {
         NavigationView {
             Form {
-                Section(header: Text("Repair Details")) {
+                Section(header: Text("Repair Details").headingStyle()) {
                     Picker("Issue Type", selection: $issueType) {
                         Text("Select Issue").tag("")
                         ForEach(issueTypes, id: \.self) { type in
@@ -381,7 +381,7 @@ public struct RepairInputView: View {
                         )
                 }
                 
-                Section(header: Text("Assignment & Timeline")) {
+                Section(header: Text("Assignment & Timeline").headingStyle()) {
                     TextField("Assign To (Optional)", text: $assignedTo)
                     
                     Toggle("Set ETA", isOn: $useETA)
@@ -472,7 +472,7 @@ public struct RepairTicketDetailView: View {
     public var body: some View {
         Form {
             if let ticket = item.activeTicket {
-                Section(header: Text("Ticket Info")) {
+                Section(header: Text("Ticket Info").headingStyle()) {
                     LabeledContent("Item Name", value: item.productName)
                     LabeledContent("Issue Type", value: ticket.issueType)
                     LabeledContent("Description", value: ticket.description)
@@ -486,7 +486,7 @@ public struct RepairTicketDetailView: View {
                 }
                 
                 if !availableTransitions.isEmpty {
-                    Section(header: Text("Update Status")) {
+                    Section(header: Text("Update Status").headingStyle()) {
                         ForEach(availableTransitions, id: \.self) { nextStatus in
                             Button(action: {
                                 updateStatus(to: nextStatus)
@@ -591,7 +591,7 @@ public struct ItemDetailView: View {
     
     public var body: some View {
         Form {
-            Section(header: Text("Details")) {
+            Section(header: Text("Details").headingStyle()) {
                 LabeledContent("Name", value: item.productName)
                 LabeledContent("Batch", value: item.batchNo)
                 LabeledContent("Serial", value: item.serialId)
@@ -600,7 +600,7 @@ public struct ItemDetailView: View {
                 LabeledContent("Status", value: item.status.rawValue)
             }
             
-            Section(header: Text("Scan History")) {
+            Section(header: Text("Scan History").headingStyle()) {
                 HStack {
                     Image(systemName: "arrow.down.right.circle.fill").foregroundColor(.green)
                     Text("Ingested via Warehouse Scan")
@@ -633,7 +633,7 @@ public struct AddItemManualView: View {
     public var body: some View {
         NavigationView {
             Form {
-                Section(header: Text("Product Details")) {
+                Section(header: Text("Product Details").headingStyle()) {
                     Picker("Select Product", selection: $selectedProduct) {
                         Text("Choose a product...").tag(nil as Product?)
                         ForEach(viewModel.products, id: \.id) { product in
@@ -647,7 +647,7 @@ public struct AddItemManualView: View {
                     }
                 }
                 
-                Section(header: Text("Identification")) {
+                Section(header: Text("Identification").headingStyle()) {
                     HStack {
                         Text("RFID Tag")
                             .foregroundColor(.appSecondaryText)
@@ -660,7 +660,7 @@ public struct AddItemManualView: View {
                     TextField("Batch Number", text: $batchNo)
                 }
                 
-                Section(header: Text("Location")) {
+                Section(header: Text("Location").headingStyle()) {
                     Picker("Storage Location", selection: $location) {
                         ForEach(viewModel.locations, id: \.self) { loc in
                             Text(loc).tag(loc)
@@ -684,16 +684,18 @@ public struct AddItemManualView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") {
-                        presentationMode.wrappedValue.dismiss()
+                    Button { presentationMode.wrappedValue.dismiss() } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.primary)
                     }
-                    .foregroundColor(CatalogTheme.primaryText)
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Add") {
-                        saveItem()
+                    Button { saveItem() } label: {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(canSave ? .primary : Color.gray)
                     }
-                    .foregroundColor(canSave ? CatalogTheme.primaryText : Color.gray)
                     .disabled(!canSave)
                 }
             }

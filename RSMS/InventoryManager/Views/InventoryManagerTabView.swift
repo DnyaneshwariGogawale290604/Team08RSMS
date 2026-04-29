@@ -115,6 +115,15 @@ public struct InventoryManagerTabView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .navigationTitle("Account")
             .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button { showingAccountSheet = false } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.luxuryPrimaryText)
+                    }
+                }
+            }
         }
     }
 }

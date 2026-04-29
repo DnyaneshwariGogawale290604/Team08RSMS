@@ -66,11 +66,14 @@ struct GRNItemRegistrationSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
+                    Button {
                         onDone()
                         dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.primary)
                     }
-                    .foregroundColor(.appAccent)
                 }
             }
             .overlay {
@@ -87,8 +90,7 @@ struct GRNItemRegistrationSheet: View {
     private var headerCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             Label("GRN Details", systemImage: "doc.text.fill")
-                .font(.caption.weight(.semibold))
-                .foregroundColor(.appSecondaryText)
+                .headingStyle()
 
             rowInfo(label: "GRN Number", value: grnNumber)
             rowInfo(label: "Batch Number", value: batchNumber)
@@ -106,8 +108,7 @@ struct GRNItemRegistrationSheet: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 Label("RFID Tags", systemImage: "tag.fill")
-                    .font(.caption.weight(.semibold))
-                    .foregroundColor(.appSecondaryText)
+                    .headingStyle()
                 Spacer()
                 Button {
                     generateDefaultTags()
@@ -220,7 +221,7 @@ struct GRNItemRegistrationSheet: View {
             }
             .padding(32)
             .background(Color(UIColor.secondarySystemGroupedBackground))
-            .cornerRadius(24)
+            .cornerRadius(AppTheme.cardCornerRadius)
             .shadow(radius: 30)
             .padding(.horizontal, 24)
         }

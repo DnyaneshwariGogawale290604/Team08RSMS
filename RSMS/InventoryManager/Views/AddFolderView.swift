@@ -54,8 +54,7 @@ public struct AddFolderView: View {
                             ReusableCardView {
                                 VStack(alignment: .leading, spacing: 10) {
                                     Label("Category Name", systemImage: "folder.fill")
-                                        .font(.subheadline.bold())
-                                        .foregroundColor(.appPrimaryText)
+                                        .headingStyle()
                                     
                                     TextField("Category Name", text: $folderName)
                                         .padding(12)
@@ -83,8 +82,7 @@ public struct AddFolderView: View {
                             ReusableCardView {
                                 VStack(alignment: .leading, spacing: 10) {
                                     Label("Batch Number", systemImage: "number.circle.fill")
-                                        .font(.subheadline.bold())
-                                        .foregroundColor(.appPrimaryText)
+                                        .headingStyle()
                                     
                                     TextField("Batch identifier", text: $batchNo)
                                         .padding(12)
@@ -102,8 +100,7 @@ public struct AddFolderView: View {
                             ReusableCardView {
                                 VStack(alignment: .leading, spacing: 10) {
                                     Label("Storage Location", systemImage: "mappin.circle.fill")
-                                        .font(.subheadline.bold())
-                                        .foregroundColor(.appPrimaryText)
+                                        .headingStyle()
                                     
                                     Picker("Location", selection: $location) {
                                         ForEach(viewModel.locations, id: \.self) { loc in
@@ -127,8 +124,7 @@ public struct AddFolderView: View {
                             ReusableCardView {
                                 VStack(alignment: .leading, spacing: 10) {
                                     Label("Number of Items", systemImage: "shippingbox.fill")
-                                        .font(.subheadline.bold())
-                                        .foregroundColor(.appPrimaryText)
+                                        .headingStyle()
                                     
                                     TextField("0", value: $itemCount, format: .number)
                                         .keyboardType(.numberPad)
@@ -189,16 +185,18 @@ public struct AddFolderView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") {
-                        presentationMode.wrappedValue.dismiss()
+                    Button { presentationMode.wrappedValue.dismiss() } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.primary)
                     }
-                    .foregroundColor(CatalogTheme.primaryText)
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Create") {
-                        createFolder()
+                    Button { createFolder() } label: {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(!folderName.isEmpty ? .primary : Color.gray)
                     }
-                    .foregroundColor(!folderName.isEmpty ? CatalogTheme.primaryText : Color.gray)
                     .disabled(folderName.isEmpty)
                 }
             }

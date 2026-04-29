@@ -49,10 +49,11 @@ public struct ExceptionsDashboardView: View {
             .navigationTitle("Exception Queue")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Close") {
-                        presentationMode.wrappedValue.dismiss()
+                    Button { presentationMode.wrappedValue.dismiss() } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.primary)
                     }
-                    .foregroundColor(CatalogTheme.primaryText)
                 }
             }
         }

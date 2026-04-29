@@ -244,10 +244,11 @@ public struct AddItemScanView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Close") {
-                        presentationMode.wrappedValue.dismiss()
+                    Button { presentationMode.wrappedValue.dismiss() } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.primary)
                     }
-                    .foregroundColor(CatalogTheme.primaryText)
                 }
                 if scanCount > 0 {
                     ToolbarItem(placement: .navigationBarTrailing) {
@@ -519,7 +520,7 @@ public struct AddItemScanView: View {
     
     private var detailsFormView: some View {
         Form {
-            Section(header: Text("Scanned Barcode")) {
+            Section(header: Text("Scanned Barcode").headingStyle()) {
                 HStack {
                     Image(systemName: "barcode")
                         .foregroundColor(.appAccent)
@@ -536,7 +537,7 @@ public struct AddItemScanView: View {
                 }
             }
             
-            Section(header: Text("Product Information")) {
+            Section(header: Text("Product Information").headingStyle()) {
                 Picker("Select Product", selection: $selectedProduct) {
                     Text("Choose a product...").tag(nil as Product?)
                     ForEach(viewModel.products, id: \.id) { product in
@@ -552,7 +553,7 @@ public struct AddItemScanView: View {
                 TextField("Batch Number", text: $batchNo)
             }
             
-            Section(header: Text("Location")) {
+            Section(header: Text("Location").headingStyle()) {
                 Picker("Storage Location", selection: $location) {
                     ForEach(viewModel.locations, id: \.self) { loc in
                         Text(loc).tag(loc)
@@ -592,10 +593,11 @@ public struct AddItemScanView: View {
         }
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                Button("Back to Scan") {
-                    withAnimation { scanPhase = .scanned }
+                Button { withAnimation { scanPhase = .scanned } } label: {
+                    Image(systemName: "arrow.uturn.backward")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(.primary)
                 }
-                .foregroundColor(CatalogTheme.primaryText)
             }
         }
     }

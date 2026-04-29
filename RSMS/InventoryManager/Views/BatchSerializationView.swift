@@ -27,8 +27,7 @@ public struct BatchSerializationView: View {
                         ReusableCardView {
                             VStack(alignment: .leading, spacing: 12) {
                                 Text("Batch Serialization")
-                                    .font(.title2.bold())
-                                    .foregroundColor(.appPrimaryText)
+                                    .headingStyle()
                                 Text("Delivery involves **\(totalExpectedQuantity)** physical assets that need serialization mapping before integration into Vault inventory.")
                                     .font(.subheadline)
                                     .foregroundColor(.appSecondaryText)
@@ -57,8 +56,7 @@ public struct BatchSerializationView: View {
                                 VStack(alignment: .leading, spacing: 12) {
                                     HStack {
                                         Text(item.productName)
-                                            .font(.headline)
-                                            .foregroundColor(.appPrimaryText)
+                                            .headingStyle()
                                         Spacer()
                                         let currentCount = extractSerials(from: itemInputs[item.id] ?? "").count
                                         Text("\(currentCount) / \(item.quantity)")
@@ -99,16 +97,18 @@ public struct BatchSerializationView: View {
             .navigationTitle("Ingest Shipment")
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") {
-                        presentationMode.wrappedValue.dismiss()
+                    Button { presentationMode.wrappedValue.dismiss() } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.primary)
                     }
-                    .foregroundColor(CatalogTheme.primaryText)
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Complete") {
-                        submitBatch()
+                    Button { submitBatch() } label: {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(isValidationSatisfied() ? .primary : Color.gray)
                     }
-                    .foregroundColor(isValidationSatisfied() ? CatalogTheme.primaryText : Color.gray)
                     .disabled(!isValidationSatisfied())
                 }
             }

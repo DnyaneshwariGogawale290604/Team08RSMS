@@ -795,8 +795,11 @@ struct CreatePurchaseOrderSheet: View {
             }
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") { dismiss() }
-                        .foregroundColor(.appPrimaryText)
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.primary)
+                    }
                 }
             }
             .alert("Error Creating Order", isPresented: $showErrorAlert) {
@@ -872,7 +875,7 @@ struct PurchaseOrderDetailSheet: View {
                         }
                     }
                 } header: {
-                    Text("Summary")
+                    Text("Summary").headingStyle()
                 }
 
                 Section {
@@ -885,7 +888,7 @@ struct PurchaseOrderDetailSheet: View {
                         }
                     }
                 } header: {
-                    Text("Vendor")
+                    Text("Vendor").headingStyle()
                 }
 
                 Section {
@@ -903,7 +906,7 @@ struct PurchaseOrderDetailSheet: View {
                             .foregroundColor(.appAccent)
                     }
                 } header: {
-                    Text("Product")
+                    Text("Product").headingStyle()
                 }
 
                 if let notes = order.notes, !notes.isEmpty {
@@ -911,7 +914,7 @@ struct PurchaseOrderDetailSheet: View {
                         Text(notes)
                             .font(.subheadline)
                     } header: {
-                        Text("Notes")
+                        Text("Notes").headingStyle()
                     }
                 }
 
@@ -937,7 +940,11 @@ struct PurchaseOrderDetailSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") { dismiss() }.foregroundColor(.appAccent)
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.primary)
+                    }
                 }
             }
             .sheet(isPresented: $showGRNForm) {

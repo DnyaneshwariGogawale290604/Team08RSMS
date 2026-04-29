@@ -62,8 +62,7 @@ public struct DashboardTabView: View {
     private var quickStatsSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Quick Stats")
-                .font(.headline)
-                .foregroundColor(Color.appPrimaryText)
+                .headingStyle()
                 .padding(.horizontal)
             
             ScrollView(.horizontal, showsIndicators: false) {
@@ -127,28 +126,27 @@ public struct DashboardTabView: View {
                 Spacer()
                 
                 Text(value)
-                    .font(.headline.bold())
+                    .font(.system(size: 17, weight: .bold, design: .serif))
                     .foregroundColor(Color.appPrimaryText)
             }
             
             Text(title)
-                .font(.caption)
+                .font(.system(size: 12, weight: .medium, design: .serif))
                 .foregroundColor(Color.appSecondaryText)
                 .lineLimit(1)
         }
         .padding(12)
         .frame(width: 120, alignment: .leading)
         .background(Color.appCard)
-        .cornerRadius(12)
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.appBorder, lineWidth: 1))
+        .cornerRadius(AppTheme.cardCornerRadius)
+        .overlay(RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius).stroke(Color.appBorder, lineWidth: 1))
     }
     
     @ViewBuilder
     private var itemsStockLevelsSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Items Stock Levels")
-                .font(.headline)
-                .foregroundColor(Color.appPrimaryText)
+                .headingStyle()
                 .padding(.horizontal)
             
             ForEach(viewModel.categories, id: \.self) { category in
@@ -167,8 +165,7 @@ public struct DashboardTabView: View {
     private var exceptionsHandlingSummarySection: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Reconciliation Queue")
-                .font(.headline)
-                .foregroundColor(Color.appPrimaryText)
+                .headingStyle()
                 .padding(.horizontal)
             
             Button(action: { showExceptions = true }) {
@@ -176,10 +173,10 @@ public struct DashboardTabView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 6) {
                             Text("Active Exceptions")
-                                .font(.subheadline)
+                                .font(.system(size: 15, weight: .bold, design: .serif))
                                 .foregroundColor(Color.appPrimaryText)
                             Text("\(exceptionEngine.exceptions.count) issues require review")
-                                .font(.caption)
+                                .font(.system(size: 12, design: .serif))
                                 .foregroundColor(Color.appSecondaryText)
                         }
                         Spacer()
@@ -225,17 +222,17 @@ public struct DashboardTabView: View {
             }
             
             Text(value)
-                .font(.title2.bold())
+                .font(.system(size: 20, weight: .bold, design: .serif))
                 .foregroundColor(Color.appPrimaryText)
                 
             Text(title)
-                .font(.subheadline)
+                .font(.system(size: 14, weight: .medium, design: .serif))
                 .foregroundColor(Color.appSecondaryText)
         }
         .padding(16)
         .background(Color.appCard)
-        .cornerRadius(12)
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.appBorder, lineWidth: 1))
+        .cornerRadius(AppTheme.cardCornerRadius)
+        .overlay(RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius).stroke(Color.appBorder, lineWidth: 1))
     }
 
     @ViewBuilder
@@ -256,7 +253,7 @@ public struct DashboardTabView: View {
         
         VStack(spacing: 8) {
             HStack {
-                Text(category).font(.subheadline.bold()).foregroundColor(Color.appPrimaryText)
+                Text(category).font(.system(size: 15, weight: .bold, design: .serif)).foregroundColor(Color.appPrimaryText)
                 Spacer()
                 if hasActiveOrder {
                     Text("Order Placed")
@@ -279,7 +276,7 @@ public struct DashboardTabView: View {
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
                     RoundedRectangle(cornerRadius: 4).fill(Color.appBorder)
-                    RoundedRectangle(cornerRadius: 4).fill(statusColor)
+                    RoundedRectangle(cornerRadius: 4).fill(Color.appAccent)
                         .frame(width: max(geometry.size.width * percent, 0))
                 }
             }
@@ -295,8 +292,8 @@ public struct DashboardTabView: View {
         }
         .padding()
         .background(Color.appCard)
-        .cornerRadius(12)
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.appBorder, lineWidth: 1))
+        .cornerRadius(AppTheme.cardCornerRadius)
+        .overlay(RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius).stroke(Color.appBorder, lineWidth: 1))
         .padding(.horizontal)
     }
 

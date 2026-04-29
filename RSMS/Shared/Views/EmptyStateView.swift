@@ -18,11 +18,10 @@ public struct EmptyStateView: View {
                 .foregroundColor(Color.appAccent)
             
             Text(title)
-                .font(.system(size: 20, weight: .semibold, design: .default))
-                .foregroundColor(Color.appPrimaryText)
+                .headingStyle()
             
             Text(message)
-                .font(.system(size: 14, weight: .regular))
+                .font(.system(size: 14, weight: .regular, design: .serif))
                 .foregroundColor(Color.appSecondaryText)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)

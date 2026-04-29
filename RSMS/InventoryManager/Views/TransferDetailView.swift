@@ -99,8 +99,7 @@ public struct TransferDetailView: View {
                     if let reason = transfer.adminActionReason {
                         VStack(alignment: .leading, spacing: 10) {
                             Text("Admin Decision")
-                                .font(.title3.bold())
-                                .foregroundColor(.appPrimaryText)
+                                .headingStyle()
                                 .padding(.horizontal)
                             
                             ReusableCardView {
@@ -131,8 +130,7 @@ public struct TransferDetailView: View {
                     // Specific shipment of order status section
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Shipment Status")
-                            .font(.title3.bold())
-                            .foregroundColor(.appPrimaryText)
+                            .headingStyle()
                             .padding(.horizontal)
                         
                         ReusableCardView {
@@ -149,8 +147,7 @@ public struct TransferDetailView: View {
                     // Receipt of order -> list of items
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Receipt of Order")
-                            .font(.title3.bold())
-                            .foregroundColor(.appPrimaryText)
+                            .headingStyle()
                             .padding(.horizontal)
                         
                         LazyVStack(spacing: 12) {

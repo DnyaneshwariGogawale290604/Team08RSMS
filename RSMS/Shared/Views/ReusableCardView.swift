@@ -6,7 +6,8 @@ public extension Color {
     static let appBorder = Color.black.opacity(0.08)
     static let appSecondaryText = Color(hex: "#6B5B5B")
     static let appPrimaryText = Color(hex: "#1A1A1A")
-    static let appAccent = Color(hex: "#4A2E32")
+    static let appAccent = Color(hex: "#6E5155")
+    static let appMaroon = Color(hex: "#6E5155")
 
     static let brandOffWhite = appBackground
     static let brandLinen = appCard
@@ -22,7 +23,7 @@ public extension Color {
     static let luxuryPrimaryText = Color(hex: "#1A1A1A")
     static let luxurySecondaryText = Color(hex: "#6B5B5B")
     static let luxuryMutedText = Color(hex: "#9A8A8A")
-    static let luxuryDivider = Color.black.opacity(0.08)
+    static let luxuryDivider = Color.black.opacity(0.1)
 
     init(hex: String) {
         let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
@@ -61,11 +62,12 @@ public enum BrandFont {
 }
 
 public enum AppTheme {
-    public static let cardCornerRadius: CGFloat = 20
-    public static let buttonCornerRadius: CGFloat = 20
+    public static let cardCornerRadius: CGFloat = 16
+    public static let buttonCornerRadius: CGFloat = 12
     public static let sectionSpacing: CGFloat = 24
     public static let contentSpacing: CGFloat = 16
     public static let compactSpacing: CGFloat = 12
+    public static let tagCornerRadius: CGFloat = 6
     public static let floatingButtonSize: CGFloat = 56
     public static let toolbarButtonSize: CGFloat = 34
 }
@@ -80,9 +82,9 @@ public extension View {
 
     func appPrimaryButtonChrome(enabled: Bool = true) -> some View {
         self
-            .background(enabled ? CatalogTheme.brandDeep : CatalogTheme.inactiveBadge)
+            .background(enabled ? Color.appAccent : CatalogTheme.inactiveBadge)
             .foregroundColor(enabled ? .white : CatalogTheme.inactiveBadgeText)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: AppTheme.buttonCornerRadius, style: .continuous))
     }
 
     func luxuryPrimaryButtonChrome(enabled: Bool = true, cornerRadius: CGFloat = 16) -> some View {
@@ -91,6 +93,12 @@ public extension View {
             .foregroundColor(.white)
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
+    }
+
+    func headingStyle() -> some View {
+        self
+            .font(.system(size: 18, weight: .bold, design: .serif))
+            .foregroundColor(CatalogTheme.primaryText)
     }
 }
 

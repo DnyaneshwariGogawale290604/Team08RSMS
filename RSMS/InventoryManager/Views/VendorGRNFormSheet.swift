@@ -48,8 +48,11 @@ struct VendorGRNFormSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                        .foregroundColor(.appAccent)
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.primary)
+                    }
                 }
             }
             .overlay {
@@ -69,8 +72,7 @@ struct VendorGRNFormSheet: View {
     private var orderSummaryCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             Label("Order Details", systemImage: "shippingbox")
-                .font(.caption.weight(.semibold))
-                .foregroundColor(.appSecondaryText)
+                .headingStyle()
 
             HStack {
                 Text("PO Number")
@@ -125,9 +127,7 @@ struct VendorGRNFormSheet: View {
     private var physicalCheckCard: some View {
         VStack(spacing: 0) {
             Label("Physical Inspection", systemImage: "eye")
-                .font(.caption.weight(.semibold))
-                .foregroundColor(.appSecondaryText)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .headingStyle()
                 .padding(.horizontal, 16)
                 .padding(.top, 14)
                 .padding(.bottom, 10)
@@ -212,8 +212,7 @@ struct VendorGRNFormSheet: View {
     private var notesCard: some View {
         VStack(alignment: .leading, spacing: 8) {
             Label("Inspection Notes", systemImage: "note.text")
-                .font(.caption.weight(.semibold))
-                .foregroundColor(.appSecondaryText)
+                .headingStyle()
             TextEditor(text: $notes)
                 .frame(minHeight: 80, maxHeight: 120)
                 .font(.system(size: 14))
@@ -270,7 +269,7 @@ struct VendorGRNFormSheet: View {
                     .padding(.horizontal, 20)
                     .padding(.vertical, 10)
                     .background(Color.appAccent.opacity(0.1))
-                    .cornerRadius(12)
+                    .cornerRadius(AppTheme.cardCornerRadius)
                 Text("All received items were added to the Items tab with batch-linked RFID tags, and live stock has been updated.")
                     .font(.subheadline)
                     .foregroundColor(.appSecondaryText)
@@ -297,7 +296,7 @@ struct VendorGRNFormSheet: View {
             }
             .padding(32)
             .background(Color(UIColor.secondarySystemGroupedBackground))
-            .cornerRadius(24)
+            .cornerRadius(AppTheme.cardCornerRadius)
             .shadow(radius: 30)
             .padding(.horizontal, 24)
         }

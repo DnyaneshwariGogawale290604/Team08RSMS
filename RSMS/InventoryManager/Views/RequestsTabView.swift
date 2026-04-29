@@ -144,8 +144,8 @@ public struct RequestsTabView: View {
             // Header: Status Badge + REQ ID
             HStack {
                 Text("REQ-\(request.id.uuidString.prefix(5).uppercased())")
-                    .font(.subheadline.bold())
-                    .foregroundColor(Color(UIColor.label))
+                    .font(.system(size: 14, weight: .bold, design: .serif))
+                    .foregroundColor(CatalogTheme.primaryText)
                 Spacer()
                 statusBadge(for: request.status)
             }
@@ -175,8 +175,8 @@ public struct RequestsTabView: View {
                             .font(.caption)
                             .foregroundColor(Color(UIColor.secondaryLabel))
                         Text(request.product?.name ?? "Unknown Product")
-                            .font(.body.weight(.semibold))
-                            .foregroundColor(Color(UIColor.label))
+                            .font(.system(size: 16, weight: .semibold, design: .serif))
+                            .foregroundColor(CatalogTheme.primaryText)
                     }
                     Spacer()
                     VStack(alignment: .trailing, spacing: 4) {
@@ -223,7 +223,7 @@ public struct RequestsTabView: View {
         }
         .padding(16)
         .background(Color(UIColor.secondarySystemGroupedBackground))
-        .cornerRadius(16)
+        .cornerRadius(AppTheme.cardCornerRadius)
         .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 2)
     }
 
@@ -246,7 +246,7 @@ public struct RequestsTabView: View {
                     .font(.subheadline.bold())
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
-                    .background(Color.blue)
+                    .background(CatalogTheme.primary)
                     .foregroundColor(.white)
                     .cornerRadius(10)
             }
@@ -270,7 +270,7 @@ public struct RequestsTabView: View {
                         showRejectAlert = true
                     } label: {
                         Text("Reject")
-                            .font(.subheadline.bold())
+                            .font(.system(size: 14, weight: .bold, design: .serif))
                             .foregroundColor(.red)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
@@ -286,11 +286,11 @@ public struct RequestsTabView: View {
                         }
                     } label: {
                         Text("Accept Order")
-                            .font(.subheadline.bold())
+                            .font(.system(size: 14, weight: .bold, design: .serif))
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
-                            .background(Color.green)
+                            .background(CatalogTheme.primary)
                             .cornerRadius(10)
                     }
                     .buttonStyle(.plain)
@@ -348,8 +348,8 @@ public struct RequestsTabView: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Text("PO-\(order.id.uuidString.prefix(5).uppercased())")
-                        .font(.system(.subheadline, design: .monospaced).bold())
-                        .foregroundColor(.appPrimaryText)
+                        .font(.system(.subheadline, design: .serif).bold())
+                        .foregroundColor(CatalogTheme.primaryText)
                     Spacer()
                     Text(statusText)
                         .font(.caption.bold())
@@ -380,11 +380,11 @@ public struct RequestsTabView: View {
                         selectedVendorOrder = order
                     } label: {
                         Text("Receive (Generate GRN)")
-                            .font(.subheadline.bold())
+                            .font(.system(size: 14, weight: .bold, design: .serif))
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 10)
-                            .background(Color.green)
+                            .background(CatalogTheme.primary)
                             .cornerRadius(8)
                     }
                     .padding(.top, 4)
