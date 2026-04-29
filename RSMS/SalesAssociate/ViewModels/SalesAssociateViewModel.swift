@@ -68,11 +68,10 @@ final class SalesAssociateViewModel: ObservableObject {
                 .execute()
                 .value
 
-            async let ratingsTask: [SARating] = client
-                .from("sales_orders")
-                .select("order_id,rating_value")
-                .eq("sales_associate_id", value: userId.uuidString)  // ← must be String
-                .in("store_id", values: scopedStoreIds)
+            async let ratingsTask: [SARating] = SupabaseManager.shared.serviceRoleClient
+                .from("order_feedback")
+                .select("order_id, rating")
+                .eq("sales_associate_id", value: userId.uuidString)
                 .execute()
                 .value
 
@@ -282,10 +281,10 @@ final class SalesAssociateViewModel: ObservableObject {
 
             print("[fetchTrendingProducts] \(totals.count) distinct products after brand filter")
 
-            // Sort by total units sold, take top 5
+            // Sort by total units sold, take top 3
             let sorted = totals
                 .sorted { $0.value.count > $1.value.count }
-                .prefix(5)
+                .prefix(3)
 
             let maxCount = max(sorted.first?.value.count ?? 1, 1)
 

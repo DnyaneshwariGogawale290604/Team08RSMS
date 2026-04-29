@@ -16,11 +16,16 @@ public final class SupabaseManager: @unchecked Sendable {
     nonisolated(unsafe) public static let shared = SupabaseManager()
 
     nonisolated(unsafe) public let client: SupabaseClient
+    nonisolated(unsafe) public let serviceRoleClient: SupabaseClient
 
     private init() {
         self.client = SupabaseClient(
             supabaseURL: SupabaseConfiguration.projectURL,
             supabaseKey: SupabaseConfiguration.publicKey
+        )
+        self.serviceRoleClient = SupabaseClient(
+            supabaseURL: SupabaseConfiguration.projectURL,
+            supabaseKey: SupabaseConfiguration.serviceRoleKey
         )
     }
 }

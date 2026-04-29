@@ -27,7 +27,6 @@ struct SalesAssociateDashboardView: View {
                             salesMetricsSection
                             ratingSection
                             trendingSection
-                            catalogSection
                         }
                         .padding(.top, 16)
                         .padding(.bottom, 40)
@@ -232,68 +231,6 @@ struct SalesAssociateDashboardView: View {
         )
     }
 
-    private var catalogSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Text("PRODUCT CATALOG")
-                    .font(.system(size: 11, weight: .semibold))
-                    .kerning(1.2)
-                    .foregroundStyle(Color.luxurySecondaryText)
-                Spacer()
-                Button {
-                    withAnimation { showCatalog.toggle() }
-                    if showCatalog && viewModel.catalog.isEmpty {
-                        Task { await viewModel.fetchCatalog() }
-                    }
-                } label: {
-                    Text(showCatalog ? "Hide" : "Show all")
-                        .font(BrandFont.body(13))
-                        .foregroundStyle(Color.luxuryPrimary)
-                }
-            }
-            .padding(.horizontal, 16)
-
-            if showCatalog {
-                VStack(spacing: 16) {
-                    HStack(spacing: 10) {
-                        Image(systemName: "magnifyingglass")
-                            .foregroundStyle(Color.luxuryPrimary)
-                            .font(.system(size: 14))
-                        TextField("Search products...", text: $catalogSearch)
-                            .font(BrandFont.body(14))
-                            .foregroundStyle(Color.luxuryPrimaryText)
-                            .onChange(of: catalogSearch) { newSearch in
-                                Task { await viewModel.fetchCatalog(search: newSearch) }
-                            }
-                    }
-                    .padding(16)
-                    .background(Color.luxurySurface)
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
-                    .padding(.horizontal, 16)
-
-                    if viewModel.catalog.isEmpty {
-                        emptyStateCard(icon: "tag.slash", text: "No products matched.")
-                    } else {
-                        VStack(spacing: 0) {
-                            ForEach(Array(viewModel.catalog.enumerated()), id: \.element.id) { index, product in
-                                CatalogRow(product: product)
-                                if index < viewModel.catalog.count - 1 {
-                                    Divider()
-                                        .background(Color.luxuryDivider)
-                                        .padding(.leading, 16)
-                                }
-                            }
-                        }
-                        .background(Color.white)
-                        .clipShape(RoundedRectangle(cornerRadius: 16))
-                        .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 2)
-                        .padding(.horizontal, 16)
-                    }
-                }
-            }
-        }
-    }
-
     private func greetingTime() -> String {
         let h = Calendar.current.component(.hour, from: Date())
         if h < 12 { return "Good morning," }
@@ -350,38 +287,5 @@ struct SalesAssociateDashboardView: View {
         formatter.numberStyle = .decimal
         formatter.maximumFractionDigits = 0
         return "₹\(formatter.string(from: NSNumber(value: value)) ?? "0")"
-    }
-}
-
-struct CatalogRow: View {
-    let product: Product
-    var body: some View {
-        HStack(spacing: 16) {
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color.luxurySurface)
-                .frame(width: 40, height: 40)
-                .overlay(
-                    Image(systemName: "tag")
-                        .font(.system(size: 14))
-                        .foregroundStyle(Color.luxuryPrimary)
-                )
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(product.name)
-                    .font(BrandFont.body(14, weight: .medium))
-                    .foregroundStyle(Color.luxuryPrimaryText)
-                Text(product.category)
-                    .font(BrandFont.body(11))
-                    .foregroundStyle(Color.luxurySecondaryText)
-            }
-            Spacer()
-            VStack(alignment: .trailing, spacing: 2) {
-                Text("₹\(Int(product.price))")
-                    .font(BrandFont.body(14, weight: .semibold))
-                    .foregroundStyle(Color.luxuryDeepAccent)
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
     }
 }

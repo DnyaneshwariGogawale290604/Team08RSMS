@@ -74,7 +74,7 @@ struct SARating: Identifiable, Decodable, Sendable {
 
     enum CodingKeys: String, CodingKey {
         case id = "order_id"
-        case ratingValue = "rating_value"
+        case ratingValue = "rating"
     }
 }
 
