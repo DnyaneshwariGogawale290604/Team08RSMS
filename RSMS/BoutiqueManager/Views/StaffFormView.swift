@@ -126,14 +126,21 @@ public struct StaffFormView: View {
                     .listRowBackground(canSave ? BoutiqueTheme.textPrimary : BoutiqueTheme.border)
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(BoutiqueTheme.background.ignoresSafeArea())
             .navigationTitle(userToEdit == nil ? "Add Staff" : "Edit Staff")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarColorScheme(.light, for: .navigationBar)
-            .navigationBarItems(leading: Button(action: {
-                presentationMode.wrappedValue.dismiss()
-            }) {
-                Image(systemName: "xmark")
-            })
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(action: {
+                        presentationMode.wrappedValue.dismiss()
+                    }) {
+                        Image(systemName: "xmark")
+                            .foregroundColor(BoutiqueTheme.textPrimary)
+                    }
+                }
+            }
             .onAppear {
                 if let u = userToEdit {
                     name = u.name ?? ""

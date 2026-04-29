@@ -26,6 +26,7 @@ public class InventoryViewModel: ObservableObject {
                 try await DataService.shared.createStockRequest(productId: productId, quantity: quantity)
                 self.orderedProductIds.insert(productId)
                 self.notificationMessage = "Order placed successfully!"
+                self.fetchInventoryAndAlerts()
                 self.isLoading = false
             } catch {
                 self.notificationMessage = "Failed to place order."

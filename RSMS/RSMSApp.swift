@@ -3,14 +3,24 @@ import SwiftUI
 @main
 struct RSMSApp: App {
     init() {
-        let descriptor = UIFontDescriptor.preferredFontDescriptor(withTextStyle: .headline).withDesign(.serif)
-        let largeDescriptor = UIFontDescriptor.preferredFontDescriptor(withTextStyle: .largeTitle).withDesign(.serif)
+        let titleDescriptor = UIFontDescriptor.preferredFontDescriptor(withTextStyle: .headline)
+            .withDesign(.serif) ?? UIFontDescriptor.preferredFontDescriptor(withTextStyle: .headline)
+        let boldTitleDescriptor = titleDescriptor.withSymbolicTraits(.traitBold) ?? titleDescriptor
+        let titleFont = UIFont(descriptor: boldTitleDescriptor, size: 18)
         
-        let font = descriptor.map { UIFont(descriptor: $0, size: 17) } ?? UIFont.boldSystemFont(ofSize: 17)
-        let largeFont = largeDescriptor.map { UIFont(descriptor: $0, size: 34) } ?? UIFont.boldSystemFont(ofSize: 34)
+        let largeTitleDescriptor = UIFontDescriptor.preferredFontDescriptor(withTextStyle: .largeTitle)
+            .withDesign(.serif) ?? UIFontDescriptor.preferredFontDescriptor(withTextStyle: .largeTitle)
+        let boldLargeTitleDescriptor = largeTitleDescriptor.withSymbolicTraits(.traitBold) ?? largeTitleDescriptor
+        let largeTitleFont = UIFont(descriptor: boldLargeTitleDescriptor, size: 34)
         
-        UINavigationBar.appearance().titleTextAttributes = [.font: font]
-        UINavigationBar.appearance().largeTitleTextAttributes = [.font: largeFont]
+        UINavigationBar.appearance().titleTextAttributes = [
+            .font: titleFont,
+            .foregroundColor: UIColor(hex: "#1A1A1A")
+        ]
+        UINavigationBar.appearance().largeTitleTextAttributes = [
+            .font: largeTitleFont,
+            .foregroundColor: UIColor(hex: "#1A1A1A")
+        ]
         
         UISegmentedControl.appearance().selectedSegmentTintColor = .white
         UISegmentedControl.appearance().backgroundColor = .white

@@ -137,6 +137,11 @@ struct StaffRow: View {
                     .font(.system(size: 18, weight: .bold, design: .serif))
                     .foregroundColor(CatalogTheme.primaryText)
 
+                Text("Emp ID: EMP-\(staff.id.uuidString.prefix(6).uppercased())")
+                    .font(.caption2)
+                    .fontWeight(.medium)
+                    .foregroundColor(BoutiqueTheme.textSecondary)
+
                 if let sales = staff.totalSales {
                     Text("Total Sales: \(formatCurrency(sales))")
                         .font(.caption)
