@@ -223,6 +223,23 @@ public class SharedOrderStore: ObservableObject {
     public func addOrder(_ order: PlacedOrder) {
         orders.append(order)
     }
+
+    /// Update the status of a local session order in-place.
+    public func updateStatus(for orderId: UUID, status: String) {
+        if let idx = orders.firstIndex(where: { $0.id == orderId }) {
+            let old = orders[idx]
+            orders[idx] = PlacedOrder(
+                id: old.id,
+                orderNumber: old.orderNumber,
+                customer: old.customer,
+                items: old.items,
+                totalAmount: old.totalAmount,
+                status: status,
+                createdAt: old.createdAt,
+                associateName: old.associateName
+            )
+        }
+    }
 }
 
 // MARK: - Billing and Payment Models

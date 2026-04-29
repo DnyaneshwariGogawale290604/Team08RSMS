@@ -60,7 +60,7 @@ struct AppointmentDetailSheet: View {
                         .foregroundStyle(Color.luxuryPrimaryText)
                 }
             }
-            .confirmationDialog("Cancel Appointment", isPresented: $showCancelConfirm, titleVisibility: .visible) {
+            .confirmationDialog("Are you sure?", isPresented: $showCancelConfirm, titleVisibility: .visible) {
                 Button("Cancel Appointment", role: .destructive) {
                     Task {
                         await vm.updateStatus("cancelled", for: appointment.id)
@@ -78,6 +78,9 @@ struct AppointmentDetailSheet: View {
                         appointmentsVM: vm,
                         onComplete: {
                             showCheckout = false
+                            // Mark appointment as completed → removes from appointment list,
+                            // order now lives in the Orders tab.
+                            Task { await vm.updateStatus("completed", for: appointment.id) }
                             dismiss()
                         }
                     )

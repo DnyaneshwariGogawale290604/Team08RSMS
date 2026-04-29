@@ -169,17 +169,10 @@ final class AppointmentsViewModel: ObservableObject {
                 .update(StatusUpdate(status: status))
                 .eq("id", value: appointmentId.uuidString)
                 .execute()
-            
-            // If it's cancelled or no-show, remove from the local "active" list.
-            // If it's completed, we now keep it (since fetchAppointments includes completed).
-            if status != "completed" {
-                appointments.removeAll { $0.id == appointmentId }
-            } else {
-                // Update the status locally so the UI can reflect it if needed
-                if let idx = appointments.firstIndex(where: { $0.id == appointmentId }) {
-                    appointments[idx].status = status
-                }
-            }
+
+            // Remove from local active list for all terminal statuses.
+            // "completed" means the order was placed — it now lives in Orders tab.
+            appointments.removeAll { $0.id == appointmentId }
         } catch is CancellationError {
             // Task cancelled by UI lifecycle; do not show error.
         } catch {

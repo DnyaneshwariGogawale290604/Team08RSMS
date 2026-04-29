@@ -79,14 +79,14 @@ struct SalesAssociateDashboardView: View {
 
     private var salesMetricsSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            sectionHeader(title: "TODAY'S PERFORMANCE")
+            sectionHeader(title: "MONTHLY PERFORMANCE")
 
             if viewModel.todayOrderCount == 0 {
-                emptyStateCard(icon: "chart.bar", text: "No performance data for today yet.")
+                emptyStateCard(icon: "chart.bar", text: "No performance data for this month yet.")
             } else {
                 HStack(spacing: 12) {
-                    statCard(title: "Today Sales", value: currency(viewModel.todaySalesAmount), subtitle: "Revenue")
-                    statCard(title: "Orders", value: "\(viewModel.todayOrderCount)", subtitle: "Today")
+                    statCard(title: "Monthly Sales", value: currency(viewModel.todaySalesAmount), subtitle: "Revenue")
+                    statCard(title: "Orders", value: "\(viewModel.todayOrderCount)", subtitle: "This Month")
                 }
                 .padding(.horizontal, 16)
             }
@@ -130,8 +130,106 @@ struct SalesAssociateDashboardView: View {
     private var trendingSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             sectionHeader(title: "TRENDING PRODUCTS")
-            emptyStateCard(icon: "arrow.up.right", text: "No trend data available yet.")
+
+            if viewModel.trendingProducts.isEmpty {
+                emptyStateCard(icon: "arrow.up.right", text: "No trend data yet — complete some orders to see trending products.")
+                    .padding(.horizontal, 16)
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(alignment: .top, spacing: 14) {
+                        ForEach(Array(viewModel.trendingProducts.enumerated()), id: \.element.id) { index, trend in
+                            trendingCard(trend: trend, rank: index + 1)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 4)
+                }
+            }
         }
+    }
+
+    private func trendingCard(trend: TrendingProduct, rank: Int) -> some View {
+        let isTop = rank == 1
+        let accentColor: Color = isTop ? Color(hex: "#C8913A") : Color.luxuryPrimary
+        let cardBg: Color = isTop ? Color(hex: "#FDF8F0") : Color.white
+
+        return VStack(alignment: .leading, spacing: 0) {
+            // Top row: rank + flames
+            HStack(alignment: .center) {
+                ZStack {
+                    Circle()
+                        .fill(accentColor.opacity(0.15))
+                        .frame(width: 30, height: 30)
+                    Text("\(rank)")
+                        .font(.system(size: 13, weight: .bold, design: .serif))
+                        .foregroundStyle(accentColor)
+                }
+                Spacer()
+                HStack(spacing: 2) {
+                    ForEach(0..<trend.flameLevel, id: \.self) { _ in
+                        Image(systemName: "flame.fill")
+                            .font(.system(size: 11))
+                            .foregroundStyle(
+                                trend.flameLevel == 3 ? Color(hex: "#C8913A")
+                                : trend.flameLevel == 2 ? Color.luxuryPrimary
+                                : Color.luxurySecondaryText
+                            )
+                    }
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.top, 14)
+            .padding(.bottom, 10)
+
+            Text(trend.name)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(Color.luxuryPrimaryText)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 14)
+
+            Text(trend.category.isEmpty ? "Product" : trend.category)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(accentColor)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(accentColor.opacity(0.1))
+                .clipShape(Capsule())
+                .padding(.horizontal, 14)
+                .padding(.top, 6)
+
+            Spacer(minLength: 12)
+
+            Rectangle()
+                .fill(Color.luxuryDivider)
+                .frame(height: 0.5)
+                .padding(.horizontal, 14)
+
+            HStack(alignment: .center) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("\(trend.soldCount)")
+                        .font(.system(size: 18, weight: .bold, design: .serif))
+                        .foregroundStyle(Color.luxuryPrimaryText)
+                    Text("units sold")
+                        .font(.system(size: 10))
+                        .foregroundStyle(Color.luxurySecondaryText)
+                }
+                Spacer()
+                Text("₹\(Int(trend.price))")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color.luxuryDeepAccent)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+        }
+        .frame(width: 160, height: 200)
+        .background(cardBg)
+        .clipShape(RoundedRectangle(cornerRadius: 18))
+        .shadow(color: isTop ? accentColor.opacity(0.15) : Color.black.opacity(0.06), radius: 10, x: 0, y: 3)
+        .overlay(
+            RoundedRectangle(cornerRadius: 18)
+                .stroke(isTop ? accentColor.opacity(0.3) : Color.clear, lineWidth: 1)
+        )
     }
 
     private var catalogSection: some View {

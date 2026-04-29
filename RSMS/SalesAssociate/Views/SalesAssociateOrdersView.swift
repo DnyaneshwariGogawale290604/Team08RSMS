@@ -1,5 +1,7 @@
 import SwiftUI
 import Combine
+import Supabase
+import PostgREST
 
 struct SalesAssociateOrdersView: View {
     @ObservedObject private var sessionViewModel: SessionViewModel
@@ -17,6 +19,8 @@ struct SalesAssociateOrdersView: View {
     @State private var searchText = ""
     @State private var selectedStatusFilter: OrderStatusFilter = .all
     @State private var billingOrderId: UUID? = nil
+    @State private var orderToCancel: SAOrder? = nil
+    @State private var showNewOrder = false
 
     init(sessionViewModel: SessionViewModel) {
         self.sessionViewModel = sessionViewModel
@@ -31,7 +35,7 @@ struct SalesAssociateOrdersView: View {
             return "completed"
         case "cancelled", "canceled":
             return "cancelled"
-        case "pending":
+        case "pending", "confirmed":
             return "pending"
         default:
             return raw
@@ -127,7 +131,7 @@ struct SalesAssociateOrdersView: View {
                         if hasVisibleOrders {
                             ScrollView(showsIndicators: false) {
                                 VStack(spacing: 10) {
-                                    ForEach(filteredLocalOrders) { placed in
+                                     ForEach(filteredLocalOrders) { placed in
                                         Button {
                                             selectedOrder = placed
                                         } label: {
@@ -137,6 +141,28 @@ struct SalesAssociateOrdersView: View {
                                                      status: placed.status)
                                         }
                                         .buttonStyle(LuxuryPressStyle())
+                                        .contextMenu {
+                                            if placed.status.lowercased() != "completed" {
+                                                Button {
+                                                    Task {
+                                                        await viewModel.updateOrderStatus(orderId: placed.id, status: "completed")
+                                                        orderStore.updateStatus(for: placed.id, status: "completed")
+                                                    }
+                                                } label: {
+                                                    Label("Mark Complete", systemImage: "checkmark.circle.fill")
+                                                }
+                                            }
+                                            if placed.status.lowercased() != "cancelled" {
+                                                Button(role: .destructive) {
+                                                    Task {
+                                                        await viewModel.updateOrderStatus(orderId: placed.id, status: "cancelled")
+                                                        orderStore.updateStatus(for: placed.id, status: "cancelled")
+                                                    }
+                                                } label: {
+                                                    Label("Cancel Order", systemImage: "xmark.circle.fill")
+                                                }
+                                            }
+                                        }
                                     }
 
                                     ForEach(filteredRemoteOrders) { order in
@@ -149,6 +175,22 @@ struct SalesAssociateOrdersView: View {
                                                      status: order.status ?? "pending")
                                         }
                                         .buttonStyle(LuxuryPressStyle())
+                                        .contextMenu {
+                                            if order.status?.lowercased() != "completed" {
+                                                Button {
+                                                    Task { await viewModel.updateOrderStatus(orderId: order.id, status: "completed") }
+                                                } label: {
+                                                    Label("Mark Complete", systemImage: "checkmark.circle.fill")
+                                                }
+                                            }
+                                            if order.status?.lowercased() != "cancelled" {
+                                                Button(role: .destructive) {
+                                                    orderToCancel = order
+                                                } label: {
+                                                    Label("Cancel Order", systemImage: "xmark.circle.fill")
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                                 .padding(16)
@@ -165,11 +207,36 @@ struct SalesAssociateOrdersView: View {
                         }
                     }
                 }
+
+                // Floating "New Order" button
+                VStack {
+                    Spacer()
+                    HStack {
+                        Spacer()
+                        Button { showNewOrder = true } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "plus")
+                                    .font(.system(size: 14, weight: .bold))
+                                Text("New")
+                                    .font(BrandFont.body(14, weight: .semibold))
+                            }
+                            .foregroundStyle(Color.white)
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 13)
+                            .background(Color.luxuryDeepAccent)
+                            .clipShape(Capsule())
+                            .shadow(color: Color.luxuryDeepAccent.opacity(0.30), radius: 10, y: 4)
+                        }
+                        .buttonStyle(LuxuryPressStyle())
+                        .padding(.trailing, 20)
+                        .padding(.bottom, 20)
+                    }
+                }
             }
             .navigationTitle("Orders")
             // Sheet for session-local orders (full receipt)
             .sheet(item: $selectedOrder) { order in
-                StandaloneReceiptSheet(placed: order, onViewBilling: { billingOrderId = order.id })
+                StandaloneReceiptSheet(placed: order, viewModel: viewModel, onViewBilling: { billingOrderId = order.id })
             }
             // Sheet for remote orders (summary view)
             .sheet(item: $selectedRemoteOrder) { order in
@@ -188,6 +255,25 @@ struct SalesAssociateOrdersView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     SalesAssociateProfileButton(sessionViewModel: sessionViewModel)
                 }
+            }
+            .confirmationDialog(
+                "Cancel Order",
+                isPresented: Binding(get: { orderToCancel != nil }, set: { if !$0 { orderToCancel = nil } }),
+                titleVisibility: .visible
+            ) {
+                Button("Cancel Order", role: .destructive) {
+                    if let order = orderToCancel {
+                        Task { await viewModel.updateOrderStatus(orderId: order.id, status: "cancelled") }
+                    }
+                    orderToCancel = nil
+                }
+                Button("Keep", role: .cancel) { orderToCancel = nil }
+            } message: {
+                Text("This will mark the order as cancelled and cannot be undone.")
+            }
+            .fullScreenCover(isPresented: $showNewOrder) {
+                SalesAssociateSalesView(isModal: true)
+                    .environmentObject(orderStore)
             }
             .task {
                 await viewModel.refresh()
@@ -295,8 +381,17 @@ struct SalesAssociateOrdersView: View {
 // MARK: - StandaloneReceiptSheet
 struct StandaloneReceiptSheet: View {
     let placed: PlacedOrder
+    @ObservedObject var viewModel: SalesAssociateViewModel
+    @EnvironmentObject var orderStore: SharedOrderStore
     @Environment(\.dismiss) var dismiss
     var onViewBilling: () -> Void
+    @State private var isCompleting = false
+    @State private var showConfirm = false
+    @State private var showCancelConfirm = false
+
+    private var normalizedStatus: String {
+        SalesAssociateOrdersView.normalizeStatus(placed.status)
+    }
 
     var body: some View {
         NavigationStack {
@@ -341,6 +436,81 @@ struct StandaloneReceiptSheet: View {
                         .padding(.horizontal, 16)
                         .padding(.top, 24)
 
+                        HStack(spacing: 12) {
+                            if normalizedStatus != "cancelled" {
+                                Button {
+                                    showCancelConfirm = true
+                                } label: {
+                                    HStack {
+                                        Image(systemName: "xmark.circle")
+                                        Text("Cancel")
+                                    }
+                                    .font(BrandFont.body(14, weight: .semibold))
+                                    .foregroundStyle(Color(hex: "#9B4444"))
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 13)
+                                    .background(Color.white)
+                                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                                    .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color(hex: "#9B4444"), lineWidth: 1))
+                                }
+                                .buttonStyle(LuxuryPressStyle())
+                                .disabled(isCompleting)
+                            }
+
+                            if normalizedStatus != "completed" {
+                                Button {
+                                    showConfirm = true
+                                } label: {
+                                    HStack(spacing: 8) {
+                                        if isCompleting {
+                                            ProgressView().tint(Color.white).scaleEffect(0.9)
+                                        } else {
+                                            Image(systemName: "checkmark.circle")
+                                        }
+                                        Text(isCompleting ? "Wait..." : "Complete")
+                                    }
+                                    .font(BrandFont.body(14, weight: .semibold))
+                                    .foregroundStyle(Color.white)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 13)
+                                    .background(Color.luxuryPrimary)
+                                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                                }
+                                .buttonStyle(LuxuryPressStyle())
+                                .disabled(isCompleting)
+                            }
+                            
+                            if normalizedStatus != "pending" {
+                                Button {
+                                    Task {
+                                        isCompleting = true
+                                        await viewModel.updateOrderStatus(orderId: placed.id, status: "confirmed")
+                                        orderStore.updateStatus(for: placed.id, status: "confirmed")
+                                        isCompleting = false
+                                        if viewModel.errorMessage == nil { dismiss() }
+                                    }
+                                } label: {
+                                    HStack(spacing: 8) {
+                                        if isCompleting {
+                                            ProgressView().tint(Color.luxuryDeepAccent).scaleEffect(0.9)
+                                        } else {
+                                            Image(systemName: "arrow.uturn.backward.circle")
+                                        }
+                                        Text("Pending")
+                                    }
+                                    .font(BrandFont.body(14, weight: .semibold))
+                                    .foregroundStyle(Color.luxuryDeepAccent)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 13)
+                                    .background(Color.luxurySurface)
+                                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                                }
+                                .buttonStyle(LuxuryPressStyle())
+                                .disabled(isCompleting)
+                            }
+                        }
+                        .padding(.horizontal, 16)
+
                         Button {
                             onViewBilling()
                             dismiss()
@@ -371,6 +541,30 @@ struct StandaloneReceiptSheet: View {
                     Button("Close") { dismiss() }.foregroundStyle(Color.luxuryPrimary).font(.system(size: 14, weight: .semibold))
                 }
             }
+            .alert("Complete Order", isPresented: $showConfirm) {
+                Button("Cancel", role: .cancel) {}
+                Button("Complete", role: .none) {
+                    Task {
+                        isCompleting = true
+                        await viewModel.updateOrderStatus(orderId: placed.id, status: "completed")
+                        orderStore.updateStatus(for: placed.id, status: "completed")
+                        isCompleting = false
+                        if viewModel.errorMessage == nil { dismiss() }
+                    }
+                }
+            } message: { Text("Mark this order as completed?") }
+            .alert("Cancel Order", isPresented: $showCancelConfirm) {
+                Button("Keep", role: .cancel) {}
+                Button("Cancel Order", role: .destructive) {
+                    Task {
+                        isCompleting = true
+                        await viewModel.updateOrderStatus(orderId: placed.id, status: "cancelled")
+                        orderStore.updateStatus(for: placed.id, status: "cancelled")
+                        isCompleting = false
+                        if viewModel.errorMessage == nil { dismiss() }
+                    }
+                }
+            } message: { Text("Are you sure you want to cancel this order?") }
         }
     }
 
@@ -387,7 +581,6 @@ struct StandaloneReceiptSheet: View {
 
 // MARK: - SAOrderDetailSheet
 // Summary sheet for remote orders fetched from Supabase.
-// SAOrder only carries order-level data (no line items), so we show what's available.
 struct SAOrderDetailSheet: View {
     let order: SAOrder
     @ObservedObject var viewModel: SalesAssociateViewModel
@@ -395,13 +588,21 @@ struct SAOrderDetailSheet: View {
     var onViewBilling: () -> Void
     @State private var isCompleting = false
     @State private var showConfirm = false
+    @State private var showCancelConfirm = false
+    @State private var orderItems: [SALineItem] = []
+    @State private var isLoadingItems = false
+
+    struct SALineItem: Identifiable {
+        let id = UUID()
+        let name: String
+        let category: String
+        let quantity: Int
+        let priceAtPurchase: Double
+        var lineTotal: Double { Double(quantity) * priceAtPurchase }
+    }
 
     private var normalizedStatus: String {
         SalesAssociateOrdersView.normalizeStatus(order.status)
-    }
-
-    private var canComplete: Bool {
-        normalizedStatus == "pending"
     }
 
     var body: some View {
@@ -423,11 +624,58 @@ struct SAOrderDetailSheet: View {
 
                         // Detail card
                         VStack(spacing: 0) {
+                            if let name = order.customerName {
+                                detailRow(label: "Customer", value: name)
+                                BrandDivider().padding(.leading, 16)
+                            }
                             detailRow(label: "Order ID",
                                       value: "#\(String(order.id.uuidString.prefix(8)).uppercased())")
                             BrandDivider().padding(.leading, 16)
-                            detailRow(label: "Date", value: order.createdAt ?? "–")
-                            BrandDivider().padding(.leading, 16)
+                            if let date = order.createdAt {
+                                detailRow(label: "Date", value: String(date.prefix(10)))
+                                BrandDivider().padding(.leading, 16)
+                            }
+
+                            // Line items
+                            if isLoadingItems {
+                                HStack(spacing: 8) {
+                                    ProgressView().scaleEffect(0.8)
+                                    Text("Loading items...")
+                                        .font(.system(size: 12))
+                                        .foregroundStyle(Color.luxurySecondaryText)
+                                }
+                                .padding(16)
+                            } else if !orderItems.isEmpty {
+                                BrandDivider()
+                                ForEach(Array(orderItems.enumerated()), id: \.element.id) { idx, item in
+                                    HStack {
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text(item.name)
+                                                .font(.system(size: 13))
+                                                .foregroundStyle(Color.luxuryPrimaryText)
+                                            HStack(spacing: 6) {
+                                                Text("×\(item.quantity)")
+                                                    .font(.system(size: 11))
+                                                    .foregroundStyle(Color.luxurySecondaryText)
+                                                Text("@ ₹\(Int(item.priceAtPurchase))")
+                                                    .font(.system(size: 11))
+                                                    .foregroundStyle(Color.luxurySecondaryText)
+                                            }
+                                        }
+                                        Spacer()
+                                        Text("₹\(Int(item.lineTotal))")
+                                            .font(.system(size: 13, weight: .medium))
+                                            .foregroundStyle(Color.luxuryDeepAccent)
+                                    }
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 10)
+                                    if idx < orderItems.count - 1 {
+                                        BrandDivider().padding(.leading, 16)
+                                    }
+                                }
+                                BrandDivider()
+                            }
+
                             detailRow(label: "Total",
                                       value: "₹\(Int(order.totalAmount))",
                                       valueWeight: .semibold)
@@ -436,34 +684,81 @@ struct SAOrderDetailSheet: View {
                         .clipShape(RoundedRectangle(cornerRadius: 16))
                         .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 2)
                         .padding(.horizontal, 16)
+                        .task { await loadOrderItems() }
 
-                        if canComplete {
-                            Button {
-                                showConfirm = true
-                            } label: {
-                                HStack(spacing: 8) {
-                                    if isCompleting {
-                                        ProgressView()
-                                            .tint(Color.white)
-                                            .scaleEffect(0.9)
-                                    } else {
-                                        Image(systemName: "checkmark.circle")
-                                            .font(.system(size: 14, weight: .semibold))
+                        HStack(spacing: 12) {
+                            if normalizedStatus != "cancelled" {
+                                Button {
+                                    showCancelConfirm = true
+                                } label: {
+                                    HStack {
+                                        Image(systemName: "xmark.circle")
+                                        Text("Cancel")
                                     }
-
-                                    Text(isCompleting ? "Completing..." : "Mark as Completed")
-                                        .font(BrandFont.body(14, weight: .semibold))
+                                    .font(BrandFont.body(14, weight: .semibold))
+                                    .foregroundStyle(Color(hex: "#9B4444"))
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 13)
+                                    .background(Color.white)
+                                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                                    .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color(hex: "#9B4444"), lineWidth: 1))
                                 }
-                                .foregroundStyle(Color.white)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 13)
-                                .background(Color.luxuryDeepAccent)
-                                .clipShape(RoundedRectangle(cornerRadius: 16))
+                                .buttonStyle(LuxuryPressStyle())
+                                .disabled(isCompleting)
                             }
-                            .buttonStyle(LuxuryPressStyle())
-                            .disabled(isCompleting)
-                            .padding(.horizontal, 16)
+
+                            if normalizedStatus != "completed" {
+                                Button {
+                                    showConfirm = true
+                                } label: {
+                                    HStack(spacing: 8) {
+                                        if isCompleting {
+                                            ProgressView().tint(Color.white).scaleEffect(0.9)
+                                        } else {
+                                            Image(systemName: "checkmark.circle")
+                                        }
+                                        Text(isCompleting ? "Wait..." : "Complete")
+                                    }
+                                    .font(BrandFont.body(14, weight: .semibold))
+                                    .foregroundStyle(Color.white)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 13)
+                                    .background(Color.luxuryPrimary)
+                                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                                }
+                                .buttonStyle(LuxuryPressStyle())
+                                .disabled(isCompleting)
+                            }
+                            
+                            if normalizedStatus != "pending" {
+                                Button {
+                                    Task {
+                                        isCompleting = true
+                                        await viewModel.updateOrderStatus(orderId: order.id, status: "confirmed")
+                                        isCompleting = false
+                                        if viewModel.errorMessage == nil { dismiss() }
+                                    }
+                                } label: {
+                                    HStack(spacing: 8) {
+                                        if isCompleting {
+                                            ProgressView().tint(Color.luxuryDeepAccent).scaleEffect(0.9)
+                                        } else {
+                                            Image(systemName: "arrow.uturn.backward.circle")
+                                        }
+                                        Text("Pending")
+                                    }
+                                    .font(BrandFont.body(14, weight: .semibold))
+                                    .foregroundStyle(Color.luxuryDeepAccent)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 13)
+                                    .background(Color.luxurySurface)
+                                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                                }
+                                .buttonStyle(LuxuryPressStyle())
+                                .disabled(isCompleting)
+                            }
                         }
+                        .padding(.horizontal, 16)
 
                         Button {
                             onViewBilling()
@@ -506,16 +801,23 @@ struct SAOrderDetailSheet: View {
                 Button("Complete", role: .none) {
                     Task {
                         isCompleting = true
-                        await viewModel.completeOrder(orderId: order.id)
+                        await viewModel.updateOrderStatus(orderId: order.id, status: "completed")
                         isCompleting = false
-                        if viewModel.errorMessage == nil {
-                            dismiss()
-                        }
+                        if viewModel.errorMessage == nil { dismiss() }
                     }
                 }
-            } message: {
-                Text("Mark this order as completed?")
-            }
+            } message: { Text("Mark this order as completed?") }
+            .alert("Cancel Order", isPresented: $showCancelConfirm) {
+                Button("Keep", role: .cancel) {}
+                Button("Cancel Order", role: .destructive) {
+                    Task {
+                        isCompleting = true
+                        await viewModel.updateOrderStatus(orderId: order.id, status: "cancelled")
+                        isCompleting = false
+                        if viewModel.errorMessage == nil { dismiss() }
+                    }
+                }
+            } message: { Text("Are you sure you want to cancel this order?") }
         }
     }
 
@@ -532,5 +834,44 @@ struct SAOrderDetailSheet: View {
                 .multilineTextAlignment(.trailing)
         }
         .padding(.horizontal, 16).padding(.vertical, 14)
+    }
+
+    private func loadOrderItems() async {
+        guard orderItems.isEmpty else { return }
+        isLoadingItems = true
+        defer { isLoadingItems = false }
+
+        struct RawItem: Decodable {
+            let quantity: Int
+            let price_at_purchase: Double
+            let products: ProductInfo?
+
+            struct ProductInfo: Decodable {
+                let name: String
+                let category: String?
+            }
+        }
+
+        do {
+            let client = SupabaseManager.shared.client
+            let rows: [RawItem] = try await client
+                .from("order_items")
+                .select("quantity, price_at_purchase, products(name, category)")
+                .eq("order_id", value: order.id.uuidString)
+                .execute()
+                .value
+
+            orderItems = rows.compactMap { row in
+                guard let info = row.products else { return nil }
+                return SALineItem(
+                    name: info.name,
+                    category: info.category ?? "",
+                    quantity: row.quantity,
+                    priceAtPurchase: row.price_at_purchase
+                )
+            }
+        } catch {
+            print("[SAOrderDetailSheet] Failed to load items: \(error)")
+        }
     }
 }

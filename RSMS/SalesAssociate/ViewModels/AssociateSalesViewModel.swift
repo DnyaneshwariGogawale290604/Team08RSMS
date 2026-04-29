@@ -63,6 +63,7 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
     @Published var showReceipt = false
     @Published var showProductRequest = false
     @Published var showBilling = false
+    @Published var showRatingPrompt = false
 
     // MARK: Billing
     @Published var billingLegs: [BillingLeg] = []
@@ -1673,6 +1674,10 @@ extension AssociateSalesViewModel: RazorpayPaymentCompletionProtocolWithData {
             if let avm = appointmentsVM {
                 await avm.deleteAppointment(id: appointmentId)
             }
+
+            // Trigger rating prompt — must happen before resetOrderContext
+            // so lastPlacedOrder is still available for submitRating
+            showRatingPrompt = true
 
             resetOrderContext()
             onComplete()
