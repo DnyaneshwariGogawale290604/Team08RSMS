@@ -7,6 +7,13 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		18538B7B2FA0DC9000760355 /* CashfreePG in Frameworks */ = {isa = PBXBuildFile; productRef = 18538B7A2FA0DC9000760355 /* CashfreePG */; };
+		18538B832FA0E14600760355 /* CashfreePGCoreSDK in Frameworks */ = {isa = PBXBuildFile; productRef = 18538B822FA0E14600760355 /* CashfreePGCoreSDK */; };
+		18538B852FA0E15E00760355 /* CashfreePGUISDK in Frameworks */ = {isa = PBXBuildFile; productRef = 18538B842FA0E15E00760355 /* CashfreePGUISDK */; };
+		18538B872FA0E17200760355 /* CashfreeAnalyticsSDK in Frameworks */ = {isa = PBXBuildFile; productRef = 18538B862FA0E17200760355 /* CashfreeAnalyticsSDK */; };
+		18538B892FA0E1A200760355 /* CFNetworkSDK in Frameworks */ = {isa = PBXBuildFile; productRef = 18538B882FA0E1A200760355 /* CFNetworkSDK */; };
+		18538B8C2FA0E53700760355 /* PayUIndia-CheckoutPro in Frameworks */ = {isa = PBXBuildFile; productRef = 18538B8B2FA0E53700760355 /* PayUIndia-CheckoutPro */; };
+		18538B8E2FA0E53700760355 /* PayUIndia-CheckoutProBase in Frameworks */ = {isa = PBXBuildFile; productRef = 18538B8D2FA0E53700760355 /* PayUIndia-CheckoutProBase */; };
 		188A6CAF2F9B3ABE007F6F34 /* schema.md in Resources */ = {isa = PBXBuildFile; fileRef = 188A6CAE2F9B3ABE007F6F34 /* schema.md */; };
 		F00074B72F9A136300D34BB8 /* Auth in Frameworks */ = {isa = PBXBuildFile; productRef = F00074B62F9A136300D34BB8 /* Auth */; };
 		F00074B92F9A136300D34BB8 /* Functions in Frameworks */ = {isa = PBXBuildFile; productRef = F00074B82F9A136300D34BB8 /* Functions */; };
@@ -36,23 +43,38 @@
 			buildActionMask = 2147483647;
 			files = (
 				F00074C32F9A136300D34BB8 /* RazorpayCheckout in Frameworks */,
+				18538B892FA0E1A200760355 /* CFNetworkSDK in Frameworks */,
+				18538B872FA0E17200760355 /* CashfreeAnalyticsSDK in Frameworks */,
+				18538B852FA0E15E00760355 /* CashfreePGUISDK in Frameworks */,
 				F00074C12F9A136300D34BB8 /* Supabase in Frameworks */,
+				18538B7B2FA0DC9000760355 /* CashfreePG in Frameworks */,
 				F00074BB2F9A136300D34BB8 /* PostgREST in Frameworks */,
 				F00074B92F9A136300D34BB8 /* Functions in Frameworks */,
+				18538B8E2FA0E53700760355 /* PayUIndia-CheckoutProBase in Frameworks */,
+				18538B8C2FA0E53700760355 /* PayUIndia-CheckoutPro in Frameworks */,
 				F00074B72F9A136300D34BB8 /* Auth in Frameworks */,
 				F00074BF2F9A136300D34BB8 /* Storage in Frameworks */,
 				F00074BD2F9A136300D34BB8 /* Realtime in Frameworks */,
+				18538B832FA0E14600760355 /* CashfreePGCoreSDK in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		18538B812FA0E14600760355 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		F00073B82F99FF7300D34BB8 = {
 			isa = PBXGroup;
 			children = (
 				188A6CAE2F9B3ABE007F6F34 /* schema.md */,
 				F00073C32F99FF7300D34BB8 /* RSMS */,
+				18538B812FA0E14600760355 /* Frameworks */,
 				F00073C22F99FF7300D34BB8 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -92,6 +114,13 @@
 				F00074BC2F9A136300D34BB8 /* Realtime */,
 				F00074BE2F9A136300D34BB8 /* Storage */,
 				F00074C52F9A136300D34BB8 /* RazorpayCheckout */,
+				18538B7A2FA0DC9000760355 /* CashfreePG */,
+				18538B822FA0E14600760355 /* CashfreePGCoreSDK */,
+				18538B842FA0E15E00760355 /* CashfreePGUISDK */,
+				18538B862FA0E17200760355 /* CashfreeAnalyticsSDK */,
+				18538B882FA0E1A200760355 /* CFNetworkSDK */,
+				18538B8B2FA0E53700760355 /* PayUIndia-CheckoutPro */,
+				18538B8D2FA0E53700760355 /* PayUIndia-CheckoutProBase */,
 			);
 			productName = RSMS;
 			productReference = F00073C12F99FF7300D34BB8 /* RSMS.app */;
@@ -124,6 +153,8 @@
 			packageReferences = (
 				F00074B52F9A136300D34BB8 /* XCRemoteSwiftPackageReference "supabase-swift" */,
 				F00074C42F9A136300D34BB8 /* XCRemoteSwiftPackageReference "razorpay-pod" */,
+				18538B792FA0DC9000760355 /* XCRemoteSwiftPackageReference "core-ios-sdk" */,
+				18538B8A2FA0E53700760355 /* XCRemoteSwiftPackageReference "PayUCheckoutPro-iOS" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = F00073C22F99FF7300D34BB8 /* Products */;
@@ -283,6 +314,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				BUILD_LIBRARY_FOR_DISTRIBUTION = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = R48J2485DY;
@@ -316,6 +348,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				BUILD_LIBRARY_FOR_DISTRIBUTION = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = R48J2485DY;
@@ -368,6 +401,22 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		18538B792FA0DC9000760355 /* XCRemoteSwiftPackageReference "core-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/cashfree/core-ios-sdk.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.5.5;
+			};
+		};
+		18538B8A2FA0E53700760355 /* XCRemoteSwiftPackageReference "PayUCheckoutPro-iOS" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/payu-intrepos/PayUCheckoutPro-iOS.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 9.3.1;
+			};
+		};
 		F00074B52F9A136300D34BB8 /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/supabase/supabase-swift";
@@ -387,6 +436,41 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		18538B7A2FA0DC9000760355 /* CashfreePG */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 18538B792FA0DC9000760355 /* XCRemoteSwiftPackageReference "core-ios-sdk" */;
+			productName = CashfreePG;
+		};
+		18538B822FA0E14600760355 /* CashfreePGCoreSDK */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 18538B792FA0DC9000760355 /* XCRemoteSwiftPackageReference "core-ios-sdk" */;
+			productName = CashfreePGCoreSDK;
+		};
+		18538B842FA0E15E00760355 /* CashfreePGUISDK */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 18538B792FA0DC9000760355 /* XCRemoteSwiftPackageReference "core-ios-sdk" */;
+			productName = CashfreePGUISDK;
+		};
+		18538B862FA0E17200760355 /* CashfreeAnalyticsSDK */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 18538B792FA0DC9000760355 /* XCRemoteSwiftPackageReference "core-ios-sdk" */;
+			productName = CashfreeAnalyticsSDK;
+		};
+		18538B882FA0E1A200760355 /* CFNetworkSDK */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 18538B792FA0DC9000760355 /* XCRemoteSwiftPackageReference "core-ios-sdk" */;
+			productName = CFNetworkSDK;
+		};
+		18538B8B2FA0E53700760355 /* PayUIndia-CheckoutPro */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 18538B8A2FA0E53700760355 /* XCRemoteSwiftPackageReference "PayUCheckoutPro-iOS" */;
+			productName = "PayUIndia-CheckoutPro";
+		};
+		18538B8D2FA0E53700760355 /* PayUIndia-CheckoutProBase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 18538B8A2FA0E53700760355 /* XCRemoteSwiftPackageReference "PayUCheckoutPro-iOS" */;
+			productName = "PayUIndia-CheckoutProBase";
+		};
 		F00074B62F9A136300D34BB8 /* Auth */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = F00074B52F9A136300D34BB8 /* XCRemoteSwiftPackageReference "supabase-swift" */;

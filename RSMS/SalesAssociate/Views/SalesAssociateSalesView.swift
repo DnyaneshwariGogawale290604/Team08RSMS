@@ -186,6 +186,16 @@ struct SalesAssociateSalesView: View {
             )) { _ in
                 vm.openRazorpayCheckout()
             }
+            .onReceive(NotificationCenter.default.publisher(
+                for: NSNotification.Name("OpenCashfreeCheckout")
+            )) { _ in
+                vm.openCashfreeCheckout()
+            }
+            .onReceive(NotificationCenter.default.publisher(
+                for: NSNotification.Name("OpenPayUCheckout")
+            )) { _ in
+                vm.openPayUCheckout()
+            }
         }
         .task { await vm.fetchCustomers() }
     }

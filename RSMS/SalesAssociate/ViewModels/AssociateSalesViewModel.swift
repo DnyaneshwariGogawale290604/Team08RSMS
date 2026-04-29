@@ -3,6 +3,13 @@ import Supabase
 import PostgREST
 import Combine
 import Razorpay
+import CashfreePG
+import CashfreePGCoreSDK
+import CashfreePGUISDK
+import PayUCheckoutProKit
+import PayUParamsKit
+import PayUCheckoutProBaseKit
+
 
 @MainActor
 class AssociateSalesViewModel: NSObject, ObservableObject {
@@ -42,6 +49,8 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
     @Published var paymentCompleted: Bool = false
     @Published var gatewayConfigured: Bool = false
     @Published var activeGateway: String = ""
+    @Published var qrCodeString: String? = nil
+    @Published var showQRCodeModal: Bool = false
     @Published var enabledPaymentMethods: [String] = ["cash"]
     @Published var isLoadingGatewayConfig: Bool = false
     @Published var maxPaymentLegs: Int = 2
@@ -771,6 +780,63 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
         }
     }
 
+    func verifyPayment(gatewayOrderId: String) async {
+        guard let paymentOrderId = self.paymentOrderId else {
+            errorMessage = "Missing payment context."
+            return
+        }
+
+        isLoading = true
+        errorMessage = nil
+
+        do {
+            let verifyUrl = URL(string: "https://ionszphvxhffqfwlohiv.supabase.co/functions/v1/verify-payment")!
+            var req = URLRequest(url: verifyUrl)
+            req.httpMethod = "POST"
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+            let accessToken = try await resolveAccessToken()
+            req.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+
+            let body: [String: Any] = [
+                "payment_order_id": paymentOrderId,
+                "gateway_order_id": gatewayOrderId,
+                "gateway_signature": "" // No signature for these gateways yet
+            ]
+            req.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+            let (data, _) = try await URLSession.shared.data(for: req)
+            guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let success = json["success"] as? Bool,
+                  success else {
+                throw NSError(
+                    domain: "PaymentError",
+                    code: 3,
+                    userInfo: [NSLocalizedDescriptionKey: "Payment verification failed"]
+                )
+            }
+
+            // Update the specific leg item that was paid
+            let legIdx = self.currentPaymentLegIndex
+            let itemIdx = self.currentPaymentItemIndex
+            if legIdx < self.billingLegs.count &&
+               itemIdx < self.billingLegs[legIdx].items.count {
+                self.billingLegs[legIdx].items[itemIdx].existingStatus = "paid"
+                let allPaid = self.billingLegs[legIdx].items.allSatisfy { $0.isPaid }
+                let anyPaid = self.billingLegs[legIdx].items.contains { $0.isPaid }
+                self.billingLegs[legIdx].existingStatus = allPaid
+                    ? "paid" : anyPaid ? "partially_paid" : "pending"
+            }
+            
+            isLoading = false
+            paymentCompleted = true
+
+        } catch {
+            errorMessage = error.localizedDescription
+            isLoading = false
+        }
+    }
+
     func verifyPayment(gatewayPaymentId: String, gatewaySignature: String) async {
         guard let paymentOrderId = self.paymentOrderId,
               let gatewayOrderId = self.gatewayOrderId else {
@@ -875,6 +941,95 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
                 self.razorpay?.open(options, displayController: topVC)
             } else {
                 self.razorpay?.open(options)
+            }
+        }
+    }
+
+    func openCashfreeCheckout() {
+        guard let sessionId = cashfreeSessionId,
+              let gatewayOrderId = gatewayOrderId else { 
+            self.errorMessage = "Missing Cashfree session details."
+            return 
+        }
+        
+        let legIdx = currentPaymentLegIndex
+        let itemIdx = currentPaymentItemIndex
+        
+        let amount: Double
+        if legIdx >= 0 && legIdx < billingLegs.count &&
+           itemIdx >= 0 && itemIdx < billingLegs[legIdx].items.count {
+            amount = billingLegs[legIdx].items[itemIdx].amount
+        } else {
+            amount = remainingPaymentAmount
+        }
+
+        guard amount > 0 else { return }
+
+        do {
+            let cfSession = try CFSession.CFSessionBuilder()
+                .setEnvironment(.SANDBOX)
+                .setPaymentSessionId(sessionId)
+                .setOrderID(gatewayOrderId)
+                .build()
+
+            let cfPayment = try CFDropCheckoutPayment.CFDropCheckoutPaymentBuilder()
+                .setSession(cfSession)
+                .build()
+
+            DispatchQueue.main.async {
+                if let topVC = UIApplication.shared.topMostViewController {
+                    // Set self as delegate (extension implemented below)
+                    CFPaymentGatewayService.getInstance().setCallback(self)
+                    try? CFPaymentGatewayService.getInstance().doPayment(cfPayment, viewController: topVC)
+                }
+            }
+        } catch {
+            self.errorMessage = "Cashfree Configuration Error: \(error.localizedDescription)"
+        }
+    }
+
+    func openPayUCheckout() {
+        guard let hash = payuHash,
+              let gatewayOrderId = gatewayOrderId,
+              let keyId = checkoutKey else { 
+            self.errorMessage = "Missing PayU details."
+            return 
+        }
+
+        let legIdx = currentPaymentLegIndex
+        let itemIdx = currentPaymentItemIndex
+        
+        let amount: Double
+        if legIdx >= 0 && legIdx < billingLegs.count &&
+           itemIdx >= 0 && itemIdx < billingLegs[legIdx].items.count {
+            amount = billingLegs[legIdx].items[itemIdx].amount
+        } else {
+            amount = remainingPaymentAmount
+        }
+
+        guard amount > 0 else { return }
+
+        // Setup PayU Params using the required full initializer
+        let paymentParams = PayUPaymentParam(
+            key: keyId,
+            transactionId: gatewayOrderId,
+            amount: String(format: "%.2f", amount),
+            productInfo: "RSMS Sales Order",
+            firstName: selectedCustomer?.name.split(separator: " ").first.map(String.init) ?? "Customer",
+            email: selectedCustomer?.email ?? "customer@example.com",
+            phone: selectedCustomer?.phone ?? "9999999999",
+            surl: "https://payu.herokuapp.com/success",
+            furl: "https://payu.herokuapp.com/failure",
+            environment: .production // Use .test for sandbox if needed
+        )
+        paymentParams.userToken = "" 
+
+        let config = PayUCheckoutProConfig()
+        config.merchantName = "RSMS"
+        
+        DispatchQueue.main.async {
+            if let topVC = UIApplication.shared.topMostViewController {
+                PayUCheckoutPro.open(on: topVC, paymentParam: paymentParams, config: config, delegate: self)
             }
         }
     }
@@ -1269,6 +1424,10 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
 
             await MainActor.run {
                 self.orderPaymentSummary = summary
+                var methods = summary.enabledMethods
+                if !methods.contains("cash") { methods.append("cash") }
+                self.enabledPaymentMethods = methods
+                
                 // If we are currently in the billing configuration flow, 
                 // sync the summary back to our editable legs
                 self.syncBillingLegsWithSummary()
@@ -1738,31 +1897,34 @@ extension AssociateSalesViewModel: RazorpayPaymentCompletionProtocolWithData {
 
             // Gateway requires SDK
             let requiresSDK = json["requires_sdk"] as? Bool ?? false
-            if requiresSDK,
-               let gwOrderId = json["gateway_order_id"] as? String,
-               let keyId = json["key_id"] as? String,
-               let poId = json["payment_order_id"] as? String {
-                self.gatewayOrderId = gwOrderId
-                self.checkoutKey = keyId
-                self.paymentOrderId = poId
-                self.currentPaymentLegIndex = legIndex
-                self.currentPaymentItemIndex = itemIndex
-                isLoading = false
+            self.currentPaymentItemIndex = itemIndex
+
+            // Move this OUTSIDE if requiresSDK, because when we have a QR, requiresSDK is FALSE
+            DispatchQueue.main.async {
+                self.isLoading = false
                 
                 let gateway = json["gateway"] as? String ?? "razorpay"
-                if gateway == "razorpay" {
-                    NotificationCenter.default.post(name: NSNotification.Name("OpenRazorpayCheckout"), object: nil)
-                } else if gateway == "cashfree" {
-                    self.cashfreeSessionId = json["payment_session_id"] as? String
-                    NotificationCenter.default.post(name: NSNotification.Name("OpenCashfreeCheckout"), object: nil)
-                } else if gateway == "payu" {
-                    self.payuHash = json["payu_hash"] as? String
-                    NotificationCenter.default.post(name: NSNotification.Name("OpenPayUCheckout"), object: nil)
-                }
-            } else {
-                isLoading = false
-            }
+                let method = item.method.lowercased()
 
+                if method == "upi", let qrString = json["upi_qr_string"] as? String {
+                    print("[initiateGatewayPayment] Found UPI QR String, showing modal")
+                    self.qrCodeString = qrString
+                    self.showQRCodeModal = true
+                    return
+                }
+
+                if requiresSDK {
+                    if gateway == "razorpay" {
+                        NotificationCenter.default.post(name: NSNotification.Name("OpenRazorpayCheckout"), object: nil)
+                    } else if gateway == "cashfree" {
+                        self.cashfreeSessionId = json["payment_session_id"] as? String
+                        NotificationCenter.default.post(name: NSNotification.Name("OpenCashfreeCheckout"), object: nil)
+                    } else if gateway == "payu" {
+                        self.payuHash = json["payu_hash"] as? String
+                        NotificationCenter.default.post(name: NSNotification.Name("OpenPayUCheckout"), object: nil)
+                    }
+                }
+            }
         } catch {
             let brandId = (try? await fetchBrandId()) ?? "unknown"
             let msg = error.localizedDescription
@@ -1843,10 +2005,12 @@ extension AssociateSalesViewModel: RazorpayPaymentCompletionProtocolWithData {
                 orderStore.addOrder(placed)
             }
 
-            if let avm = appointmentsVM {
-                await avm.deleteAppointment(id: appointmentId)
-            }
-
+            // Instant local UI removal
+            NotificationCenter.default.post(
+                name: NSNotification.Name("RemoveAppointmentLocally"),
+                object: appointmentId
+            )
+            
             resetOrderContext()
             onComplete()
 
@@ -1886,5 +2050,68 @@ extension UIApplication {
         }
         
         return topController
+    }
+}
+
+// MARK: - Cashfree Delegate
+extension AssociateSalesViewModel: CFResponseDelegate {
+    func verifyPayment(order_id: String) {
+        print("[Cashfree] Success for order: \(order_id)")
+        Task {
+            await self.verifyPayment(gatewayOrderId: order_id)
+        }
+    }
+
+    func onError(_ error: CFErrorResponse, order_id: String) {
+        print("[Cashfree] Error for order \(order_id): \(error.message ?? "Unknown")")
+        Task { @MainActor in
+            self.isLoading = false
+            self.errorMessage = "Cashfree Error: \(error.message ?? "Payment failed")"
+        }
+    }
+}
+
+// MARK: - PayU Delegate
+extension AssociateSalesViewModel: PayUCheckoutProDelegate {
+    func onPaymentSuccess(response: Any?) {
+        print("[PayU] Success: \(String(describing: response))")
+        if let gId = gatewayOrderId {
+             Task {
+                await self.verifyPayment(gatewayOrderId: gId)
+            }
+        }
+    }
+
+    func onPaymentFailure(response: Any?) {
+        print("[PayU] Failure: \(String(describing: response))")
+        Task { @MainActor in
+            self.isLoading = false
+            self.errorMessage = "PayU: Payment failed."
+        }
+    }
+
+    func onPaymentCancel(isTxnInitiated: Bool) {
+        print("[PayU] Cancelled. Txn initiated: \(isTxnInitiated)")
+        Task { @MainActor in
+            self.isLoading = false
+        }
+    }
+
+    func onError(_ error: Error?) {
+        print("[PayU] Error: \(error?.localizedDescription ?? "Unknown")")
+        Task { @MainActor in
+            self.isLoading = false
+            self.errorMessage = error?.localizedDescription ?? "Payment failed"
+        }
+    }
+    
+    func generateHash(for param: [String: String], onCompletion completion: @escaping ([String: String]) -> Void) {
+        if let hashName = param["hashName"], 
+           hashName == "payment_hash", 
+           let hash = payuHash {
+            completion([hashName: hash])
+        } else {
+            completion([:]) // Return empty dict instead of nil if not found
+        }
     }
 }

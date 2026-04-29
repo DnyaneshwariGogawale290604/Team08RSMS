@@ -98,12 +98,14 @@ struct BillingView: View {
             .onDisappear {
                 // Auto-save draft if legs are configured but not yet saved to DB
                 let hasNewLegs = vm.billingLegs.contains { $0.isNew }
-                if hasNewLegs && vm.currentOrder != nil {
-                    Task {
-                        await vm.saveBillingDraft(
-                            appointmentId: appointmentId
-                        )
-                    }
+                if hasNewLegs {
+                    print("[BillingView] Auto-saving billing draft on disappear...")
+                    Task { await vm.submitBilling(appointmentId: appointmentId, action: "save", orderStore: orderStore) }
+                }
+            }
+            .sheet(isPresented: $vm.showQRCodeModal) {
+                if let qrString = vm.qrCodeString {
+                    QRCodeView(qrString: qrString)
                 }
             }
         }
