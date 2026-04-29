@@ -54,6 +54,11 @@ public struct DashboardTabView: View {
             .task {
                 await viewModel.loadDashboardData()
             }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ExceptionResolved"))) { _ in
+                Task {
+                    await viewModel.loadDashboardData()
+                }
+            }
         }
     }
     
@@ -102,6 +107,15 @@ public struct DashboardTabView: View {
                         selectedTab = 3 // Items tab
                     }) {
                         compactStatCard(title: "Repairs", value: "\(viewModel.repairCount)", icon: "wrench.and.screwdriver.fill", color: .orange)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+
+                    Button(action: {
+                        categoryFilterMagic = nil
+                        repairFilter = .missingScan
+                        selectedTab = 3 // Items tab
+                    }) {
+                        compactStatCard(title: "Missing Scan", value: "\(viewModel.missingScanCount)", icon: "exclamationmark.triangle.fill", color: .appBrown)
                     }
                     .buttonStyle(PlainButtonStyle())
                 }

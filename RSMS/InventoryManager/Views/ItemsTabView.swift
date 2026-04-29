@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 public struct ItemsTabView: View {
     @StateObject private var viewModel = InventoryDashboardViewModel()
@@ -6,10 +7,11 @@ public struct ItemsTabView: View {
     
     @State private var searchText = ""
     enum ActiveSheet: String, Identifiable {
-        case addManual, addScan, auditScanner, addFolder
+        case addManual, addScan, auditScanner, addFolder, auditSetup
         var id: String { rawValue }
     }
     @State private var activeSheet: ActiveSheet?
+    @State private var activeAuditSession: AuditSession?
     
     private func presentSheet(_ sheet: ActiveSheet) {
         // Delay presentation slightly to avoid conflict with the Menu dismissal animation
@@ -21,9 +23,10 @@ public struct ItemsTabView: View {
     @Binding var repairFilter: RepairFilter
     
     public enum RepairFilter: String, CaseIterable {
-        case all = "All"
-        case available = "Available"
-        case underRepair = "Under Repair"
+        case all          = "All"
+        case available    = "Available"
+        case underRepair  = "Under Repair"
+        case missingScan  = "Missing Scan"
     }
     
     public init(categoryFilterMagic: Binding<String?>, repairFilter: Binding<RepairFilter>) {
@@ -68,19 +71,17 @@ public struct ItemsTabView: View {
                     List {
                         let categories = viewModel.categories
                         
-                        ForEach(categories.filter { text in 
-                            // 1. Check if the folder is completely empty for the selected filter
-                            if viewModel.filteredItemCount(for: text, filter: repairFilter) == 0 {
-                                return false
-                            }
-                            
-                            // 2. Check magic filter
+                        ForEach(categories.filter { text in
+                            if viewModel.filteredItemCount(for: text, filter: repairFilter) == 0 { return false }
                             if let filter = categoryFilterMagic { return text == filter }
-                            
-                            // 3. Check search text
-                            if !searchText.isEmpty { return text.localizedCaseInsensitiveContains(searchText) || viewModel.products.contains { $0.category == text && ($0.name.localizedCaseInsensitiveContains(searchText) || $0.id.uuidString.localizedCaseInsensitiveContains(searchText)) }
+                            if !searchText.isEmpty {
+                                return text.localizedCaseInsensitiveContains(searchText)
+                                    || viewModel.products.contains {
+                                        $0.category == text
+                                            && ($0.name.localizedCaseInsensitiveContains(searchText)
+                                                || $0.id.uuidString.localizedCaseInsensitiveContains(searchText))
+                                    }
                             }
-                            
                             return true
                         }, id: \.self) { category in
                             NavigationLink(destination: ItemsListFilteredView(category: category, viewModel: viewModel, repairFilter: repairFilter)) {
@@ -88,11 +89,24 @@ public struct ItemsTabView: View {
                                     Image(systemName: "folder.fill")
                                         .foregroundColor(.appAccent)
                                         .font(.title2)
-                                    Text(category)
-                                        .font(.headline)
-                                        .foregroundColor(.appPrimaryText)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(category)
+                                            .font(.headline)
+                                            .foregroundColor(.appPrimaryText)
+                                        let count = viewModel.filteredItemCount(for: category, filter: repairFilter)
+                                        let missing = viewModel.inventoryItems.filter {
+                                            ($0.category.isEmpty ? "General" : $0.category) == category
+                                                && $0.scanStatus == .overdue
+                                        }.count
+                                        if missing > 0 {
+                                            Text("\(missing) missing scan")
+                                                .font(.caption2)
+                                                .foregroundColor(.appBrown)
+                                        }
+                                    }
                                     Spacer()
-                                    Text("\(viewModel.filteredItemCount(for: category, filter: repairFilter))")
+                                    let count = viewModel.filteredItemCount(for: category, filter: repairFilter)
+                                    Text("\(count)")
                                         .foregroundColor(.appSecondaryText)
                                 }
                                 .padding(.vertical, 8)
@@ -146,11 +160,17 @@ public struct ItemsTabView: View {
             }
             .navigationTitle("Items")
             .navigationBarTitleDisplayMode(.large)
+
             .task {
                 await viewModel.loadDashboardData()
             }
             .refreshable {
                 await viewModel.loadDashboardData()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ExceptionResolved"))) { _ in
+                Task {
+                    await viewModel.loadDashboardData()
+                }
             }
             .sheet(item: $activeSheet) { sheet in
                 switch sheet {
@@ -159,9 +179,18 @@ public struct ItemsTabView: View {
                 case .addScan:
                     AddItemScanView(viewModel: viewModel)
                 case .auditScanner:
-                    RFIDScannerView()
+                    RFIDScannerView(activeSession: activeAuditSession, isPresentedAsSheet: true)
+                        .onDisappear { activeAuditSession = nil }
                 case .addFolder:
                     AddFolderView(viewModel: viewModel)
+                case .auditSetup:
+                    AuditSessionSetupView(viewModel: viewModel)
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("StartAuditSession"))) { note in
+                if let session = note.userInfo?["session"] as? AuditSession {
+                    self.activeAuditSession = session
+                    self.presentSheet(.auditScanner)
                 }
             }
         }
@@ -172,95 +201,329 @@ public struct ItemsListFilteredView: View {
     @ObservedObject var viewModel: InventoryDashboardViewModel
     let category: String
     let repairFilter: ItemsTabView.RepairFilter
-    
+
+    // Per-row scan state tracking
+    @State private var scanningItemId: String? = nil
+    @State private var scanErrorId: String? = nil
+
     public init(category: String, viewModel: InventoryDashboardViewModel, repairFilter: ItemsTabView.RepairFilter) {
         self.category = category
         self.viewModel = viewModel
         self.repairFilter = repairFilter
     }
-    
+
     public var body: some View {
         List {
             let filteredItems = viewModel.inventoryItems.filter { item in
                 let categoryMatch = (item.category.isEmpty ? "General" : item.category) == category
                 let statusMatch: Bool
                 switch repairFilter {
-                case .all: statusMatch = item.status != .scrapped && item.status != .sold
-                case .available: statusMatch = item.status == .available
+                case .all:        statusMatch = item.status != .scrapped && item.status != .sold
+                case .available:  statusMatch = item.status == .available
                 case .underRepair: statusMatch = item.status == .underRepair
+                case .missingScan: statusMatch = item.scanStatus == .overdue
                 }
                 return categoryMatch && statusMatch
             }
-            
+
+            if filteredItems.isEmpty {
+                ContentUnavailableLabel(
+                    title: "No Items",
+                    subtitle: "No items match the current filter.",
+                    icon: "shippingbox"
+                )
+                .listRowBackground(Color.clear)
+            }
+
             ForEach(filteredItems) { item in
                 NavigationLink(destination: ItemDetailSupabaseView(item: item, viewModel: viewModel)) {
-                    HStack(spacing: 12) {
-                        // Status Indicator
-                        Circle()
-                            .fill(statusColor(for: item.status))
-                            .frame(width: 10, height: 10)
-                        
-                        VStack(alignment: .leading) {
-                            Text(item.productName).font(.headline)
-                            Text("ID: \(item.id)").font(.caption).foregroundColor(.appSecondaryText)
-                        }
-                        
-                        Spacer()
-                        
-                        if item.status == .underRepair {
-                            Image(systemName: "wrench.and.screwdriver.fill")
-                                .foregroundColor(.red)
-                                .font(.caption)
-                        }
-                        
-                        Text(item.location)
-                            .font(.caption2)
-                            .foregroundColor(.gray)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.appBorder.opacity(0.3))
-                            .cornerRadius(4)
-                    }
+                    ItemRowCard(
+                        item: item,
+                        isScanning: scanningItemId == item.id,
+                        onScan: { performQuickScan(item: item) }
+                    )
                 }
+                .listRowBackground(Color.appCard)
+                .listRowSeparator(.hidden)
+                .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
             }
         }
+        .listStyle(.plain)
         .navigationTitle(category)
     }
-    
-    private func statusColor(for status: ItemStatus) -> Color {
-        switch status {
-        case .available: return .green
-        case .reserved: return .orange
-        case .underRepair: return .red
-        case .inTransit: return .blue
-        case .scrapped: return .gray
-        case .sold: return .gray
+
+    private func performQuickScan(item: InventoryItem) {
+        guard scanningItemId == nil else { return }
+        scanningItemId = item.id
+        Task {
+            do {
+                let updated = try await AuditService.shared.recordScan(item: item)
+                if let idx = viewModel.inventoryItems.firstIndex(where: { $0.id == updated.id }) {
+                    viewModel.inventoryItems[idx] = updated
+                }
+            } catch {
+                scanErrorId = item.id
+            }
+            await MainActor.run { scanningItemId = nil }
         }
     }
 }
+
+// MARK: - Item Row Card
+
+private struct ItemRowCard: View {
+    let item: InventoryItem
+    let isScanning: Bool
+    let onScan: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            // Top row: name + status badge
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(statusColor(for: item.status))
+                    .frame(width: 8, height: 8)
+
+                Text(item.productName)
+                    .font(.headline)
+                    .foregroundColor(.appPrimaryText)
+                    .lineLimit(1)
+
+                Spacer()
+
+                ScanStatusBadge(status: item.scanStatus)
+
+                if item.status == .underRepair {
+                    Image(systemName: "wrench.and.screwdriver.fill")
+                        .foregroundColor(.red)
+                        .font(.caption)
+                }
+            }
+
+            // RFID + Location row
+            HStack {
+                Label(item.id, systemImage: "wave.3.right")
+                    .font(.caption2)
+                    .foregroundColor(.appSecondaryText)
+                Spacer()
+                Text(item.location)
+                    .font(.caption2)
+                    .foregroundColor(.gray)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 2)
+                    .background(Color.appBorder.opacity(0.3))
+                    .cornerRadius(4)
+            }
+
+            // Scan timing row
+            HStack(spacing: 12) {
+                if let last = item.lastScannedAt {
+                    Label(
+                        "Scanned: \(last.formatted(date: .abbreviated, time: .shortened))",
+                        systemImage: "checkmark.circle"
+                    )
+                    .font(.caption2)
+                    .foregroundColor(.appSecondaryText)
+                } else {
+                    Label("Never scanned", systemImage: "exclamationmark.circle")
+                        .font(.caption2)
+                        .foregroundColor(.appBrown)
+                }
+
+                Spacer()
+
+                if let due = item.nextScanDueAt {
+                    let isOverdue = Date() > due
+                    Label(
+                        "Due: \(due.formatted(date: .abbreviated, time: .shortened))",
+                        systemImage: isOverdue ? "exclamationmark.triangle" : "clock"
+                    )
+                    .font(.caption2)
+                    .foregroundColor(isOverdue ? .appBrown : .orange)
+                }
+            }
+
+            // Scan now button (only for non-repair, non-scrapped items)
+            if item.status != .underRepair && item.status != .scrapped && item.status != .sold {
+                Button(action: onScan) {
+                    HStack(spacing: 6) {
+                        if isScanning {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                .frame(width: 14, height: 14)
+                        } else {
+                            Image(systemName: "barcode.viewfinder")
+                        }
+                        Text(isScanning ? "Scanning…" : "Scan Now")
+                            .font(.caption.bold())
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(item.scanStatus == .overdue ? Color.appBrown : Color.appAccent)
+                    .cornerRadius(8)
+                }
+                .buttonStyle(.plain)
+                .disabled(isScanning)
+            }
+        }
+        .padding(.vertical, 8)
+    }
+
+    private func statusColor(for status: ItemStatus) -> Color {
+        switch status {
+        case .available:   return .green
+        case .reserved:    return .orange
+        case .underRepair: return .red
+        case .inTransit:   return .blue
+        case .scrapped, .sold: return .gray
+        }
+    }
+}
+
+// MARK: - Scan Status Badge
+
+public struct ScanStatusBadge: View {
+    let status: ScanStatus
+
+    public var body: some View {
+        Text(status.label)
+            .font(.caption2.bold())
+            .padding(.horizontal, 7)
+            .padding(.vertical, 3)
+            .background(color.opacity(0.15))
+            .foregroundColor(color)
+            .cornerRadius(6)
+    }
+
+    private var color: Color {
+        switch status {
+        case .ok:      return .green
+        case .dueSoon: return .orange
+        case .overdue: return .appBrown
+        }
+    }
+}
+
+// MARK: - Reusable empty state
+
+private struct ContentUnavailableLabel: View {
+    let title: String
+    let subtitle: String
+    let icon: String
+
+    var body: some View {
+        VStack(spacing: 10) {
+            Image(systemName: icon)
+                .font(.system(size: 40))
+                .foregroundColor(.appBorder)
+            Text(title)
+                .font(.headline)
+                .foregroundColor(.appPrimaryText)
+            Text(subtitle)
+                .font(.caption)
+                .foregroundColor(.appSecondaryText)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 40)
+    }
+}
+
 
 public struct ItemDetailSupabaseView: View {
     @State var item: InventoryItem
     @ObservedObject var viewModel: InventoryDashboardViewModel
     @State private var showingRepairSheet = false
+    @State private var isScanning = false
+    @State private var auditLogs: [AuditLog] = []
+    @State private var certifications: [Certification] = []
+    @State private var showingAddCertificationSheet = false
     @Environment(\.presentationMode) var presentationMode
-    
+
+
     public var body: some View {
         Form {
+            // ── 1. Item Details ──────────────────────────────────────
             Section(header: Text("Item Details").headingStyle()) {
                 LabeledContent("Name", value: item.productName)
                 LabeledContent("Category", value: item.category)
                 LabeledContent("RFID Tag", value: item.id)
                 LabeledContent("Serial", value: item.serialId)
                 LabeledContent("Location", value: item.location)
-                
                 HStack {
                     Text("Status")
                     Spacer()
                     ItemStatusBadge(status: item.status)
                 }
+                
+                if let tag = item.assetTag {
+                    LabeledContent("Asset Tag", value: tag)
+                }
             }
-            
+
+            // ── 1.5. Certification Info ──────────────────────────────
+            certificationInfoSection
+
+
+            // ── 2. Scan & Audit Info ─────────────────────────────────
+            Section(header: Text("Scan & Audit Info").headingStyle()) {
+                if let last = item.lastScannedAt {
+                    LabeledContent("Last Scanned",
+                                   value: last.formatted(date: .abbreviated, time: .standard))
+                } else {
+                    HStack {
+                        Text("Last Scanned")
+                        Spacer()
+                        Text("Never")
+                            .foregroundColor(.red)
+                    }
+                }
+
+                if let due = item.nextScanDueAt {
+                    HStack {
+                        Text("Next Scan Due")
+                        Spacer()
+                        Text(due.formatted(date: .abbreviated, time: .shortened))
+                            .foregroundColor(Date() > due ? .red : .primary)
+                    }
+                } else {
+                    LabeledContent("Next Scan Due", value: "—")
+                }
+
+                HStack {
+                    Text("Scan Status")
+                    Spacer()
+                    ScanStatusBadge(status: item.scanStatus)
+                }
+
+                LabeledContent("Total Scans", value: "\(item.scanCount)")
+
+                // Scan Now CTA — hidden for repair/scrapped/sold
+                if item.status != .underRepair && item.status != .scrapped && item.status != .sold {
+                    Button(action: performScan) {
+                        HStack {
+                            if isScanning {
+                                ProgressView()
+                                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                    .frame(width: 16, height: 16)
+                            } else {
+                                Image(systemName: "barcode.viewfinder")
+                            }
+                            Text(isScanning ? "Scanning…" : "Scan Now")
+                                .font(.headline)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(item.scanStatus == .overdue ? Color.appBrown : Color.appAccent)
+                        .foregroundColor(.white)
+                        .cornerRadius(12)
+                    }
+                    .disabled(isScanning)
+                }
+            }
+
+            // ── 3. Repair Information ────────────────────────────────
             if let ticket = item.activeTicket {
                 Section(header: Text("Repair Information").headingStyle()) {
                     LabeledContent("Issue", value: ticket.issueType)
@@ -277,19 +540,20 @@ public struct ItemDetailSupabaseView: View {
                                     .foregroundColor(.white)
                                     .padding(.horizontal, 4)
                                     .padding(.vertical, 2)
-                                    .background(Color.red)
+                                    .background(Color.appBrown)
                                     .cornerRadius(4)
                             }
                         }
                     }
                 }
             }
-            
+
+            // ── 4. Actions ───────────────────────────────────────────
             Section {
                 if item.status == .available {
                     Button(action: { showingRepairSheet = true }) {
                         Label("Raise Repair Ticket", systemImage: "wrench.and.screwdriver")
-                            .foregroundColor(.red)
+                            .foregroundColor(.appBrown)
                     }
                 } else if item.status == .underRepair {
                     NavigationLink(destination: RepairTicketDetailView(item: $item, viewModel: viewModel)) {
@@ -298,13 +562,171 @@ public struct ItemDetailSupabaseView: View {
                     }
                 }
             }
+
+            // ── 5. Activity History ──────────────────────────────────
+            if !auditLogs.isEmpty {
+                Section(header: Text("Activity History").headingStyle()) {
+                    ForEach(auditLogs) { log in
+                        HStack(alignment: .top, spacing: 12) {
+                            Image(systemName: iconName(for: log.action))
+                                .foregroundColor(iconColor(for: log.action))
+                                .frame(width: 20)
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(log.action.rawValue)
+                                    .font(.subheadline)
+                                    .foregroundColor(.appPrimaryText)
+                                if let meta = log.metadata, !meta.isEmpty {
+                                    Text(meta)
+                                        .font(.caption2)
+                                        .foregroundColor(.appSecondaryText)
+                                }
+                                Text(log.timestamp.formatted(date: .abbreviated, time: .shortened))
+                                    .font(.caption2)
+                                    .foregroundColor(.appSecondaryText)
+                            }
+                        }
+                        .padding(.vertical, 2)
+                    }
+                }
+            }
         }
         .navigationTitle("Item Details")
         .sheet(isPresented: $showingRepairSheet) {
             RepairInputView(item: $item, viewModel: viewModel)
         }
+        .sheet(isPresented: $showingAddCertificationSheet) {
+            AddCertificationView(item: item, viewModel: viewModel) { newCert in
+                Task { await loadCertifications() }
+            }
+        }
+        .task {
+            // Load audit trail from Supabase
+            await AuditService.shared.loadLogs(for: item.id)
+            auditLogs = AuditService.shared.logs(for: item.id)
+            
+            // Load certifications
+            await loadCertifications()
+        }
+        .onReceive(AuditService.shared.$auditLogs) { _ in
+            auditLogs = AuditService.shared.logs(for: item.id)
+        }
     }
-    
+
+    private var certificationInfoSection: some View {
+        Section(header: Text("Certification Info").headingStyle()) {
+            HStack {
+                Text("Authenticity")
+                Spacer()
+                AuthenticityBadge(status: item.authenticityStatus)
+            }
+
+            if certifications.isEmpty {
+                Text("No certifications attached.")
+                    .font(.caption)
+                    .foregroundColor(.appSecondaryText)
+                    .padding(.vertical, 4)
+            } else {
+                ForEach(certifications) { cert in
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text(cert.type)
+                                .font(.subheadline.bold())
+                            Spacer()
+                            Text(cert.status.rawValue)
+                                .font(.caption2.bold())
+                                .foregroundColor(cert.status == .valid ? .green : .red)
+                        }
+                        
+                        Text("No: \(cert.certificateNumber)")
+                            .font(.caption)
+                            .foregroundColor(.appSecondaryText)
+                        
+                        if let expiry = cert.expiryDate {
+                            Text("Expires: \(expiry.formatted(date: .abbreviated, time: .omitted))")
+                                .font(.caption2)
+                                .foregroundColor(expiry < Date() ? .red : .appSecondaryText)
+                        }
+                        
+                        if let url = cert.documentURL, let link = URL(string: url) {
+                            Link(destination: link) {
+                                Label("View Document", systemImage: "doc.text.fill")
+                                    .font(.caption.bold())
+                                    .foregroundColor(.appAccent)
+                            }
+                            .padding(.top, 4)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
+
+            Button(action: { showingAddCertificationSheet = true }) {
+                HStack {
+                    Image(systemName: "plus.circle.fill")
+                    Text("Add Certification")
+                }
+                .foregroundColor(.appAccent)
+            }
+        }
+    }
+
+    private func loadCertifications() async {
+        do {
+            certifications = try await DataService.shared.fetchCertifications(for: item.id)
+            // Re-validate item authenticity status
+            let updatedItem = try await AuditService.shared.refreshItemAuthenticity(item: item)
+            self.item = updatedItem
+            if let idx = viewModel.inventoryItems.firstIndex(where: { $0.id == updatedItem.id }) {
+                viewModel.inventoryItems[idx] = updatedItem
+            }
+        } catch {
+            print("Failed to load certifications: \(error)")
+        }
+    }
+
+    }
+}
+        isScanning = true
+        Task {
+            do {
+                let updated = try await AuditService.shared.recordScan(item: item)
+                self.item = updated
+                if let idx = viewModel.inventoryItems.firstIndex(where: { $0.id == updated.id }) {
+                    viewModel.inventoryItems[idx] = updated
+                }
+                auditLogs = AuditService.shared.logs(for: item.id)
+            } catch {
+                print("Scan failed: \(error)")
+            }
+            isScanning = false
+        }
+    }
+
+    private func iconName(for action: AuditLogAction) -> String {
+        switch action {
+        case .scanned:        return "wave.3.right.circle.fill"
+        case .repairCreated:  return "wrench.and.screwdriver.fill"
+        case .repairClosed:   return "checkmark.seal.fill"
+        case .moved:          return "mappin.and.ellipse"
+        case .statusChanged:  return "arrow.triangle.2.circlepath"
+        case .added:          return "plus.circle.fill"
+        case .flaggedMissing: return "exclamationmark.triangle.fill"
+        }
+    }
+
+    private func iconColor(for action: AuditLogAction) -> Color {
+        switch action {
+        case .scanned:        return .green
+        case .repairCreated:  return .appBrown
+        case .repairClosed:   return .blue
+        case .moved:          return .orange
+        case .statusChanged:  return .purple
+        case .added:          return .appAccent
+        case .flaggedMissing: return .appBrown
+        }
+    }
+
     private func save(_ updatedItem: InventoryItem) {
         Task {
             do {
@@ -317,6 +739,7 @@ public struct ItemDetailSupabaseView: View {
         }
     }
 }
+
 
 public struct ItemStatusBadge: View {
     let status: ItemStatus
@@ -341,6 +764,29 @@ public struct ItemStatusBadge: View {
         }
     }
 }
+
+public struct AuthenticityBadge: View {
+    let status: AuthenticityStatus
+    
+    public var body: some View {
+        Text(status.rawValue)
+            .font(.caption2.bold())
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(color.opacity(0.15))
+            .foregroundColor(color)
+            .cornerRadius(8)
+    }
+    
+    private var color: Color {
+        switch status {
+        case .verified: return .green
+        case .pending: return .orange
+        case .failed: return .red
+        }
+    }
+}
+
 
 public struct RepairInputView: View {
     @Binding var item: InventoryItem
@@ -437,6 +883,12 @@ public struct RepairInputView: View {
                 try await DataService.shared.updateInventoryItem(item: updatedItem)
                 await viewModel.loadDashboardData()
                 self.item = updatedItem
+                // Audit trail entry
+                AuditService.shared.log(
+                    itemId: updatedItem.id,
+                    action: .repairCreated,
+                    metadata: updatedItem.activeTicket?.issueType
+                )
                 presentationMode.wrappedValue.dismiss()
             } catch {
                 print("Failed to submit repair: \(error)")
@@ -549,15 +1001,23 @@ public struct RepairTicketDetailView: View {
         Task {
             do {
                 if newStatus == .completed || newStatus == .scrapped {
-                    // Use dedicated method that updates repair_tickets + inventory_items
                     try await DataService.shared.finalizeRepairTicket(
                         ticketId: ticketId,
                         newStatus: newStatus,
                         itemId: updatedItem.id,
                         itemStatus: updatedItem.status
                     )
+                    // Repair closed → reset lastScannedAt so cycle count restarts
+                    let rescanned = try await AuditService.shared.recordScan(item: updatedItem)
+                    if let idx = viewModel.inventoryItems.firstIndex(where: { $0.id == rescanned.id }) {
+                        viewModel.inventoryItems[idx] = rescanned
+                    }
+                    AuditService.shared.log(
+                        itemId: updatedItem.id,
+                        action: .repairClosed,
+                        metadata: newStatus.rawValue
+                    )
                 } else {
-                    // Mid-workflow update: upsert ticket + update item status
                     if let ticket = item.activeTicket {
                         var updatedTicket = ticket
                         updatedTicket.status = newStatus
@@ -565,6 +1025,11 @@ public struct RepairTicketDetailView: View {
                         try await DataService.shared.updateRepairTicket(ticket: updatedTicket)
                     }
                     try await DataService.shared.updateInventoryItem(item: updatedItem)
+                    AuditService.shared.log(
+                        itemId: updatedItem.id,
+                        action: .statusChanged,
+                        metadata: newStatus.rawValue
+                    )
                 }
                 await viewModel.loadDashboardData()
                 self.item = updatedItem
@@ -625,7 +1090,9 @@ public struct AddItemManualView: View {
     @State private var selectedProduct: Product? = nil
     @State private var rfid = "RFID-\(Int.random(in: 1000...9999))"
     @State private var batchNo = "B-MANUAL"
+    @State private var assetTag = ""
     @State private var location = "Warehouse"
+
     @State private var errorText: String?
     
     let availableCategories = ["Ring", "Necklace", "Bracelet", "Watch", "Handbag", "Earring", "Pendant", "Other"]
@@ -658,7 +1125,9 @@ public struct AddItemManualView: View {
                     }
                     
                     TextField("Batch Number", text: $batchNo)
+                    TextField("Asset Tag (e.g. RSMS-2024-001)", text: $assetTag)
                 }
+
                 
                 Section(header: Text("Location").headingStyle()) {
                     Picker("Storage Location", selection: $location) {
@@ -727,8 +1196,10 @@ public struct AddItemManualView: View {
                         productName: product.name,
                         category: product.category.isEmpty ? "General" : product.category,
                         location: location,
-                        status: .available
+                        status: .available,
+                        assetTag: assetTag.isEmpty ? nil : assetTag
                     )
+
                     try await DataService.shared.insertInventoryItem(item: newItem)
                     
                     await viewModel.loadDashboardData()

@@ -8,6 +8,7 @@ public extension Color {
     static let appPrimaryText = Color(hex: "#1A1A1A")
     static let appAccent = Color(hex: "#6E5155")
     static let appMaroon = Color(hex: "#6E5155")
+    static let appBrown = Color(hex: "#8D6E63") // Warm brown for cycle counts
 
     static let brandOffWhite = appBackground
     static let brandLinen = appCard

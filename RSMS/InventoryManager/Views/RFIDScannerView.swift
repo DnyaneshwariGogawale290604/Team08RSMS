@@ -24,12 +24,12 @@ struct AuditScanResult: Identifiable {
     }
     
     var statusColor: Color {
-        guard let item else { return .red }
+        guard let item else { return .appBrown }
         switch item.status {
         case .available:    return .green
         case .reserved:     return .orange
         case .inTransit:    return .blue
-        case .underRepair:  return .red
+        case .underRepair:  return .appBrown
         case .scrapped:     return .gray
         case .sold:         return .purple
         }
@@ -55,7 +55,14 @@ public struct RFIDScannerView: View {
     @State private var lastLookedUpItem: InventoryItem? = nil
     @State private var showItemDetail: Bool = false
     
-    public init() {}
+    // Audit Session integration
+    @State public var activeSession: AuditSession?
+    public var isPresentedAsSheet: Bool = false
+
+    public init(activeSession: AuditSession? = nil, isPresentedAsSheet: Bool = false) {
+        self._activeSession = State(initialValue: activeSession)
+        self.isPresentedAsSheet = isPresentedAsSheet
+    }
     
     public var body: some View {
         NavigationView {
@@ -66,43 +73,91 @@ public struct RFIDScannerView: View {
                     VStack(spacing: 16) {
                         
                         // MARK: Configuration Card
-                        ReusableCardView {
-                            VStack(alignment: .leading, spacing: 14) {
-                                Label("Scanner Configuration", systemImage: "gear")
-                                    .headingStyle()
-                                
-                                Divider()
-                                
-                                // Location picker
-                                HStack {
-                                    Text("Audit Location")
-                                        .font(.subheadline)
-                                        .foregroundColor(.appSecondaryText)
-                                    Spacer()
-                                    Picker("Location", selection: $selectedLocation) {
-                                        ForEach(availableLocations, id: \.self) { loc in
-                                            Text(loc).tag(loc)
+                        if activeSession == nil {
+                            ReusableCardView {
+                                VStack(alignment: .leading, spacing: 14) {
+                                    Label("Scanner Configuration", systemImage: "gear")
+                                        .headingStyle()
+                                    
+                                    Divider()
+                                    
+                                    // Location picker
+                                    HStack {
+                                        Text("Audit Location")
+                                            .font(.subheadline)
+                                            .foregroundColor(.appSecondaryText)
+                                        Spacer()
+                                        Picker("Location", selection: $selectedLocation) {
+                                            ForEach(availableLocations, id: \.self) { loc in
+                                                Text(loc).tag(loc)
+                                            }
+                                        }
+                                        .pickerStyle(MenuPickerStyle())
+                                        .tint(.appAccent)
+                                    }
+                                    
+                                    // Toggle: update location on scan
+                                    Toggle(isOn: $updateLocationOnScan) {
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text("Relocate on Scan")
+                                                .font(.subheadline)
+                                                .foregroundColor(.appPrimaryText)
+                                            Text("Updates the item's location in the database to the selected location above.")
+                                                .font(.caption2)
+                                                .foregroundColor(.appSecondaryText)
                                         }
                                     }
-                                    .pickerStyle(MenuPickerStyle())
                                     .tint(.appAccent)
                                 }
-                                
-                                // Toggle: update location on scan
-                                Toggle(isOn: $updateLocationOnScan) {
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text("Relocate on Scan")
-                                            .font(.subheadline)
-                                            .foregroundColor(.appPrimaryText)
-                                        Text("Updates the item's location in the database to the selected location above.")
-                                            .font(.caption2)
-                                            .foregroundColor(.appSecondaryText)
-                                    }
-                                }
-                                .tint(.appAccent)
                             }
+                            .padding(.horizontal)
+                        } else if let session = activeSession {
+                            // Active Session Info
+                            ReusableCardView {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    HStack {
+                                        Label("Active Audit Session", systemImage: "timer")
+                                            .headingStyle()
+                                        Spacer()
+                                        Text("LIVE")
+                                            .font(.caption2.bold())
+                                            .foregroundColor(.white)
+                                            .padding(.horizontal, 6)
+                                            .padding(.vertical, 2)
+                                            .background(Color.appBrown)
+                                            .cornerRadius(4)
+                                    }
+                                    
+                                    Text("Auditing: \(session.location)")
+                                        .font(.subheadline)
+                                        .foregroundColor(.appAccent)
+                                        .bold()
+                                    
+                                    HStack {
+                                        VStack(alignment: .leading) {
+                                            Text("Expected")
+                                                .font(.caption2)
+                                                .foregroundColor(.appSecondaryText)
+                                            Text("\(session.expectedItemIds.count)")
+                                                .font(.headline)
+                                        }
+                                        Spacer()
+                                        VStack(alignment: .trailing) {
+                                            Text("Scanned")
+                                                .font(.caption2)
+                                                .foregroundColor(.appSecondaryText)
+                                            Text("\(session.scannedRFIDs.count)")
+                                                .font(.headline)
+                                        }
+                                    }
+                                    .padding(.top, 4)
+                                    
+                                    ProgressView(value: Double(session.scannedRFIDs.count), total: Double(max(1, session.expectedItemIds.count)))
+                                        .tint(.appAccent)
+                                }
+                            }
+                            .padding(.horizontal)
                         }
-                        .padding(.horizontal)
                         
                         // MARK: RFID Input Card
                         ReusableCardView {
@@ -188,11 +243,25 @@ public struct RFIDScannerView: View {
             .navigationTitle("Audit Scanner")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    if isPresentedAsSheet {
+                        Button("Cancel") {
+                            presentationMode.wrappedValue.dismiss()
+                        }
+                    }
+                }
+                
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button { presentationMode.wrappedValue.dismiss() } label: {
-                        Image(systemName: "checkmark")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(.primary)
+                    if let session = activeSession {
+                        Button(action: completeAudit) {
+                            Text("Complete Audit")
+                                .bold()
+                                .foregroundColor(.appAccent)
+                        }
+                    } else if isPresentedAsSheet {
+                        Button("Done") {
+                            presentationMode.wrappedValue.dismiss()
+                        }
                     }
                 }
             }
@@ -329,6 +398,13 @@ public struct RFIDScannerView: View {
                 
                 await MainActor.run {
                     scanResults.append(result)
+                    
+                    // Audit Session Update
+                    if var session = activeSession {
+                        session.scannedRFIDs.append(tag)
+                        activeSession = session
+                    }
+                    
                     scanInput = ""
                     isScanning = false
                 }
@@ -342,9 +418,42 @@ public struct RFIDScannerView: View {
                 )
                 await MainActor.run {
                     scanResults.append(result)
+                    
+                    // Still record scan in session even if not in DB (will be flagged as exception)
+                    if var session = activeSession {
+                        session.scannedRFIDs.append(tag)
+                        activeSession = session
+                    }
+                    
                     scanInput = ""
                     isScanning = false
                 }
+            }
+        }
+    }
+    
+    private func completeAudit() {
+        guard let session = activeSession else { return }
+        
+        Task {
+            // 1. Update the items in the DB (bulk)
+            await AuditService.shared.recordBulkScan(
+                rfids: session.scannedRFIDs,
+                auditSessionId: session.id
+            )
+            
+            // 2. Fetch the full items for reconciliation (exceptions)
+            let items = (try? await DataService.shared.fetchInventoryItems()) ?? []
+            let expectedItems = items.filter { $0.location == session.location }
+            
+            ExceptionEngine.shared.processScanSession(
+                scannedRFIDs: session.scannedRFIDs,
+                targetLocation: session.location,
+                expectedItems: expectedItems
+            )
+            
+            await MainActor.run {
+                presentationMode.wrappedValue.dismiss()
             }
         }
     }

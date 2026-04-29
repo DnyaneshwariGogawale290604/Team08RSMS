@@ -133,6 +133,14 @@ struct ExceptionRow: View {
                     Text("Scanned multiple times in \(exception.scannedLocation ?? "Unknown")")
                         .font(.caption2)
                         .foregroundColor(.appSecondaryText)
+                case .certificationMissing:
+                    Text("Missing authenticity certificate")
+                        .font(.caption2)
+                        .foregroundColor(.appSecondaryText)
+                case .certificationExpired:
+                    Text("Certification expired or invalid")
+                        .font(.caption2)
+                        .foregroundColor(.appSecondaryText)
                 }
                 
                 Divider()
@@ -167,6 +175,10 @@ struct ExceptionRow: View {
                 resolve(.ignoreDuplicate) // Same as ignoring
             }
         case .duplicate:
+            ActionButton(title: "Dismiss", color: .gray) {
+                resolve(.ignoreDuplicate)
+            }
+        case .certificationMissing, .certificationExpired:
             ActionButton(title: "Dismiss", color: .gray) {
                 resolve(.ignoreDuplicate)
             }

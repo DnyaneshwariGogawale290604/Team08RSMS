@@ -591,12 +591,23 @@ public actor DataService {
     
     public func updateInventoryItem(item: InventoryItem) async throws {
         // 1. Update only the status column (view columns are read-only)
-        struct ItemStatusUpdate: Encodable { let status: String }
+        struct ItemUpdate: Encodable { 
+            let status: String
+            let asset_tag: String?
+            let certification_ids: [UUID]
+            let authenticity_status: String
+        }
         try? await client
             .from("inventory_items")
-            .update(ItemStatusUpdate(status: item.status.rawValue))
+            .update(ItemUpdate(
+                status: item.status.rawValue,
+                asset_tag: item.assetTag,
+                certification_ids: item.certificationIds,
+                authenticity_status: item.authenticityStatus.rawValue
+            ))
             .eq("id", value: item.id)
             .execute()
+
 
         // 2. Upsert the active ticket if one exists
         if let ticket = item.activeTicket {
@@ -656,6 +667,9 @@ public actor DataService {
             let batch_no: String; let certificate_id: String?
             let product_name: String; let category: String
             let location: String; let status: String
+            let asset_tag: String?
+            let certification_ids: [UUID]
+            let authenticity_status: String
         }
         try await client.from("inventory_items").insert(
             ItemInsert(
@@ -663,9 +677,143 @@ public actor DataService {
                 product_id: item.productId.uuidString, batch_no: item.batchNo,
                 certificate_id: item.certificateId, product_name: item.productName,
                 category: item.category, location: item.location,
-                status: item.status.rawValue
+                status: item.status.rawValue,
+                asset_tag: item.assetTag,
+                certification_ids: item.certificationIds,
+                authenticity_status: item.authenticityStatus.rawValue
             )
         ).execute()
+
+    }
+
+    // MARK: - Scan status update
+
+    public func updateInventoryItemScanStatus(
+        id: String,
+        scanCount: Int,
+        lastAuditSessionId: UUID?
+    ) async throws {
+        struct ScanUpdate: Encodable {
+            let last_scanned_at: String
+            let next_scan_due_at: String
+            let scan_count: Int
+            let last_audit_session_id: String?
+            let is_flagged_missing: Bool
+        }
+        let iso = ISO8601DateFormatter()
+        let now = Date()
+        // Default frequency: 48 hours
+        let dueAt = now.addingTimeInterval(48 * 3600)
+        try await client
+            .from("inventory_items")
+            .update(ScanUpdate(
+                last_scanned_at: iso.string(from: now),
+                next_scan_due_at: iso.string(from: dueAt),
+                scan_count: scanCount,
+                last_audit_session_id: lastAuditSessionId?.uuidString,
+                is_flagged_missing: false
+            ))
+            .eq("id", value: id)
+            .execute()
+    }
+
+    // MARK: - AuditLog persistence
+
+    public func insertAuditLog(_ log: AuditLog) async throws {
+        struct LogInsert: Encodable {
+            let id: String; let item_id: String; let action: String
+            let timestamp: String; let user_id: String?; let metadata: String?
+        }
+        let iso = ISO8601DateFormatter()
+        try await client.from("audit_logs").insert(
+            LogInsert(
+                id: log.id.uuidString,
+                item_id: log.itemId,
+                action: log.action.rawValue,
+                timestamp: iso.string(from: log.timestamp),
+                user_id: log.userId,
+                metadata: log.metadata
+            )
+        ).execute()
+    }
+
+    // MARK: - Certifications
+
+    public func fetchCertifications(for itemId: String) async throws -> [Certification] {
+        return try await client
+            .from("certifications")
+            .select()
+            .eq("item_id", value: itemId)
+            .order("created_at", ascending: false)
+            .execute()
+            .value
+    }
+
+    public func insertCertification(certification: Certification) async throws {
+        try await client
+            .from("certifications")
+            .insert(certification)
+            .execute()
+    }
+
+    public func updateCertification(certification: Certification) async throws {
+        try await client
+            .from("certifications")
+            .update(certification)
+            .eq("id", value: certification.id)
+            .execute()
+    }
+
+    public func uploadCertificateDocument(data: Data, fileName: String) async throws -> String {
+        let path = "certificates/\(UUID().uuidString)_\(fileName)"
+        try await client.storage
+            .from("certificates")
+            .upload(
+                path: path,
+                file: data,
+                options: FileOptions(cacheControl: "3600", upsert: false)
+            )
+        
+        return try client.storage
+            .from("certificates")
+            .getPublicURL(path: path)
+            .absoluteString
+    }
+
+    public func updateInventoryItemAuthenticity(id: String, status: AuthenticityStatus, certificationIds: [UUID]) async throws {
+        struct AuthenticityUpdate: Encodable {
+            let authenticity_status: String
+            let certification_ids: [UUID]
+        }
+        try await client
+            .from("inventory_items")
+            .update(AuthenticityUpdate(
+                authenticity_status: status.rawValue,
+                certification_ids: certificationIds
+            ))
+            .eq("id", value: id)
+            .execute()
+    }
+
+    public func fetchAuditLogs(for itemId: String) async throws -> [AuditLog] {
+        return try await client
+            .from("audit_logs")
+            .select()
+            .eq("item_id", value: itemId)
+            .order("timestamp", ascending: false)
+            .limit(50)
+            .execute()
+            .value
+    }
+
+    public func fetchAllAuditLogs(limit: Int = 1000) async throws -> [AuditLog] {
+        return try await client
+            .from("audit_logs")
+            .select()
+            .order("timestamp", ascending: false)
+            .limit(limit)
+            .execute()
+            .value
     }
 
     public func ensureBatchForVendorOrder(

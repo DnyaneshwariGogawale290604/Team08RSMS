@@ -46,6 +46,10 @@ public final class InventoryDashboardViewModel: ObservableObject {
             vendorOrders = (try? await vendorOrdersFetch) ?? []
             inventoryItems = (try? await inventoryItemsFetch) ?? []
             sales = (try? await salesFetch) ?? []
+
+            // Inject time-based missing exceptions (deduplicated)
+            let overdue = ExceptionEngine.shared.detectOverdueItems(items: inventoryItems)
+            ExceptionEngine.shared.injectTimeBasedExceptions(overdue)
         } catch {
             print("Failed to fetch dashboard data: \(error)")
         }
@@ -95,8 +99,7 @@ public final class InventoryDashboardViewModel: ObservableObject {
         if allCount == 0 { return 100 }
         let critCount = criticalSKUs.count
         let healthyCount = allCount - critCount
-        let percentage = (Double(healthyCount) / Double(allCount)) * 100
-        return Int(percentage)
+        return (healthyCount * 100) / allCount
     }
     
     public var repairCount: Int {
@@ -172,6 +175,10 @@ public final class InventoryDashboardViewModel: ObservableObject {
         pendingRequests.reduce(0) { $0 + $1.requestedQuantity }
     }
     
+    public var missingScanCount: Int {
+        inventoryItems.filter { $0.scanStatus == .overdue }.count
+    }
+
     public var activePOItemCount: Int {
         let activeOrders = vendorOrders.filter {
             let status = ($0.status ?? "").lowercased()
@@ -188,9 +195,10 @@ public final class InventoryDashboardViewModel: ObservableObject {
             guard item.status != .scrapped else { return false }
             
             switch filter {
-            case .all: return true
+            case .all: return item.status != .scrapped
             case .available: return item.status == .available
             case .underRepair: return item.status == .underRepair
+            case .missingScan: return item.scanStatus == .overdue
             }
         }.count
     }

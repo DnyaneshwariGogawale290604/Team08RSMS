@@ -4,7 +4,10 @@ public enum ExceptionType: String, Codable {
     case missing = "Missing Item"
     case duplicate = "Duplicate Scan"
     case mismatch = "Location Mismatch"
+    case certificationMissing = "Missing Certification"
+    case certificationExpired = "Expired Certification"
 }
+
 
 public enum ExceptionSeverity: String, Codable {
     case high = "High"       // Missing items
@@ -25,7 +28,10 @@ public enum ExceptionResolutionAction {
     case confirmMissing
     case updateLocation
     case ignoreDuplicate
+    case uploadCertificate
+    case renewCertificate
 }
+
 
 public struct ExceptionRecord: Identifiable {
     public let id = UUID()
