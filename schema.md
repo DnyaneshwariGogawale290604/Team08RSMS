@@ -26,7 +26,6 @@ CREATE TABLE public.appointments (
   total_amount numeric DEFAULT 0,
   payment_status text DEFAULT 'unpaid'::text CHECK (payment_status = ANY (ARRAY['unpaid'::text, 'partially_paid'::text, 'paid'::text])),
   CONSTRAINT appointments_pkey PRIMARY KEY (id),
-  CONSTRAINT appointments_linked_order_id_fkey FOREIGN KEY (linked_order_id) REFERENCES public.sales_orders(order_id),
   CONSTRAINT appointments_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES public.customers(customer_id),
   CONSTRAINT appointments_sales_associate_id_fkey FOREIGN KEY (sales_associate_id) REFERENCES public.sales_associates(user_id)
 );
@@ -167,6 +166,7 @@ CREATE TABLE public.goods_received_notes (
   notes text,
   grn_number text UNIQUE,
   created_at timestamp with time zone DEFAULT now(),
+  proof_image_url text,
   CONSTRAINT goods_received_notes_pkey PRIMARY KEY (grn_id),
   CONSTRAINT goods_received_notes_shipment_id_fkey FOREIGN KEY (shipment_id) REFERENCES public.shipments(shipment_id),
   CONSTRAINT goods_received_notes_request_id_fkey FOREIGN KEY (request_id) REFERENCES public.product_requests(request_id),
@@ -232,6 +232,23 @@ CREATE TABLE public.order_items (
   CONSTRAINT order_items_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.sales_orders(order_id),
   CONSTRAINT order_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(product_id)
 );
+CREATE TABLE public.order_shipments (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  order_id uuid NOT NULL,
+  brand_id uuid NOT NULL,
+  shiprocket_order_id text,
+  shiprocket_shipment_id text,
+  awb_number text,
+  courier_name text,
+  label_url text,
+  status text DEFAULT 'pending'::text,
+  tracking_url text,
+  estimated_delivery timestamp with time zone,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT order_shipments_pkey PRIMARY KEY (id),
+  CONSTRAINT order_shipments_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.sales_orders(order_id),
+  CONSTRAINT order_shipments_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(brand_id)
+);
 CREATE TABLE public.order_tracking (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   order_id uuid,
@@ -248,7 +265,7 @@ CREATE TABLE public.payment_leg_items (
   brand_id uuid NOT NULL,
   item_number integer NOT NULL DEFAULT 1 CHECK (item_number >= 1 AND item_number <= 3),
   amount numeric NOT NULL,
-  method text NOT NULL CHECK (method = ANY (ARRAY['upi'::text, 'cash'::text, 'netbanking'::text])),
+  method text NOT NULL CHECK (method = ANY (ARRAY['upi'::text, 'cash'::text, 'netbanking'::text, 'online'::text, 'razorpay'::text, 'cashfree'::text, 'payu'::text])),
   status text NOT NULL DEFAULT 'pending'::text CHECK (status = ANY (ARRAY['pending'::text, 'paid'::text, 'failed'::text, 'cancelled'::text])),
   payment_order_id uuid,
   cash_record_id uuid,
@@ -345,6 +362,15 @@ CREATE TABLE public.product_trends (
   CONSTRAINT product_trends_pkey PRIMARY KEY (id),
   CONSTRAINT product_trends_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(product_id)
 );
+CREATE TABLE public.product_variants (
+  variant_id uuid NOT NULL DEFAULT gen_random_uuid(),
+  product_id uuid NOT NULL,
+  name text NOT NULL,
+  image_urls jsonb NOT NULL DEFAULT '[]'::jsonb CHECK (jsonb_typeof(image_urls) = 'array'::text),
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT product_variants_pkey PRIMARY KEY (variant_id),
+  CONSTRAINT product_variants_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(product_id)
+);
 CREATE TABLE public.products (
   product_id uuid NOT NULL DEFAULT gen_random_uuid(),
   name text,
@@ -422,6 +448,7 @@ CREATE TABLE public.sales_orders (
   payment_status text DEFAULT 'unpaid'::text CHECK (payment_status = ANY (ARRAY['unpaid'::text, 'partially_paid'::text, 'paid'::text])),
   amount_paid numeric DEFAULT 0,
   appointment_id uuid,
+  shipping_status text DEFAULT 'pending_fulfillment'::text,
   CONSTRAINT sales_orders_pkey PRIMARY KEY (order_id),
   CONSTRAINT sales_orders_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES public.customers(customer_id),
   CONSTRAINT sales_orders_store_id_fkey FOREIGN KEY (store_id) REFERENCES public.stores(store_id),
@@ -447,6 +474,17 @@ CREATE TABLE public.shipments (
   CONSTRAINT shipments_batch_id_fkey FOREIGN KEY (batch_id) REFERENCES public.batches(batch_id),
   CONSTRAINT shipments_source_warehouse_id_fkey FOREIGN KEY (source_warehouse_id) REFERENCES public.warehouses(warehouse_id),
   CONSTRAINT shipments_destination_store_id_fkey FOREIGN KEY (destination_store_id) REFERENCES public.stores(store_id)
+);
+CREATE TABLE public.shipping_configs (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  brand_id uuid NOT NULL,
+  provider text NOT NULL DEFAULT 'shiprocket'::text,
+  api_user_vault_id uuid NOT NULL,
+  api_password_vault_id uuid NOT NULL,
+  is_active boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT shipping_configs_pkey PRIMARY KEY (id),
+  CONSTRAINT shipping_configs_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(brand_id)
 );
 CREATE TABLE public.store_inventory (
   inventory_id uuid NOT NULL DEFAULT gen_random_uuid(),

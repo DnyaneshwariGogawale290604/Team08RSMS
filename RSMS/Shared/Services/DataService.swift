@@ -768,6 +768,31 @@ public actor DataService {
             .value
     }
 
+    // MARK: - Order Items (for dashboard charts)
+    public struct OrderItemRow: Decodable, Sendable {
+        public let orderId: UUID
+        public let productId: UUID?
+        public let quantity: Int?
+        public let priceAtPurchase: Double?
+        enum CodingKeys: String, CodingKey {
+            case orderId = "order_id"
+            case productId = "product_id"
+            case quantity
+            case priceAtPurchase = "price_at_purchase"
+        }
+    }
+
+    public func fetchOrderItems(orderIds: [UUID]) async throws -> [OrderItemRow] {
+        guard !orderIds.isEmpty else { return [] }
+        let idStrings = orderIds.map { $0.uuidString }
+        return try await client
+            .from("order_items")
+            .select("order_id, product_id, quantity, price_at_purchase")
+            .in("order_id", values: idStrings)
+            .execute()
+            .value
+    }
+
     // MARK: - Stock Requests (Notify Inventory Manager)
     public func createStockRequest(productId: UUID, quantity: Int) async throws {
         let session = try await client.auth.session

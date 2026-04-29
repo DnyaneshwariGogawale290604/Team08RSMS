@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 
 /// Sheet for Boutique Manager to perform a physical goods check and generate a GRN.
 struct GRNFormSheet: View {
@@ -13,6 +14,8 @@ struct GRNFormSheet: View {
     @State private var notes: String = ""
     @State private var showSuccess = false
     @State private var generatedGRN: String = ""
+    @State private var photoItem: PhotosPickerItem? = nil
+    @State private var proofImage: UIImage? = nil
 
     private var requestedQuantity: Int {
         shipment.request?.requestedQuantity ?? 0
@@ -20,7 +23,12 @@ struct GRNFormSheet: View {
 
     private var isFormValid: Bool {
         let qty = Int(quantityReceived) ?? 0
-        return qty > 0
+        let hasValidQuantity = qty > 0
+        let requiresProof = selectedCondition == .damaged || selectedCondition == .partial
+        if requiresProof {
+            return hasValidQuantity && proofImage != nil
+        }
+        return hasValidQuantity
     }
 
     var body: some View {
@@ -35,6 +43,22 @@ struct GRNFormSheet: View {
 
                     // Notes
                     notesCard
+
+                    // Photo Proof (only if damaged or partial)
+                    if selectedCondition == .damaged || selectedCondition == .partial {
+                        photoProofCard
+                    }
+
+                    // Error Message
+                    if let error = viewModel.errorMessage {
+                        Text(error)
+                            .font(.caption)
+                            .foregroundColor(.white)
+                            .padding()
+                            .frame(maxWidth: .infinity)
+                            .background(BoutiqueTheme.error)
+                            .cornerRadius(10)
+                    }
 
                     // Submit
                     submitButton
@@ -230,6 +254,71 @@ struct GRNFormSheet: View {
         .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.appBorder, lineWidth: 0.8))
     }
 
+    private var photoProofCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("Photo Proof Required", systemImage: "camera")
+                .font(.caption.weight(.semibold))
+                .foregroundColor(BoutiqueTheme.error)
+            
+            Text("Please attach a clear photo showing the damage or issue.")
+                .font(.caption)
+                .foregroundColor(.appSecondaryText)
+            
+            if let img = proofImage {
+                ZStack(alignment: .topTrailing) {
+                    Image(uiImage: img)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(height: 150)
+                        .frame(maxWidth: .infinity)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                    
+                    Button {
+                        proofImage = nil
+                        photoItem = nil
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.title2)
+                            .foregroundColor(.white)
+                            .background(Color.black.opacity(0.5))
+                            .clipShape(Circle())
+                    }
+                    .padding(8)
+                }
+            } else {
+                PhotosPicker(selection: $photoItem, matching: .images, photoLibrary: .shared()) {
+                    VStack(spacing: 8) {
+                        Image(systemName: "photo.badge.plus")
+                            .font(.title)
+                        Text("Add Photo Proof")
+                            .font(.subheadline.bold())
+                    }
+                    .foregroundColor(BoutiqueTheme.primary)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 100)
+                    .background(BoutiqueTheme.primary.opacity(0.1))
+                    .cornerRadius(10)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(BoutiqueTheme.primary.opacity(0.3), style: StrokeStyle(lineWidth: 1, dash: [5]))
+                    )
+                }
+                .onChange(of: photoItem) { newItem in
+                    Task {
+                        if let data = try? await newItem?.loadTransferable(type: Data.self),
+                           let uiImage = UIImage(data: data) {
+                            proofImage = uiImage
+                        }
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .background(BoutiqueTheme.card)
+        .cornerRadius(14)
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.appBorder, lineWidth: 0.8))
+    }
+
     private var submitButton: some View {
         Button {
             Task { await submitGRN() }
@@ -239,8 +328,8 @@ struct GRNFormSheet: View {
                     ProgressView().tint(.white)
                 } else {
                     HStack(spacing: 8) {
-                        Image(systemName: "checkmark.seal.fill")
-                        Text("Confirm Receipt & Generate GRN")
+                        Image(systemName: selectedCondition == .good ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
+                        Text(selectedCondition == .good ? "Confirm Receipt & Generate GRN" : "Report Issue & Generate GRN")
                             .font(.system(size: 16, weight: .semibold))
                     }
                     .foregroundColor(.white)
@@ -301,12 +390,16 @@ struct GRNFormSheet: View {
     // MARK: - Actions
 
     private func submitGRN() async {
+        // Clear any previous error before submitting
+        viewModel.errorMessage = nil
+        
         let qty = Int(quantityReceived) ?? requestedQuantity
         if let grn = await viewModel.receiveGoods(
             shipment: shipment,
             quantityReceived: qty,
             condition: selectedCondition,
-            notes: notes.trimmingCharacters(in: .whitespacesAndNewlines)
+            notes: notes.trimmingCharacters(in: .whitespacesAndNewlines),
+            proofImage: proofImage
         ) {
             generatedGRN = grn
             withAnimation(.spring()) { showSuccess = true }

@@ -447,7 +447,8 @@ public final class RequestService: @unchecked Sendable {
         requestId: UUID?,
         quantityReceived: Int,
         condition: GoodsReceivedNote.GRNCondition,
-        notes: String
+        notes: String,
+        proofImageUrl: String? = nil
     ) async throws -> String {
         let currentUserId = try await client.auth.session.user.id
         let grnNumber = generateGRNNumber()
@@ -460,6 +461,7 @@ public final class RequestService: @unchecked Sendable {
             let condition: String
             let notes: String
             let grnNumber: String
+            let proofImageUrl: String?
 
             enum CodingKeys: String, CodingKey {
                 case shipmentId = "shipment_id"
@@ -469,6 +471,7 @@ public final class RequestService: @unchecked Sendable {
                 case condition
                 case notes
                 case grnNumber = "grn_number"
+                case proofImageUrl = "proof_image_url"
             }
         }
 
@@ -479,7 +482,8 @@ public final class RequestService: @unchecked Sendable {
             quantityReceived: quantityReceived,
             condition: condition.rawValue,
             notes: notes,
-            grnNumber: grnNumber
+            grnNumber: grnNumber,
+            proofImageUrl: proofImageUrl
         )
 
         do {
