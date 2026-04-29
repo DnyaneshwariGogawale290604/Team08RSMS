@@ -379,29 +379,30 @@ public final class AdminService: @unchecked Sendable {
 
     /// Fetches category-wise sales breakdown across all stores belonging to the admin's brand.
     /// Uses order_items joined with products (for category) and sales_orders (for store filtering).
-    public func fetchCategoryWiseSales() async throws -> [CategorySales] {
+    public func fetchCategoryWiseSales(for storeId: UUID? = nil) async throws -> [CategorySales] {
         let context = try await fetchCurrentCorporateAdminContext()
 
         // 1. Get store IDs for the brand
-        struct StoreIdRow: Decodable {
-            let storeId: UUID
-
-            enum CodingKeys: String, CodingKey {
-                case storeId = "store_id"
+        let storeIds: [UUID]
+        if let storeId = storeId {
+            storeIds = [storeId]
+        } else {
+            struct StoreIdRow: Decodable {
+                let storeId: UUID
+                enum CodingKeys: String, CodingKey { case storeId = "store_id" }
             }
+            let storeRows: [StoreIdRow] = try await client
+                .from("stores")
+                .select("store_id")
+                .eq("brand_id", value: context.brandId)
+                .execute()
+                .value
+            storeIds = storeRows.map { $0.storeId }
         }
-
-        let storeRows: [StoreIdRow] = try await client
-            .from("stores")
-            .select("store_id")
-            .eq("brand_id", value: context.brandId)
-            .execute()
-            .value
-
-        let storeIds = storeRows.map { $0.storeId }
+        
         guard !storeIds.isEmpty else { return [] }
 
-        // 2. Fetch order_items with product category, filtered by brand stores via sales_orders
+        // 2. Fetch order_items with product category, filtered by stores via sales_orders
         struct OrderItemWithCategory: Decodable {
             let quantity: Int?
             let priceAtPurchase: Double?
@@ -418,13 +419,10 @@ public final class AdminService: @unchecked Sendable {
             let category: String?
         }
 
-        // Get all order IDs for brand stores
+        // Get all order IDs for selected stores
         struct OrderIdRow: Decodable {
             let orderId: UUID
-
-            enum CodingKeys: String, CodingKey {
-                case orderId = "order_id"
-            }
+            enum CodingKeys: String, CodingKey { case orderId = "order_id" }
         }
 
         let orderIdRows: [OrderIdRow] = try await client
@@ -498,8 +496,12 @@ public final class AdminService: @unchecked Sendable {
         }
         
         return stores.map { store in
-            StorePerformance(store: store, totalSales: salesMap[store.id] ?? 0)
-        }.sorted { $0.totalSales > $1.totalSales }
+            StorePerformance(
+                store: store,
+                totalSales: salesMap[store.id] ?? 0,
+                target: store.salesTarget ?? 0
+            )
+        }.sorted { $0.achievementPercentage > $1.achievementPercentage }
     }
 
     private func validateAssignment(for request: StaffCreationRequest, corporateAdminBrandId: UUID) async throws {

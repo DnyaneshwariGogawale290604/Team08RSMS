@@ -134,9 +134,18 @@ public struct StorePerformance: Identifiable, Sendable {
     public var id: UUID { store.id }
     public let store: Store
     public let totalSales: Double
+    public let target: Double
+    public let categorySales: [CategorySales]
 
-    public init(store: Store, totalSales: Double) {
+    public var achievementPercentage: Double {
+        guard target > 0 else { return 0 }
+        return totalSales / target
+    }
+
+    public init(store: Store, totalSales: Double, target: Double, categorySales: [CategorySales] = []) {
         self.store = store
         self.totalSales = totalSales
+        self.target = target
+        self.categorySales = categorySales
     }
 }
