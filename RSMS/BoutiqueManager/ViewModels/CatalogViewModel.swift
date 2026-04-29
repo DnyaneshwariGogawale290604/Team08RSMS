@@ -3,26 +3,26 @@ import SwiftUI
 import Combine
 
 @MainActor
-public class CatalogViewModel: ObservableObject {
-    @Published public var products: [Product] = []
-    @Published public var filteredProducts: [Product] = []
-    @Published public var isLoading = false
-    @Published public var errorMessage: String?
-    @Published public var searchText = "" {
+class CatalogViewModel: ObservableObject {
+    @Published var products: [Product] = []
+    @Published var filteredProducts: [Product] = []
+    @Published var isLoading = false
+    @Published var errorMessage: String?
+    @Published var searchText = "" {
         didSet { applySearch() }
     }
-    @Published public var selectedCategory: String? = nil {
+    @Published var selectedCategory: String? = nil {
         didSet { applySearch() }
     }
     
-    public var categories: [String] {
+    var categories: [String] {
         let cats = products.compactMap { $0.category }.filter { !$0.isEmpty }
         return Array(Set(cats)).sorted()
     }
     
-    public init() {}
+    init() {}
     
-    public func fetchProducts() {
+    func fetchProducts() {
         isLoading = true
         errorMessage = nil
 

@@ -1,17 +1,17 @@
 import SwiftUI
 
-public struct CatalogView: View {
+struct CatalogView: View {
     @StateObject private var catalogVM = CatalogViewModel()
     @State private var selectedProduct: Product?
     
-    private let columns = [
-        GridItem(.flexible(), spacing: 16),
-        GridItem(.flexible(), spacing: 16)
-    ]
+    private var columns: [GridItem] {
+        [
+            GridItem(.flexible(), spacing: 16),
+            GridItem(.flexible(), spacing: 16)
+        ]
+    }
     
-    public init() {}
-    
-    public var body: some View {
+    var body: some View {
         NavigationView {
             ZStack {
                 BoutiqueTheme.background.ignoresSafeArea()
@@ -448,7 +448,14 @@ private struct BoutiqueProductImageCarousel<Placeholder: View>: View {
     let imageUrls: [String]
     let height: CGFloat
     let placeholder: () -> Placeholder
-    @State private var selectedIndex = 0
+    @State private var selectedIndex: Int
+
+    init(imageUrls: [String], height: CGFloat, @ViewBuilder placeholder: @escaping () -> Placeholder) {
+        self.imageUrls = imageUrls
+        self.height = height
+        self.placeholder = placeholder
+        self._selectedIndex = State(initialValue: 0)
+    }
 
     var body: some View {
         ZStack(alignment: .bottom) {
