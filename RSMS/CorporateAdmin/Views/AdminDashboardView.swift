@@ -235,6 +235,16 @@ struct AdminDashboardView: View {
                     
                     // Legend
                     VStack(alignment: .leading, spacing: 10) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Total Revenue")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundColor(CatalogTheme.secondaryText)
+                            Text(formatCurrency(totalAllCategories))
+                                .font(.system(size: 20, weight: .bold))
+                                .foregroundColor(CatalogTheme.primaryText)
+                        }
+                        .padding(.bottom, 4)
+                        
                         ForEach(Array(dashboardViewModel.categorySales.prefix(5).enumerated()), id: \.element.id) { index, item in
                             HStack(spacing: 8) {
                                 Circle()
@@ -246,6 +256,10 @@ struct AdminDashboardView: View {
                                     .foregroundColor(CatalogTheme.primaryText)
                                 
                                 Spacer()
+
+                                Text(formatCurrency(item.totalSales))
+                                    .font(.system(size: 13, weight: .bold))
+                                    .foregroundColor(CatalogTheme.primaryText)
                             }
                         }
                     }
@@ -490,16 +504,13 @@ struct CategoryPieChartView: View {
     let data: [CategorySales]
     let total: Double
     
-    // Distinct vibrant color palette
+    // Theme compliant color palette
     private let distinctColors: [Color] = [
-        Color(hex: "#6E5155"), // Theme Primary
-        Color(hex: "#E67E22"), // Orange
-        Color(hex: "#27AE60"), // Green
-        Color(hex: "#2980B9"), // Blue
-        Color(hex: "#8E44AD"), // Purple
-        Color(hex: "#C0392B"), // Red
-        Color(hex: "#F1C40F"), // Yellow
-        Color(hex: "#16A085")  // Teal
+        Color(hex: "#6E5155"), // Deep Maroon
+        Color(hex: "#958184"), // Muted Rose
+        Color(hex: "#B9A9AB"), // Soft Taupe
+        Color(hex: "#D2C7C8"), // Light Stone
+        Color(hex: "#EAE3E4")  // Off White
     ]
     
     var body: some View {
@@ -518,20 +529,6 @@ struct CategoryPieChartView: View {
                     .stroke(Color.white, lineWidth: 2)
                 )
             }
-            
-            Circle()
-                .fill(Color.white)
-                .frame(width: 115, height: 115)
-                .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
-            
-            VStack(spacing: 2) {
-                Text("Total")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundColor(CatalogTheme.secondaryText)
-                Text(formatShortCurrency(total))
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundColor(CatalogTheme.primaryText)
-            }
         }
     }
     
@@ -543,18 +540,6 @@ struct CategoryPieChartView: View {
     private func endAngle(for index: Int) -> Angle {
         let proportion = data.prefix(index + 1).reduce(0) { $0 + $1.totalSales } / total
         return .degrees(proportion * 360 - 90)
-    }
-    
-    private func formatShortCurrency(_ value: Double) -> String {
-        if value >= 10_000_000 {
-            return String(format: "₹%.1fCr", value / 10_000_000)
-        } else if value >= 100_000 {
-            return String(format: "₹%.1fL", value / 100_000)
-        } else if value >= 1_000 {
-            return String(format: "₹%.1fK", value / 1_000)
-        } else {
-            return String(format: "₹%.0f", value)
-        }
     }
 }
 

@@ -386,9 +386,7 @@ struct VendorGRNFormSheet: View {
                     }
                 } label: {
                     HStack(spacing: 8) {
-                        Image(systemName: "checkmark.circle.fill")
-                        Text("Done")
-                            .font(.system(size: 16, weight: .semibold))
+                        Image(systemName: "checkmark")
                     }
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)

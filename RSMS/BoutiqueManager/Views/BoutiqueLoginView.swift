@@ -37,6 +37,7 @@ public struct BoutiqueLoginView: View {
                         )
                         .keyboardType(.emailAddress)
                         .autocapitalization(.none)
+                        .foregroundColor(BoutiqueTheme.primaryText)
 
                     SecureField(
                         "",
@@ -50,6 +51,7 @@ public struct BoutiqueLoginView: View {
                             RoundedRectangle(cornerRadius: 16, style: .continuous)
                                 .stroke(BoutiqueTheme.divider, lineWidth: 1)
                         )
+                        .foregroundColor(BoutiqueTheme.primaryText)
                 }
                 .padding(.horizontal, 40)
 

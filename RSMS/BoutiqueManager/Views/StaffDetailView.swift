@@ -22,7 +22,7 @@ public struct StaffDetailView: View {
                     Button(action: {
                         presentationMode.wrappedValue.dismiss()
                     }) {
-                        Text("Close")
+                        Image(systemName: "xmark")
                             .font(.system(size: 16, weight: .medium))
                             .foregroundColor(BoutiqueTheme.textPrimary)
                             .padding(.horizontal, 16)

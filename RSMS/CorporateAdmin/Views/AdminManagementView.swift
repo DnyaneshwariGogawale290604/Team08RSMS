@@ -946,7 +946,7 @@ private struct StaffDetailSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(isEditing ? "Cancel" : "Close") {
+                    Button {
                         if isEditing {
                             editedName = item.user.displayName
                             editedEmail = item.user.email ?? ""
@@ -954,6 +954,12 @@ private struct StaffDetailSheet: View {
                             isEditing = false
                         } else {
                             dismiss()
+                        }
+                    } label: {
+                        if isEditing {
+                            Text("Cancel")
+                        } else {
+                            Image(systemName: "xmark")
                         }
                     }
                     .foregroundColor(CatalogTheme.primaryText)
@@ -1101,13 +1107,19 @@ private struct VendorDetailSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(isEditing ? "Cancel" : "Close") {
+                    Button {
                         if isEditing {
                             editedName = vendor.name
                             editedContact = vendor.contactInfo ?? ""
                             isEditing = false
                         } else {
                             dismiss()
+                        }
+                    } label: {
+                        if isEditing {
+                            Text("Cancel")
+                        } else {
+                            Image(systemName: "xmark")
                         }
                     }
                     .foregroundColor(CatalogTheme.primaryText)

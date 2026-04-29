@@ -158,8 +158,12 @@ struct RatingPromptSheet: View {
                         .foregroundStyle(Color.luxuryPrimaryText)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Close") { dismiss() }
-                        .foregroundStyle(Color.luxurySecondaryText)
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                    }
+                    .foregroundStyle(Color.luxurySecondaryText)
                 }
             }
         }
