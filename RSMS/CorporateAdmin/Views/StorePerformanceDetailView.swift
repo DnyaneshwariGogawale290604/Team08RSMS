@@ -121,10 +121,12 @@ struct StorePerformanceDetailView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") {
+                    Button {
                         dismiss()
+                    } label: {
+                        Image(systemName: "checkmark")
+                            .fontWeight(.semibold)
                     }
-                    .fontWeight(.semibold)
                     .foregroundColor(CatalogTheme.primary)
                 }
             }

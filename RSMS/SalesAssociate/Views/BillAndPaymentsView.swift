@@ -64,9 +64,11 @@ struct BillAndPaymentsView: View {
                         .foregroundStyle(Color.luxuryPrimaryText)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { dismiss() }
-                        .font(BrandFont.body(14, weight: .semibold))
-                        .foregroundStyle(Color.luxuryPrimaryText)
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark")
+                    }
+                    .font(BrandFont.body(14, weight: .semibold))
+                    .foregroundStyle(Color.luxuryPrimaryText)
                 }
             }
             .task {

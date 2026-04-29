@@ -558,7 +558,11 @@ private struct CorporateProductDetailSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("Done") { dismiss() }
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "checkmark")
+                    }
                 }
 
                 ToolbarItem(placement: .topBarTrailing) {

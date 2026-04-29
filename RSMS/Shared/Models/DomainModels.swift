@@ -123,10 +123,12 @@ public struct CategorySales: Identifiable, Sendable {
     public let id = UUID()
     public let category: String
     public let totalSales: Double
+    public let unitsSold: Int
     
-    public init(category: String, totalSales: Double) {
+    public init(category: String, totalSales: Double, unitsSold: Int = 0) {
         self.category = category
         self.totalSales = totalSales
+        self.unitsSold = unitsSold
     }
 }
 

@@ -405,9 +405,13 @@ public struct RepairInputView: View {
                 }
             }
             .navigationTitle("Mark for Repair")
-            .navigationBarItems(trailing: Button("Cancel") {
-                presentationMode.wrappedValue.dismiss()
-            })
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { presentationMode.wrappedValue.dismiss() } label: {
+                        Image(systemName: "xmark")
+                    }
+                }
+            }
         }
     }
     

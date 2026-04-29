@@ -132,8 +132,12 @@ public struct AddEditProductView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("Cancel") { dismiss() }
-                        .foregroundColor(CatalogTheme.secondaryText)
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                    }
+                    .foregroundColor(CatalogTheme.secondaryText)
                 }
 
                 ToolbarItem(placement: .topBarTrailing) {

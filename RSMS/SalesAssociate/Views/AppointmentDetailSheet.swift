@@ -55,9 +55,11 @@ struct AppointmentDetailSheet: View {
                         .foregroundStyle(Color.luxuryPrimaryText)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Close") { dismiss() }
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Color.luxuryPrimaryText)
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark")
+                    }
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Color.luxuryPrimaryText)
                 }
             }
             .confirmationDialog("Are you sure?", isPresented: $showCancelConfirm, titleVisibility: .visible) {

@@ -538,7 +538,11 @@ struct StandaloneReceiptSheet: View {
                     Text("ORDER CONFIRMED").font(.system(size: 13, weight: .semibold)).kerning(2).foregroundStyle(Color.luxuryPrimaryText)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Close") { dismiss() }.foregroundStyle(Color.luxuryPrimary).font(.system(size: 14, weight: .semibold))
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark")
+                    }
+                    .foregroundStyle(Color.luxuryPrimary)
+                    .font(.system(size: 14, weight: .semibold))
                 }
             }
             .alert("Complete Order", isPresented: $showConfirm) {
@@ -791,9 +795,11 @@ struct SAOrderDetailSheet: View {
                         .foregroundStyle(Color.luxuryPrimaryText)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Close") { dismiss() }
-                        .foregroundStyle(Color.luxuryPrimary)
-                        .font(.system(size: 14, weight: .semibold))
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark")
+                    }
+                    .foregroundStyle(Color.luxuryPrimary)
+                    .font(.system(size: 14, weight: .semibold))
                 }
             }
             .alert("Complete Order", isPresented: $showConfirm) {

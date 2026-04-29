@@ -37,6 +37,17 @@ public struct Warehouse: Identifiable, Codable, Hashable, Sendable {
         case createdAt = "created_at"
     }
 
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        name = (try? container.decodeIfPresent(String.self, forKey: .name)) ?? ""
+        location = (try? container.decodeIfPresent(String.self, forKey: .location)) ?? ""
+        address = try? container.decodeIfPresent(String.self, forKey: .address)
+        brandId = try? container.decodeIfPresent(UUID.self, forKey: .brandId)
+        status = try? container.decodeIfPresent(String.self, forKey: .status)
+        createdAt = try? container.decodeIfPresent(String.self, forKey: .createdAt)
+    }
+
     public var isToggleActive: Bool {
         get { status == "active" }
     }

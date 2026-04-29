@@ -103,12 +103,16 @@ public struct AddStoreProductModal: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") { dismiss() }
-                        .tint(.appAccent)
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                    }
+                    .tint(.appAccent)
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     let selected = items.filter { $0.isSelected }
-                    Button("Add (\(selected.count))") {
+                    Button {
                         Task {
                             let results = selected.compactMap { item -> (Product, Int)? in
                                 guard let qty = Int(item.quantity) else { return nil }
@@ -121,6 +125,8 @@ public struct AddStoreProductModal: View {
                                 showingError = true
                             }
                         }
+                    } label: {
+                        Image(systemName: "checkmark")
                     }
                     .disabled(selected.isEmpty)
                     .tint(.appAccent)
