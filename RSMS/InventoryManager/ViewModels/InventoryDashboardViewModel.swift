@@ -99,6 +99,16 @@ public final class InventoryDashboardViewModel: ObservableObject {
         return Int(percentage)
     }
     
+    public var repairCount: Int {
+        var count = 0
+        for item in inventoryItems {
+            if item.status == .underRepair {
+                count += 1
+            }
+        }
+        return count
+    }
+    
     public var categories: [String] {
         let productCats = products.map { $0.category.isEmpty ? "General" : $0.category }
         let itemCats = inventoryItems.map { $0.category.isEmpty ? "General" : $0.category }
@@ -142,9 +152,13 @@ public final class InventoryDashboardViewModel: ObservableObject {
     }
 
     public var inTransitCount: Int {
-        let shipmentCount = recentActivity.filter { $0.status.lowercased() == "in_transit" }.count
-        let poCount = vendorOrders.filter { $0.status?.lowercased() == "in_transit" }.count
-        return shipmentCount + poCount
+        var count = 0
+        for item in inventoryItems {
+            if item.status == .inTransit {
+                count += 1
+            }
+        }
+        return count
     }
 
     public var activePurchaseOrderCount: Int {
@@ -152,6 +166,18 @@ public final class InventoryDashboardViewModel: ObservableObject {
             let status = ($0.status ?? "").lowercased()
             return status == "pending" || status == "in_transit"
         }.count
+    }
+
+    public var pendingItemCount: Int {
+        pendingRequests.reduce(0) { $0 + $1.requestedQuantity }
+    }
+    
+    public var activePOItemCount: Int {
+        let activeOrders = vendorOrders.filter {
+            let status = ($0.status ?? "").lowercased()
+            return status == "pending" || status == "in_transit"
+        }
+        return activeOrders.reduce(0) { $0 + ($1.quantity ?? 0) }
     }
     
     public func filteredItemCount(for category: String, filter: ItemsTabView.RepairFilter) -> Int {

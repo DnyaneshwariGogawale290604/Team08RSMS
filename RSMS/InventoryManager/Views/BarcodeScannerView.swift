@@ -179,6 +179,11 @@ extension BarcodeScannerViewController: AVCaptureMetadataOutputObjectsDelegate {
             self.hasScanned = true
             AudioServicesPlaySystemSound(SystemSoundID(kSystemSoundID_Vibrate))
             self.delegate?.didScanCode(stringValue, type: typeString)
+            
+            // Allow another scan after 1.5 seconds cooldown
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                self.hasScanned = false
+            }
         }
     }
 }
@@ -207,6 +212,11 @@ public struct AddItemScanView: View {
     @State private var showSuccess = false
     @State private var scanCount = 0
     @State private var errorText: String?
+    
+    // Tracking for animations
+    @State private var lastScannedItem: InventoryItem? = nil
+    @State private var showDuplicateError = false
+    @State private var duplicateRFID: String? = nil
     
     let availableCategories = ["Ring", "Necklace", "Bracelet", "Watch", "Handbag", "Earring", "Pendant", "Other"]
     
@@ -261,9 +271,14 @@ public struct AddItemScanView: View {
                 // Auto-parse: try to extract product info from code
                 parseScannedCode(code)
                 
-                withAnimation(.spring()) {
-                    scanPhase = .scanned
+                // Fallback to the first available product if no match is found,
+                // so that we can auto-add without requiring user input.
+                if selectedProduct == nil {
+                    selectedProduct = viewModel.products.first
                 }
+                
+                // Immediately add to inventory bypassing forms
+                addItemFromScan()
             }
             .ignoresSafeArea()
             
@@ -314,6 +329,77 @@ public struct AddItemScanView: View {
                 }
                 .padding()
                 .padding(.bottom, 20)
+            }
+            
+            // Visual success feedback
+            if showSuccess, let item = lastScannedItem {
+                ZStack {
+                    Color.black.opacity(0.6).ignoresSafeArea()
+                    VStack(spacing: 16) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 80))
+                            .foregroundColor(.green)
+                        
+                        Text("Item Added!")
+                            .font(.title2.bold())
+                            .foregroundColor(.white)
+                        
+                        VStack(spacing: 8) {
+                            Text(item.productName)
+                                .font(.headline)
+                                .foregroundColor(.white)
+                            Text("ID: \(item.id)")
+                                .font(.subheadline)
+                                .foregroundColor(.gray)
+                            Text("Location: \(item.location)")
+                                .font(.subheadline)
+                                .foregroundColor(.gray)
+                            Text("Time: \(item.timestamp.formatted(date: .omitted, time: .standard))")
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                        }
+                        .padding()
+                        .background(Color.appBackground.opacity(0.9))
+                        .cornerRadius(12)
+                    }
+                    .padding(30)
+                    .background(Color.gray.opacity(0.2))
+                    .cornerRadius(20)
+                }
+                .transition(.scale.combined(with: .opacity))
+            }
+            
+            // Visual Duplicate Error Feedback
+            if showDuplicateError, let rfid = duplicateRFID {
+                ZStack {
+                    Color.black.opacity(0.6).ignoresSafeArea()
+                    VStack(spacing: 16) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 80))
+                            .foregroundColor(.orange)
+                        
+                        Text("Duplicate Scan")
+                            .font(.title2.bold())
+                            .foregroundColor(.white)
+                        
+                        VStack(spacing: 8) {
+                            Text("ID: \(rfid)")
+                                .font(.headline)
+                                .foregroundColor(.white)
+                            Text("This item is already in the database.")
+                                .font(.subheadline)
+                                .foregroundColor(.gray)
+                                .multilineTextAlignment(.center)
+                        }
+                        .padding()
+                        .background(Color.appBackground.opacity(0.9))
+                        .cornerRadius(12)
+                    }
+                    .padding(30)
+                    .background(Color.gray.opacity(0.2))
+                    .cornerRadius(20)
+                }
+                .transition(.scale.combined(with: .opacity))
             }
         }
     }
@@ -540,10 +626,29 @@ public struct AddItemScanView: View {
     
     private func addItemFromScan() {
         guard let code = scannedCode, let product = selectedProduct else { return }
-        let rfid = "RFID-\(code.prefix(8))-\(Int.random(in: 1000...9999))"
+        let rfid = code // Use exact barcode as unique ID
         
         Task {
             do {
+                // First check if this exact RFID already exists
+                if let existingItem = try? await DataService.shared.fetchInventoryItemByRFID(rfid), existingItem != nil {
+                    // It's a duplicate!
+                    await MainActor.run {
+                        duplicateRFID = rfid
+                        withAnimation { showDuplicateError = true }
+                        
+                        // Reset duplicate error overlay
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                            withAnimation { showDuplicateError = false }
+                            scannedCode = nil
+                            scannedType = ""
+                            selectedProduct = nil
+                            duplicateRFID = nil
+                        }
+                    }
+                    return
+                }
+                
                 try await DataService.shared.incrementWarehouseInventoryForCurrentManager(
                     productId: product.id,
                     quantity: 1
@@ -564,15 +669,16 @@ public struct AddItemScanView: View {
                 
                 await MainActor.run {
                     scanCount += 1
-                    showSuccess = true
+                    lastScannedItem = newItem
+                    withAnimation { showSuccess = true }
                     
-                    // Reset for next scan
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    // Reset for next scan without changing phase
+                    // Give it a slightly longer delay so the user can read the details
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                        withAnimation { showSuccess = false }
                         scannedCode = nil
                         scannedType = ""
                         selectedProduct = nil
-                        batchNo = "B-SCAN"
-                        withAnimation { scanPhase = .scanning }
                     }
                 }
                 await viewModel.loadDashboardData()

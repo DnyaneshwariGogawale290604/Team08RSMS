@@ -6,6 +6,7 @@ public struct InventoryManagerTabView: View {
     @State private var selectedTab: Int = 0
     @State private var prefilledSKUMagic: String? = nil
     @State private var categoryFilterMagic: String? = nil
+    @State private var repairFilter: ItemsTabView.RepairFilter = .all
 
     public init(sessionViewModel: SessionViewModel) {
         self.sessionViewModel = sessionViewModel
@@ -17,6 +18,7 @@ public struct InventoryManagerTabView: View {
                 selectedTab: $selectedTab,
                 prefilledSKUMagic: $prefilledSKUMagic,
                 categoryFilterMagic: $categoryFilterMagic,
+                repairFilter: $repairFilter,
                 onAccountTapped: { showingAccountSheet = true }
             )
             .tabItem {
@@ -40,7 +42,7 @@ public struct InventoryManagerTabView: View {
             }
             .tag(2)
 
-            ItemsTabView(categoryFilterMagic: $categoryFilterMagic)
+            ItemsTabView(categoryFilterMagic: $categoryFilterMagic, repairFilter: $repairFilter)
                 .tabItem {
                     Label("Items", systemImage: "shippingbox")
                 }

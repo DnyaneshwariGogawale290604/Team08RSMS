@@ -2,15 +2,20 @@ import SwiftUI
 
 public struct DashboardTabView: View {
     @StateObject private var viewModel = InventoryDashboardViewModel()
+    @StateObject private var exceptionEngine = ExceptionEngine.shared
     @Binding var selectedTab: Int // To navigate to Tab 1 (Workflows) or Tab 2 (Items)
     @Binding var prefilledSKUMagic: String? // Pass state to Transfers/PO tab
     @Binding var categoryFilterMagic: String? // Pass state to Items tab
+    @Binding var repairFilter: ItemsTabView.RepairFilter // Pass state to Items tab for repair filter
     public var onAccountTapped: (() -> Void)? = nil
-
-    public init(selectedTab: Binding<Int>, prefilledSKUMagic: Binding<String?>, categoryFilterMagic: Binding<String?>, onAccountTapped: (() -> Void)? = nil) {
+    
+    @State private var showExceptions = false
+    
+    public init(selectedTab: Binding<Int>, prefilledSKUMagic: Binding<String?>, categoryFilterMagic: Binding<String?>, repairFilter: Binding<ItemsTabView.RepairFilter>, onAccountTapped: (() -> Void)? = nil) {
         self._selectedTab = selectedTab
         self._prefilledSKUMagic = prefilledSKUMagic
         self._categoryFilterMagic = categoryFilterMagic
+        self._repairFilter = repairFilter
         self.onAccountTapped = onAccountTapped
     }
 
@@ -21,65 +26,9 @@ public struct DashboardTabView: View {
                 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 24) {
-                        // Stock Summary Cards
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text("Stock Summary")
-                                .font(.headline)
-                                .foregroundColor(Color.appPrimaryText)
-                                .padding(.horizontal)
-                            
-                            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
-                                Button(action: {
-                                    categoryFilterMagic = nil
-                                    selectedTab = 2 // Items tab
-                                }) {
-                                    statCard(title: "Available", value: "\(viewModel.availableCount)", icon: "checkmark.circle.fill", color: .green)
-                                }
-                                .buttonStyle(PlainButtonStyle())
-                                
-                                Button(action: {
-                                    selectedTab = 1 // Workflows tab
-                                }) {
-                                    statCard(title: "In Transit", value: "\(viewModel.inTransitCount)", icon: "box.truck.fill", color: .blue)
-                                }
-                                .buttonStyle(PlainButtonStyle())
-
-                                Button(action: {
-                                    selectedTab = 1 // Workflows tab
-                                }) {
-                                    statCard(title: "Pending Req", value: "\(viewModel.pendingRequests.count)", icon: "clock.fill", color: .orange)
-                                }
-                                .buttonStyle(PlainButtonStyle())
-
-                                Button(action: {
-                                    selectedTab = 1 // Workflows tab
-                                }) {
-                                    statCard(title: "Active POs", value: "\(viewModel.activePurchaseOrderCount)", icon: "shippingbox.circle.fill", color: .blue)
-                                }
-                                .buttonStyle(PlainButtonStyle())
-                            }
-                            .padding(.horizontal)
-                        }
-                        .padding(.top, 16)
-                        
-                        // Items Stock Levels
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text("Items Stock Levels")
-                                .font(.headline)
-                                .foregroundColor(Color.appPrimaryText)
-                                .padding(.horizontal)
-                            
-                            ForEach(viewModel.categories, id: \.self) { category in
-                                Button(action: {
-                                    categoryFilterMagic = category
-                                    selectedTab = 2 // Items tab
-                                }) {
-                                    categoryCard(for: category)
-                                }
-                                .buttonStyle(PlainButtonStyle())
-                            }
-                        }
-                        
+                        quickStatsSection
+                        itemsStockLevelsSection
+                        exceptionsHandlingSummarySection
                     }
                     .padding(.bottom, 20)
                 }
@@ -90,8 +39,8 @@ public struct DashboardTabView: View {
             .navigationTitle("Dashboard")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
-                if let onAccountTapped = onAccountTapped {
-                    ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    if let onAccountTapped = onAccountTapped {
                         Button(action: onAccountTapped) {
                             Image(systemName: "person.crop.circle")
                                 .foregroundColor(Color.appPrimaryText)
@@ -99,9 +48,166 @@ public struct DashboardTabView: View {
                     }
                 }
             }
+            .sheet(isPresented: $showExceptions) {
+                ExceptionsDashboardView()
+            }
             .task {
                 await viewModel.loadDashboardData()
             }
+        }
+    }
+    
+
+    @ViewBuilder
+    private var quickStatsSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Quick Stats")
+                .font(.headline)
+                .foregroundColor(Color.appPrimaryText)
+                .padding(.horizontal)
+            
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    Button(action: {
+                        categoryFilterMagic = nil
+                        selectedTab = 3 // Items tab
+                    }) {
+                        compactStatCard(title: "Available", value: "\(viewModel.availableCount)", icon: "checkmark.circle.fill", color: .green)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    
+                    Button(action: {
+                        selectedTab = 2 // Workflows tab
+                    }) {
+                        compactStatCard(title: "In Transit", value: "\(viewModel.inTransitCount)", icon: "box.truck.fill", color: .blue)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    
+                    Button(action: {
+                        selectedTab = 1 // Requests tab
+                    }) {
+                        compactStatCard(title: "Pending", value: "\(viewModel.pendingItemCount)", icon: "clock.fill", color: .orange)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    
+                    Button(action: {
+                        selectedTab = 2 // Workflows tab
+                    }) {
+                        compactStatCard(title: "Active POs", value: "\(viewModel.activePOItemCount)", icon: "shippingbox.fill", color: .blue)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    
+                    Button(action: {
+                        categoryFilterMagic = nil
+                        repairFilter = .underRepair
+                        selectedTab = 3 // Items tab
+                    }) {
+                        compactStatCard(title: "Repairs", value: "\(viewModel.repairCount)", icon: "wrench.and.screwdriver.fill", color: .orange)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
+                .padding(.horizontal)
+                .padding(.bottom, 8)
+            }
+        }
+        .padding(.top, 16)
+    }
+    
+    @ViewBuilder
+    private func compactStatCard(title: String, value: String, icon: String, color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: icon)
+                    .font(.body)
+                    .foregroundColor(color)
+                    .padding(8)
+                    .background(color.opacity(0.15))
+                    .clipShape(Circle())
+                
+                Spacer()
+                
+                Text(value)
+                    .font(.headline.bold())
+                    .foregroundColor(Color.appPrimaryText)
+            }
+            
+            Text(title)
+                .font(.caption)
+                .foregroundColor(Color.appSecondaryText)
+                .lineLimit(1)
+        }
+        .padding(12)
+        .frame(width: 120, alignment: .leading)
+        .background(Color.appCard)
+        .cornerRadius(12)
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.appBorder, lineWidth: 1))
+    }
+    
+    @ViewBuilder
+    private var itemsStockLevelsSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Items Stock Levels")
+                .font(.headline)
+                .foregroundColor(Color.appPrimaryText)
+                .padding(.horizontal)
+            
+            ForEach(viewModel.categories, id: \.self) { category in
+                Button(action: {
+                    categoryFilterMagic = category
+                    selectedTab = 3 // Items tab
+                }) {
+                    categoryCard(for: category)
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private var exceptionsHandlingSummarySection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Reconciliation Queue")
+                .font(.headline)
+                .foregroundColor(Color.appPrimaryText)
+                .padding(.horizontal)
+            
+            Button(action: { showExceptions = true }) {
+                ReusableCardView {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Active Exceptions")
+                                .font(.subheadline)
+                                .foregroundColor(Color.appPrimaryText)
+                            Text("\(exceptionEngine.exceptions.count) issues require review")
+                                .font(.caption)
+                                .foregroundColor(Color.appSecondaryText)
+                        }
+                        Spacer()
+                        
+                        HStack(spacing: 8) {
+                            if exceptionEngine.missingCount > 0 {
+                                ExceptionBadge(count: exceptionEngine.missingCount, color: .red)
+                            }
+                            if exceptionEngine.mismatchCount > 0 {
+                                ExceptionBadge(count: exceptionEngine.mismatchCount, color: .orange)
+                            }
+                            if exceptionEngine.duplicateCount > 0 {
+                                ExceptionBadge(count: exceptionEngine.duplicateCount, color: .yellow)
+                            }
+                            
+                            if exceptionEngine.exceptions.isEmpty {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundColor(.green)
+                            } else {
+                                Image(systemName: "chevron.right")
+                                    .foregroundColor(.gray)
+                            }
+                        }
+                    }
+                }
+            }
+            .buttonStyle(PlainButtonStyle())
+            .padding(.horizontal)
         }
     }
     
@@ -194,4 +300,19 @@ public struct DashboardTabView: View {
         .padding(.horizontal)
     }
 
+}
+
+struct ExceptionBadge: View {
+    let count: Int
+    let color: Color
+    
+    var body: some View {
+        Text("\(count)")
+            .font(.caption2.bold())
+            .foregroundColor(.white)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(color)
+            .clipShape(Capsule())
+    }
 }

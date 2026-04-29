@@ -18,7 +18,7 @@ public struct ItemsTabView: View {
         }
     }
     
-    @State private var repairFilter: RepairFilter = .all
+    @Binding var repairFilter: RepairFilter
     
     public enum RepairFilter: String, CaseIterable {
         case all = "All"
@@ -26,8 +26,9 @@ public struct ItemsTabView: View {
         case underRepair = "Under Repair"
     }
     
-    public init(categoryFilterMagic: Binding<String?>) {
+    public init(categoryFilterMagic: Binding<String?>, repairFilter: Binding<RepairFilter>) {
         self._categoryFilterMagic = categoryFilterMagic
+        self._repairFilter = repairFilter
     }
     
     public var body: some View {
