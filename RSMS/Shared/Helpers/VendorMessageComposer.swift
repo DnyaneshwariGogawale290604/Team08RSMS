@@ -63,6 +63,35 @@ func buildVendorPOMessage(
     return msg
 }
 
+/// Formats an issue notification message for a vendor when goods are damaged or short.
+func buildVendorIssueMessage(
+    poNumber: String,
+    productName: String,
+    quantity: Int,
+    condition: String,
+    notes: String
+) -> String {
+    var msg = """
+    ⚠️ Issue with Purchase Order Delivery
+
+    PO Ref : \(poNumber)
+    Product: \(productName)
+    Received: \(quantity) units
+    Issue  : \(condition.capitalized)
+    """
+    if !notes.isEmpty {
+        msg += "\nNotes  : \(notes)"
+    }
+    msg += """
+
+    
+    Please review this discrepancy. A member of our team will be in touch shortly regarding the resolution.
+
+    – RSMS Inventory
+    """
+    return msg
+}
+
 /// Extracts a plausible phone number from a vendor's contact_info string.
 /// Falls back to `defaultPhone` when the contact string doesn't look like a number.
 func extractPhone(from contactInfo: String?, defaultPhone: String) -> String {

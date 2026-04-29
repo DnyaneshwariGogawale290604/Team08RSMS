@@ -4,6 +4,8 @@ public enum ExceptionType: String, Codable {
     case missing = "Missing Item"
     case duplicate = "Duplicate Scan"
     case mismatch = "Location Mismatch"
+    case damaged = "Damaged Goods"
+    case shortage = "Partial Shipment"
 }
 
 public enum ExceptionSeverity: String, Codable {
@@ -25,6 +27,9 @@ public enum ExceptionResolutionAction {
     case confirmMissing
     case updateLocation
     case ignoreDuplicate
+    case fileInsuranceClaim
+    case markAsScrapped
+    case approveShortage
 }
 
 public struct ExceptionRecord: Identifiable {
@@ -35,18 +40,22 @@ public struct ExceptionRecord: Identifiable {
     public let type: ExceptionType
     public let severity: ExceptionSeverity
     public let timestamp: Date
+    public let imageUrl: String?
+    public let asnNumber: String?
     
     // Optional: The actual database item if we have it
     public var item: InventoryItem?
     public var isResolved: Bool = false
     
-    public init(rfid: String, type: ExceptionType, severity: ExceptionSeverity, expectedLocation: String? = nil, scannedLocation: String? = nil, item: InventoryItem? = nil) {
+    public init(rfid: String, type: ExceptionType, severity: ExceptionSeverity, expectedLocation: String? = nil, scannedLocation: String? = nil, item: InventoryItem? = nil, imageUrl: String? = nil, asnNumber: String? = nil) {
         self.rfid = rfid
         self.type = type
         self.severity = severity
         self.expectedLocation = expectedLocation
         self.scannedLocation = scannedLocation
         self.item = item
+        self.imageUrl = imageUrl
+        self.asnNumber = asnNumber
         self.timestamp = Date()
     }
 }

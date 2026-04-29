@@ -478,7 +478,6 @@ public final class RequestService: @unchecked Sendable {
             let condition: String
             let notes: String
             let grnNumber: String
-            let proofImageUrl: String?
 
             enum CodingKeys: String, CodingKey {
                 case shipmentId = "shipment_id"
@@ -488,8 +487,12 @@ public final class RequestService: @unchecked Sendable {
                 case condition
                 case notes
                 case grnNumber = "grn_number"
-                case proofImageUrl = "proof_image_url"
             }
+        }
+
+        var finalNotes = notes
+        if let url = proofImageUrl, !url.isEmpty {
+            finalNotes += "\nProof Image: \(url)"
         }
 
         let payload = GRNInsert(
@@ -498,11 +501,11 @@ public final class RequestService: @unchecked Sendable {
             receivedBy: currentUserId,
             quantityReceived: quantityReceived,
             condition: condition.rawValue,
-            notes: notes,
-            grnNumber: grnNumber,
-            proofImageUrl: proofImageUrl
+            notes: finalNotes,
+            grnNumber: grnNumber
         )
 
+        // Try to insert GRN record
         do {
             try await client
                 .from("goods_received_notes")
@@ -512,18 +515,35 @@ public final class RequestService: @unchecked Sendable {
             print("⚠️ GRN insert skipped (RLS or network): \(error.localizedDescription)")
         }
 
-        // Mark the shipment as delivered
+        // ALWAYS embed the issue data in the shipment notes so the Inventory Manager
+        // can surface the exception even if GRN table has RLS restrictions.
+        let issueTag: String
+        if condition == .damaged {
+            issueTag = "ISSUE:damaged"
+        } else if condition == .partial {
+            issueTag = "ISSUE:partial"
+        } else {
+            issueTag = ""
+        }
+        let proofTag = proofImageUrl.map { "\nProof Image: \($0)" } ?? ""
+        let shipmentNotes = issueTag.isEmpty
+            ? "GRN:\(grnNumber)"
+            : "GRN:\(grnNumber)\n\(issueTag)\nQty:\(quantityReceived)\(proofTag)"
+
+        // Mark the shipment as delivered with embedded issue metadata
         struct ShipmentStatusUpdate: Encodable {
             let status: String
             let hasGRN: Bool
+            let notes: String
             enum CodingKeys: String, CodingKey {
                 case status
                 case hasGRN = "has_grn"
+                case notes
             }
         }
         try await client
             .from("shipments")
-            .update(ShipmentStatusUpdate(status: "delivered", hasGRN: true))
+            .update(ShipmentStatusUpdate(status: "delivered", hasGRN: true, notes: shipmentNotes))
             .eq("shipment_id", value: shipmentId)
             .execute()
 
@@ -534,7 +554,8 @@ public final class RequestService: @unchecked Sendable {
         vendorOrderId: UUID,
         quantityReceived: Int,
         condition: GoodsReceivedNote.GRNCondition,
-        notes: String
+        notes: String,
+        proofImageUrl: String? = nil
     ) async throws -> String {
         let currentUserId = try await client.auth.session.user.id
         let grnNumber = generateGRNNumber()
@@ -555,11 +576,16 @@ public final class RequestService: @unchecked Sendable {
             }
         }
 
+        var finalNotes = "Vendor PO: \(vendorOrderId) | " + notes
+        if let url = proofImageUrl, !url.isEmpty {
+            finalNotes += "\nProof Image: \(url)"
+        }
+
         let payload = GRNInsert(
             receivedBy: currentUserId,
             quantityReceived: quantityReceived,
             condition: condition.rawValue,
-            notes: "Vendor PO: \(vendorOrderId) | " + notes,
+            notes: finalNotes,
             grnNumber: grnNumber
         )
 
@@ -626,6 +652,36 @@ public final class RequestService: @unchecked Sendable {
             .order("created_at", ascending: false)
             .execute()
             .value
+    }
+
+    // MARK: - Issue Resolution
+
+    /// Resolves a shipment exception: resets the shipment to in_transit so the boutique
+    /// sees "In Transit" again, and deletes the damaged/partial GRN record.
+    public func resolveShipmentIssue(shipmentId: UUID, grnId: UUID) async throws {
+        // 1. Reset shipment status back to in_transit and clear embedded issue metadata
+        struct ShipmentStatusPatch: Encodable {
+            let status: String
+            let hasGRN: Bool
+            let notes: String
+            enum CodingKeys: String, CodingKey {
+                case status
+                case hasGRN = "has_grn"
+                case notes
+            }
+        }
+        try await client
+            .from("shipments")
+            .update(ShipmentStatusPatch(status: "in_transit", hasGRN: false, notes: ""))
+            .eq("shipment_id", value: shipmentId)
+            .execute()
+
+        // 2. Delete the GRN (best-effort — may fail silently if RLS blocks it)
+        try? await client
+            .from("goods_received_notes")
+            .delete()
+            .eq("grn_id", value: grnId)
+            .execute()
     }
 
     // MARK: - Warehouse Stock Check

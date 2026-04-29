@@ -191,6 +191,12 @@ public struct DashboardTabView: View {
                             if exceptionEngine.duplicateCount > 0 {
                                 ExceptionBadge(count: exceptionEngine.duplicateCount, color: .yellow)
                             }
+                            if exceptionEngine.damagedCount > 0 {
+                                ExceptionBadge(count: exceptionEngine.damagedCount, color: .red)
+                            }
+                            if exceptionEngine.shortageCount > 0 {
+                                ExceptionBadge(count: exceptionEngine.shortageCount, color: .orange)
+                            }
                             
                             if exceptionEngine.exceptions.isEmpty {
                                 Image(systemName: "checkmark.circle.fill")

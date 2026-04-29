@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 
 /// Sheet for Inventory Manager to perform a physical goods check for a vendor order and generate a GRN.
 struct VendorGRNFormSheet: View {
@@ -14,13 +15,26 @@ struct VendorGRNFormSheet: View {
     @State private var showSuccess = false
     @State private var generatedGRN: String = ""
 
+    // Photo Proof
+    @State private var photoItem: PhotosPickerItem? = nil
+    @State private var proofImage: UIImage? = nil
+    
+    // SMS Composition
+    @State private var showSMSComposer = false
+    @State private var smsBody: String = ""
+
     private var orderedQuantity: Int {
         vendorOrder.quantity ?? 0
     }
 
     private var isFormValid: Bool {
         let qty = Int(quantityReceived) ?? 0
-        return qty > 0
+        let hasValidQuantity = qty > 0
+        let requiresProof = selectedCondition == .damaged || selectedCondition == .partial
+        if requiresProof {
+            return hasValidQuantity && proofImage != nil
+        }
+        return hasValidQuantity
     }
 
     var body: some View {
@@ -35,6 +49,11 @@ struct VendorGRNFormSheet: View {
 
                     // Notes
                     notesCard
+
+                    // Photo Proof (only if damaged or partial)
+                    if selectedCondition == .damaged || selectedCondition == .partial {
+                        photoProofCard
+                    }
 
                     // Submit
                     submitButton
@@ -63,6 +82,16 @@ struct VendorGRNFormSheet: View {
             }
             .onAppear {
                 quantityReceived = "\(orderedQuantity)"
+            }
+            .sheet(isPresented: $showSMSComposer) {
+                MessageComposerView(
+                    recipients: [extractPhone(from: vendorOrder.vendor?.contactInfo, defaultPhone: "1234567890")],
+                    body: smsBody
+                ) { result in
+                    // When the user dismisses the SMS view, close the GRN sheet as well.
+                    onGRNCreated(generatedGRN)
+                    dismiss()
+                }
             }
         }
     }
@@ -227,6 +256,71 @@ struct VendorGRNFormSheet: View {
         .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.appBorder, lineWidth: 0.8))
     }
 
+    private var photoProofCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("Photo Proof Required", systemImage: "camera")
+                .headingStyle()
+                .foregroundColor(Color.red)
+            
+            Text("Please attach a clear photo showing the damage or issue.")
+                .font(.caption)
+                .foregroundColor(.appSecondaryText)
+            
+            if let img = proofImage {
+                ZStack(alignment: .topTrailing) {
+                    Image(uiImage: img)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(height: 150)
+                        .frame(maxWidth: .infinity)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                    
+                    Button {
+                        proofImage = nil
+                        photoItem = nil
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.title2)
+                            .foregroundColor(.white)
+                            .background(Color.black.opacity(0.5))
+                            .clipShape(Circle())
+                    }
+                    .padding(8)
+                }
+            } else {
+                PhotosPicker(selection: $photoItem, matching: .images, photoLibrary: .shared()) {
+                    VStack(spacing: 8) {
+                        Image(systemName: "photo.badge.plus")
+                            .font(.title)
+                        Text("Add Photo Proof")
+                            .font(.subheadline.bold())
+                    }
+                    .foregroundColor(Color.appAccent)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 100)
+                    .background(Color.appAccent.opacity(0.1))
+                    .cornerRadius(10)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color.appAccent.opacity(0.3), style: StrokeStyle(lineWidth: 1, dash: [5]))
+                    )
+                }
+                .onChange(of: photoItem) { newItem in
+                    Task {
+                        if let data = try? await newItem?.loadTransferable(type: Data.self),
+                           let uiImage = UIImage(data: data) {
+                            proofImage = uiImage
+                        }
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .background(Color(UIColor.secondarySystemGroupedBackground))
+        .cornerRadius(14)
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.appBorder, lineWidth: 0.8))
+    }
+
     private var submitButton: some View {
         Button {
             Task { await submitGRN() }
@@ -277,8 +371,19 @@ struct VendorGRNFormSheet: View {
                     .padding(.horizontal, 20)
                 
                 Button {
-                    onGRNCreated(generatedGRN)
-                    dismiss()
+                    if selectedCondition == .damaged || selectedCondition == .partial {
+                        smsBody = buildVendorIssueMessage(
+                            poNumber: "PO-\(vendorOrder.id.uuidString.prefix(5).uppercased())",
+                            productName: vendorOrder.product?.name ?? "Product",
+                            quantity: Int(quantityReceived) ?? orderedQuantity,
+                            condition: selectedCondition.rawValue,
+                            notes: notes
+                        )
+                        showSMSComposer = true
+                    } else {
+                        onGRNCreated(generatedGRN)
+                        dismiss()
+                    }
                 } label: {
                     HStack(spacing: 8) {
                         Image(systemName: "checkmark.circle.fill")
@@ -310,7 +415,8 @@ struct VendorGRNFormSheet: View {
             order: vendorOrder,
             quantityReceived: qty,
             condition: selectedCondition,
-            notes: notes.trimmingCharacters(in: .whitespacesAndNewlines)
+            notes: notes.trimmingCharacters(in: .whitespacesAndNewlines),
+            proofImage: proofImage
         ) {
             generatedGRN = grn
             withAnimation(.spring()) { showSuccess = true }

@@ -12,6 +12,11 @@ public struct GoodsReceivedNote: Identifiable, Codable, Hashable, Sendable {
     public var grnNumber: String?
     public var createdAt: Date?
 
+    public var proofImageUrl: String? {
+        guard let notes = notes, let range = notes.range(of: "Proof Image: ") else { return nil }
+        return String(notes[range.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     public enum GRNCondition: String, Codable, CaseIterable, Sendable {
         case good = "good"
         case damaged = "damaged"

@@ -103,6 +103,20 @@ public class ExceptionEngine: ObservableObject {
         case .ignoreDuplicate:
             // Just clear the exception
             break
+            
+        case .fileInsuranceClaim:
+            // Future: Integration with carrier APIs or insurance provider
+            break
+            
+        case .markAsScrapped:
+            if var item = exception.item {
+                item.status = .scrapped
+                try await DataService.shared.updateInventoryItem(item: item)
+            }
+            
+        case .approveShortage:
+            // Reconcile the original order/shipment record
+            break
         }
         
         exception.isResolved = true
@@ -122,5 +136,13 @@ public class ExceptionEngine: ObservableObject {
     
     public var duplicateCount: Int {
         exceptions.filter { $0.type == .duplicate }.count
+    }
+    
+    public var damagedCount: Int {
+        exceptions.filter { $0.type == .damaged }.count
+    }
+    
+    public var shortageCount: Int {
+        exceptions.filter { $0.type == .shortage }.count
     }
 }

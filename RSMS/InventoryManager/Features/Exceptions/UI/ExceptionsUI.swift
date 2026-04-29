@@ -133,6 +133,52 @@ struct ExceptionRow: View {
                     Text("Scanned multiple times in \(exception.scannedLocation ?? "Unknown")")
                         .font(.caption2)
                         .foregroundColor(.appSecondaryText)
+                case .damaged:
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Reported damaged at boutique")
+                            .font(.caption2)
+                        if let asn = exception.asnNumber {
+                            Text("Shipment: \(asn)")
+                                .font(.caption2.bold())
+                                .foregroundColor(.appAccent)
+                        }
+                    }
+                    .foregroundColor(.appSecondaryText)
+                case .shortage:
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Incomplete shipment received")
+                            .font(.caption2)
+                        if let asn = exception.asnNumber {
+                            Text("Shipment: \(asn)")
+                                .font(.caption2.bold())
+                                .foregroundColor(.appAccent)
+                        }
+                    }
+                    .foregroundColor(.appSecondaryText)
+                }
+                
+                if let imageUrl = exception.imageUrl {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Photo Proof")
+                            .font(.caption2.bold())
+                            .foregroundColor(.appSecondaryText)
+                        
+                        AsyncImage(url: URL(string: imageUrl)) { image in
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .frame(height: 120)
+                                .clipped()
+                                .cornerRadius(8)
+                        } placeholder: {
+                            Rectangle()
+                                .fill(Color.gray.opacity(0.1))
+                                .frame(height: 120)
+                                .overlay(ProgressView())
+                                .cornerRadius(8)
+                        }
+                    }
+                    .padding(.top, 4)
                 }
                 
                 Divider()
@@ -169,6 +215,20 @@ struct ExceptionRow: View {
         case .duplicate:
             ActionButton(title: "Dismiss", color: .gray) {
                 resolve(.ignoreDuplicate)
+            }
+        case .damaged:
+            ActionButton(title: "File Claim", color: .blue) {
+                resolve(.fileInsuranceClaim)
+            }
+            ActionButton(title: "Scrap Item", color: .red) {
+                resolve(.markAsScrapped)
+            }
+        case .shortage:
+            ActionButton(title: "Approve Shortage", color: .green) {
+                resolve(.approveShortage)
+            }
+            ActionButton(title: "Reship Missing", color: .blue) {
+                // Future workflow
             }
         }
     }

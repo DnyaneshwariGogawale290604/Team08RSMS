@@ -21,6 +21,8 @@ public final class TransfersViewModel: ObservableObject {
     @Published public var pickLists: [ProductRequest] = []
     /// Shipments Out — shipments dispatched from this warehouse
     @Published public var shipmentsOut: [Shipment] = []
+    /// Goods Received Notes — GRNs generated for shipments dispatched from this warehouse
+    @Published public var receivedGRNs: [GoodsReceivedNote] = []
     /// Brand-scoped vendor list for PO creation
     @Published public var brandVendors: [Vendor] = []
     /// Brand-scoped products for PO creation
@@ -44,6 +46,7 @@ public final class TransfersViewModel: ObservableObject {
             async let pendingFetch  = RequestService.shared.fetchPendingRequests()
             async let pickFetch     = RequestService.shared.fetchApprovedPickLists()
             async let shipFetch     = RequestService.shared.fetchShipmentsForCurrentWarehouse()
+            async let grnFetch      = RequestService.shared.fetchGRNsForCurrentWarehouse()
             async let poFetch       = RequestService.shared.fetchVendorOrdersForCurrentWarehouse()
             async let vendorFetch   = RequestService.shared.fetchVendorsForCurrentInventoryManager()
             async let productFetch  = fetchBrandProducts()
@@ -55,6 +58,7 @@ public final class TransfersViewModel: ObservableObject {
             let shippedRequestIds = Set(allShipments.map { $0.requestId })
             pickLists       = allPickLists.filter { !shippedRequestIds.contains($0.id) }
             shipmentsOut    = allShipments
+            receivedGRNs    = try await grnFetch
             vendorOrders    = try await poFetch
             brandVendors    = try await vendorFetch
             brandProducts   = await productFetch
@@ -77,6 +81,43 @@ public final class TransfersViewModel: ObservableObject {
             print("fetchBrandProducts error: \(error)")
             return []
         }
+    }
+
+    // MARK: - Helpers
+
+    public func grn(forShipment shipment: Shipment) -> GoodsReceivedNote? {
+        receivedGRNs.first(where: { $0.shipmentId == shipment.id })
+    }
+
+    /// Parses the embedded ISSUE tag from the shipment's notes field.
+    /// Embedded format: GRN:xxx / ISSUE:damaged or ISSUE:partial / Qty:N / Proof Image: URL
+    public func issueCondition(forShipment shipment: Shipment) -> GoodsReceivedNote.GRNCondition? {
+        // Priority: live GRN table record
+        if let grn = grn(forShipment: shipment), grn.condition != .good { return grn.condition }
+        // Fallback: embedded notes tag
+        guard let notes = shipment.notes, notes.contains("ISSUE:") else { return nil }
+        if notes.contains("ISSUE:damaged") { return .damaged }
+        if notes.contains("ISSUE:partial") { return .partial }
+        return nil
+    }
+
+    public func proofImageUrl(forShipment shipment: Shipment) -> String? {
+        // Priority: live GRN
+        if let url = grn(forShipment: shipment)?.proofImageUrl { return url }
+        // Fallback: embedded notes
+        guard let notes = shipment.notes,
+              let range = notes.range(of: "Proof Image: ") else { return nil }
+        return String(notes[range.upperBound...]).components(separatedBy: "\n").first
+    }
+
+    public func quantityReceived(forShipment shipment: Shipment) -> Int? {
+        // Priority: live GRN
+        if let grn = grn(forShipment: shipment) { return grn.quantityReceived }
+        // Fallback: embedded notes
+        guard let notes = shipment.notes,
+              let range = notes.range(of: "Qty:") else { return nil }
+        let sub = String(notes[range.upperBound...]).components(separatedBy: "\n").first ?? ""
+        return Int(sub)
     }
 
     // MARK: - Stock Check
@@ -198,16 +239,23 @@ public final class TransfersViewModel: ObservableObject {
         order: VendorOrder,
         quantityReceived: Int,
         condition: GoodsReceivedNote.GRNCondition,
-        notes: String
+        notes: String,
+        proofImage: UIImage? = nil
     ) async -> String? {
         isLoading = true
         defer { isLoading = false }
         do {
+            var proofUrl: String? = nil
+            if let image = proofImage, condition == .damaged || condition == .partial {
+                proofUrl = await StorageService.shared.uploadImage(image, toBucket: "damaged_goods_proofs")
+            }
+
             let grn = try await RequestService.shared.createVendorGRN(
                 vendorOrderId: order.id,
                 quantityReceived: quantityReceived,
                 condition: condition,
-                notes: notes
+                notes: notes,
+                proofImageUrl: proofUrl
             )
 
             try await registerReceivedVendorItems(
@@ -225,7 +273,58 @@ public final class TransfersViewModel: ObservableObject {
         }
     }
 
-    // MARK: - Private Helpers
+    // MARK: - Issue Resolution (Reshipping)
+
+    /// Resolves a boutique shipment issue:
+    ///   1. Resets the shipment status back to "in_transit" (boutique sees the tag change).
+    ///   2. Deletes the damaged/partial GRN record.
+    ///   3. Auto-creates a replacement "approved" pick list for the missing quantity.
+    public func reshipMissingItems(for shipment: Shipment, grn: GoodsReceivedNote) async throws {
+        // Step 1 & 2: Reset shipment + delete bad GRN via service
+        try await RequestService.shared.resolveShipmentIssue(
+            shipmentId: shipment.id,
+            grnId: grn.id
+        )
+
+        // Step 3: Create a replacement pick list for the missing / damaged quantity
+        if let request = shipment.request,
+           let productId = request.productId,
+           let storeId = request.storeId {
+
+            let missingQty: Int = {
+                let received = grn.quantityReceived
+                let ordered  = request.requestedQuantity
+                return max(ordered - received, ordered) // For damaged, reship all; for partial, reship missing
+            }()
+
+            if missingQty > 0 {
+                struct ProductRequestInsert: Encodable {
+                    let product_id: UUID
+                    let store_id: UUID
+                    let requested_by: UUID?
+                    let quantity: Int
+                    let status: String
+                    let brand_id: UUID?
+                }
+                let payload = ProductRequestInsert(
+                    product_id: productId,
+                    store_id: storeId,
+                    requested_by: request.requestedBy,
+                    quantity: missingQty,
+                    status: "approved",
+                    brand_id: request.brandId
+                )
+                try await SupabaseManager.shared.client
+                    .from("product_requests")
+                    .insert(payload)
+                    .execute()
+            }
+        }
+
+        await loadData()
+        NotificationCenter.default.post(name: .inventoryManagerDataDidChange, object: nil)
+    }
+
 
     private func registerReceivedVendorItems(
         for order: VendorOrder,

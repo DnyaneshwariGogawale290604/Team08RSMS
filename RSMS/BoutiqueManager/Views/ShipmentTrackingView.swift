@@ -8,6 +8,8 @@ public struct ShipmentTrackingView: View {
     @State private var lastGRN: String? = nil
     @State private var showGRNBanner = false
 
+    @StateObject private var exceptionEngine = ExceptionEngine.shared
+
     private let segments = ["Approved", "Rejected", "Order"]
 
     public init() {}
@@ -93,6 +95,19 @@ public struct ShipmentTrackingView: View {
         let existingGRN = shipment.flatMap { viewModel.grn(forShipment: $0) }
         let hasGRN = existingGRN != nil
 
+        // Detect issue from GRN record first, fall back to embedded shipment notes tag
+        let issueCondition: GoodsReceivedNote.GRNCondition? = {
+            if let condition = existingGRN?.condition, condition != .good {
+                return condition
+            }
+            // Fallback: read the ISSUE tag the boutique wrote into shipment.notes
+            if let notes = shipment?.notes {
+                if notes.contains("ISSUE:damaged") { return .damaged }
+                if notes.contains("ISSUE:partial") { return .partial }
+            }
+            return nil
+        }()
+
         VStack(alignment: .leading, spacing: 12) {
             // Header: Product + Status
             HStack(alignment: .top) {
@@ -106,7 +121,17 @@ public struct ShipmentTrackingView: View {
                         .foregroundColor(BoutiqueTheme.textSecondary)
                 }
                 Spacer()
-                statusChip(request.status)
+                if let issue = issueCondition {
+                    // Issue overrides everything — always show the problem
+                    let label = issue == .damaged ? "Damaged Goods" : "Partial Shipment"
+                    issueChip(label)
+                } else if let s = shipment {
+                    // Use the live shipment status
+                    shipmentStatusChip(s.status)
+                } else {
+                    // No shipment yet — show request status
+                    statusChip(request.status)
+                }
             }
 
             if let rejectionReason = request.rejectionReason, !rejectionReason.isEmpty {
@@ -171,11 +196,43 @@ public struct ShipmentTrackingView: View {
                             .foregroundColor(BoutiqueTheme.textSecondary)
                     }
 
-                    if hasGRN, let grn = existingGRN {
+                    if let issue = issueCondition {
+                        // Issue detected — IM is resolving it
+                        HStack(spacing: 8) {
+                            Image(systemName: "clock.badge.exclamationmark")
+                                .foregroundColor(.orange)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Issue Under Review")
+                                    .font(.caption.bold())
+                                    .foregroundColor(.orange)
+                                Text(issue == .damaged
+                                     ? "Replacement being arranged by warehouse."
+                                     : "Partial delivery noted. Replacement in process.")
+                                    .font(.caption2)
+                                    .foregroundColor(BoutiqueTheme.textSecondary)
+                            }
+                        }
+                        .padding(8)
+                        .background(Color.orange.opacity(0.1))
+                        .cornerRadius(8)
+                    } else if hasGRN, let grn = existingGRN, grn.condition == .good {
+                        // Good GRN confirmed
                         HStack {
                             Image(systemName: "checkmark.seal.fill")
                                 .foregroundColor(.green)
                             Text("Received: \(grn.grnNumber ?? "")")
+                                .font(.caption.bold())
+                                .foregroundColor(.green)
+                        }
+                        .padding(8)
+                        .background(Color.green.opacity(0.1))
+                        .cornerRadius(8)
+                    } else if shipment.hasGRN == true && issueCondition == nil {
+                        // has_grn flag set but no local GRN record (cross-role RLS) — show delivered
+                        HStack {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.green)
+                            Text("Goods Received")
                                 .font(.caption.bold())
                                 .foregroundColor(.green)
                         }
@@ -215,6 +272,27 @@ public struct ShipmentTrackingView: View {
         }
     }
 
+    private func shipmentStatusChip(_ status: String) -> some View {
+        let (color, label, icon): (Color, String, String) = {
+            switch status {
+            case "in_transit":  return (.blue, "In Transit", "shippingbox.fill")
+            case "delivered":   return (.green, "Delivered", "checkmark.circle.fill")
+            case "pending":     return (.orange, "Pending", "clock.fill")
+            default:            return (.gray, status.capitalized, "circle.fill")
+            }
+        }()
+        return HStack(spacing: 4) {
+            Image(systemName: icon).font(.system(size: 9))
+            Text(label)
+        }
+        .font(.caption.bold())
+        .padding(.horizontal, 10)
+        .padding(.vertical, 4)
+        .background(color.opacity(0.15))
+        .foregroundColor(color)
+        .clipShape(Capsule())
+    }
+
     private func statusChip(_ status: String) -> some View {
         let (color, label): (Color, String) = {
             switch status.lowercased() {
@@ -230,6 +308,16 @@ public struct ShipmentTrackingView: View {
             .padding(.vertical, 4)
             .background(color.opacity(0.15))
             .foregroundColor(color)
+            .clipShape(Capsule())
+    }
+    
+    private func issueChip(_ issueLabel: String) -> some View {
+        Text(issueLabel)
+            .font(.caption.bold())
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+            .background(Color.red.opacity(0.15))
+            .foregroundColor(.red)
             .clipShape(Capsule())
     }
 

@@ -8,10 +8,16 @@ public struct TransfersTabView: View {
     @State private var selectedSection: Int = 1   // default to Pick Lists (most active)
     @State private var showingCreatePO = false
 
-    // Pick list dispatch
     @State private var pickListForDispatch: PickListGroup? = nil
     @State private var lastASN: String? = nil
     @State private var showASNToast = false
+
+    // Exceptions & Issues
+    @StateObject private var exceptionEngine = ExceptionEngine.shared
+    @State private var selectedIssueShipment: Shipment? = nil
+    @State private var selectedGRNForShipment: GoodsReceivedNote? = nil
+    @State private var selectedProofImageUrl: String? = nil
+    @State private var isShowingIssueModal: Bool = false
 
     @State private var showMainErrorAlert: Bool = false
     @State private var poPrefilledProductId: UUID? = nil
@@ -129,6 +135,34 @@ public struct TransfersTabView: View {
             Button("OK", role: .cancel) { viewModel.errorMessage = nil }
         } message: {
             Text(viewModel.errorMessage ?? "An unknown error occurred.")
+        }
+        .sheet(isPresented: $isShowingIssueModal) {
+            if let shipment = selectedIssueShipment {
+                IssueResolutionModal(
+                    shipment: shipment,
+                    grn: selectedGRNForShipment,
+                    proofImageUrl: selectedProofImageUrl
+                ) {
+                    Task {
+                        do {
+                            if let grn = selectedGRNForShipment {
+                                try await viewModel.reshipMissingItems(for: shipment, grn: grn)
+                            } else {
+                                // Fallback: just reset shipment status (no GRN record)
+                                try await RequestService.shared.resolveShipmentIssue(
+                                    shipmentId: shipment.id,
+                                    grnId: UUID() // dummy, will be best-effort delete
+                                )
+                                await viewModel.loadData()
+                            }
+                            isShowingIssueModal = false
+                        } catch {
+                            print("Error resolving: \(error)")
+                            isShowingIssueModal = false
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -465,6 +499,10 @@ public struct TransfersTabView: View {
     private func shipmentOutCard(_ shipment: Shipment) -> some View {
         ReusableCardView {
             VStack(alignment: .leading, spacing: 10) {
+                // Compute issue first so we can conditionally hide delivered/GRN tags
+                let issueCondition = viewModel.issueCondition(forShipment: shipment)
+                let issueProofUrl = viewModel.proofImageUrl(forShipment: shipment)
+
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
                         if let asn = shipment.asnNumber {
@@ -481,7 +519,10 @@ public struct TransfersTabView: View {
                             .foregroundColor(.appPrimaryText)
                     }
                     Spacer()
-                    shipmentStatusBadge(shipment.status)
+                    // Hide "Delivered" badge when issue is active
+                    if issueCondition == nil {
+                        shipmentStatusBadge(shipment.status)
+                    }
                 }
 
                 if let store = shipment.request?.store {
@@ -515,7 +556,8 @@ public struct TransfersTabView: View {
                     }
                 }
 
-                if shipment.hasGRN == true {
+                // Hide "GRN Received by Boutique" tag when issue is active
+                if shipment.hasGRN == true && issueCondition == nil {
                     HStack(spacing: 4) {
                         Image(systemName: "checkmark.seal.fill").font(.caption).foregroundColor(.green)
                         Text("GRN Received by Boutique").font(.caption.bold()).foregroundColor(.green)
@@ -525,6 +567,27 @@ public struct TransfersTabView: View {
                     .background(Color.green.opacity(0.08))
                     .cornerRadius(6)
                 }
+
+                if let issue = issueCondition {
+                    let label = issue == .damaged ? "Damaged Goods" : "Partial Shipment"
+                    HStack(spacing: 6) {
+                        Image(systemName: "exclamationmark.triangle.fill").font(.caption).foregroundColor(.red)
+                        Text("Issue: \(label)").font(.caption.bold()).foregroundColor(.red)
+                        Spacer()
+                        Image(systemName: "chevron.right").font(.caption).foregroundColor(.gray)
+                    }
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, 10)
+                    .background(Color.red.opacity(0.1))
+                    .cornerRadius(8)
+                }
+            }
+            .contentShape(Rectangle())
+            .onTapGesture {
+                selectedIssueShipment = shipment
+                selectedGRNForShipment = viewModel.grn(forShipment: shipment)
+                selectedProofImageUrl = viewModel.proofImageUrl(forShipment: shipment)
+                isShowingIssueModal = true
             }
         }
     }
@@ -963,6 +1026,187 @@ struct PurchaseOrderDetailSheet: View {
         case "pending": return .orange
         case "cancelled": return .red
         default: return .gray
+        }
+    }
+}
+
+// MARK: - Issue Resolution Modal
+
+struct IssueResolutionModal: View {
+    @Environment(\.dismiss) private var dismiss
+    let shipment: Shipment
+    let grn: GoodsReceivedNote?
+    let proofImageUrl: String?
+    let onResolve: () -> Void
+    @State private var isResolving = false
+
+    private var issueConditionDetected: GoodsReceivedNote.GRNCondition? {
+        if let g = grn, g.condition != .good { return g.condition }
+        guard let notes = shipment.notes else { return nil }
+        if notes.contains("ISSUE:damaged") { return .damaged }
+        if notes.contains("ISSUE:partial") { return .partial }
+        return nil
+    }
+
+    private var effectiveProofUrl: String? {
+        proofImageUrl ?? grn?.proofImageUrl
+    }
+
+    var body: some View {
+        NavigationView {
+            ZStack {
+                Color.appBackground.ignoresSafeArea()
+                
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 24) {
+                        // Dynamic Status Banner
+                        if let issue = issueConditionDetected {
+                            HStack(spacing: 12) {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .font(.system(size: 24))
+                                    .foregroundColor(.red)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Issue Reported")
+                                        .font(.system(size: 16, weight: .bold, design: .serif))
+                                        .foregroundColor(.red)
+                                    Text("The boutique reported a problem (\(issue.displayName)) with this shipment.")
+                                        .font(.caption)
+                                        .foregroundColor(.appSecondaryText)
+                                }
+                            }
+                            .padding()
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Color.red.opacity(0.1))
+                            .cornerRadius(12)
+                        } else {
+                            HStack(spacing: 12) {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .font(.system(size: 24))
+                                    .foregroundColor(.green)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Delivered Successfully")
+                                        .font(.system(size: 16, weight: .bold, design: .serif))
+                                        .foregroundColor(.green)
+                                    Text("This shipment has been received by the boutique.")
+                                        .font(.caption)
+                                        .foregroundColor(.appSecondaryText)
+                                }
+                            }
+                            .padding()
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Color.green.opacity(0.1))
+                            .cornerRadius(12)
+                        }
+                        
+                        // Details Card
+                        ReusableCardView {
+                            VStack(alignment: .leading, spacing: 16) {
+                                Text("Shipment Details")
+                                    .font(.system(size: 18, weight: .bold, design: .serif))
+                                    .foregroundColor(.appPrimaryText)
+                                
+                                Divider()
+                                
+                                LabeledContent("ASN", value: shipment.asnNumber ?? "Unknown")
+                                LabeledContent("Destination", value: shipment.request?.store?.name ?? "Unknown")
+                                LabeledContent("Product", value: shipment.request?.product?.name ?? "Unknown")
+                                LabeledContent("Ordered Quantity", value: "\(shipment.request?.requestedQuantity ?? 0) units")
+                            }
+                        }
+                        
+                        // Issue Specifics Card (Only if Issue exists)
+                        if let issue = issueConditionDetected {
+                            ReusableCardView {
+                                VStack(alignment: .leading, spacing: 16) {
+                                    HStack {
+                                        Text("Reported Issue")
+                                            .font(.system(size: 18, weight: .bold, design: .serif))
+                                            .foregroundColor(.appPrimaryText)
+                                        Spacer()
+                                        Text(issue.displayName)
+                                            .font(.caption.bold())
+                                            .padding(.horizontal, 8)
+                                            .padding(.vertical, 4)
+                                            .background(Color.orange.opacity(0.15))
+                                            .foregroundColor(.orange)
+                                            .clipShape(Capsule())
+                                    }
+
+                                    Divider()
+
+                                    if let imageUrl = effectiveProofUrl, !imageUrl.isEmpty {
+                                        Text("Photo Proof")
+                                            .font(.subheadline.bold())
+                                            .foregroundColor(.appSecondaryText)
+                                        AsyncImage(url: URL(string: imageUrl)) { phase in
+                                            switch phase {
+                                            case .success(let image):
+                                                image
+                                                    .resizable()
+                                                    .scaledToFill()
+                                                    .frame(maxWidth: .infinity, maxHeight: 220)
+                                                    .clipped()
+                                                    .cornerRadius(12)
+                                            case .failure:
+                                                Text("Could not load image.")
+                                                    .font(.caption)
+                                                    .foregroundColor(.red)
+                                            case .empty:
+                                                Rectangle()
+                                                    .fill(Color.gray.opacity(0.1))
+                                                    .frame(height: 180)
+                                                    .overlay(ProgressView())
+                                                    .cornerRadius(12)
+                                            @unknown default:
+                                                EmptyView()
+                                            }
+                                        }
+                                    } else {
+                                        Label("No photo proof provided.", systemImage: "photo.slash")
+                                            .font(.subheadline)
+                                            .foregroundColor(.appSecondaryText)
+                                    }
+                                }
+                            }
+                        }
+
+                        // Action Button (Only if Issue exists)
+                        if issueConditionDetected != nil {
+                            Button {
+                                isResolving = true
+                                onResolve()
+                            } label: {
+                                if isResolving {
+                                    ProgressView().tint(.white)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 16)
+                                } else {
+                                    Label("Mark Resolved & Reship", systemImage: "arrow.triangle.2.circlepath")
+                                        .font(.system(size: 16, weight: .bold))
+                                        .foregroundColor(.white)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 16)
+                                }
+                            }
+                            .background(Color.appAccent)
+                            .cornerRadius(12)
+                            .padding(.top, 8)
+                        }
+                    }
+                    .padding(20)
+                }
+            }
+            .navigationTitle("Issue Details")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.appPrimaryText)
+                    }
+                }
+            }
         }
     }
 }
