@@ -5,8 +5,6 @@ public struct StoreOverviewTab: View {
     private let store: Store
     private let refreshStore: () async -> Void
 
-    @State private var editingTarget = ""
-    @State private var isEditing = false
 
     public init(
         viewModel: StoreViewModel,
@@ -63,91 +61,57 @@ public struct StoreOverviewTab: View {
                 Text("Sales Performance")
                     .font(.system(size: 16, weight: .bold, design: .serif))
                     .foregroundColor(CatalogTheme.primaryText)
+                
                 Spacer()
-                Button(action: {
-                    Task { await handleTargetAction() }
-                }) {
-                    Text(isEditing ? "Save" : "Edit Target")
-                        .font(.system(size: 14, weight: .bold, design: .serif))
-                        .foregroundColor(CatalogTheme.primary)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(CatalogTheme.surface)
-                        .clipShape(Capsule())
+                
+                Picker("Time Range", selection: $viewModel.selectedTimeRange) {
+                    Text("Monthly").tag("monthly")
+                    Text("Yearly").tag("yearly")
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 150)
+                .onChange(of: viewModel.selectedTimeRange) { _ in
+                    Task { await refreshStore() }
                 }
             }
 
             VStack(alignment: .leading, spacing: 20) {
-                if isEditing {
-                    TextField("Enter target amount", text: $editingTarget)
-                        .keyboardType(.decimalPad)
-                        .padding(14)
-                        .background(CatalogTheme.surface)
-                        .cornerRadius(12)
-                        .font(.system(size: 15, design: .serif))
-                } else {
-                    HStack(spacing: 0) {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("Sales Target")
-                                .font(.system(size: 12, weight: .medium, design: .serif))
-                                .foregroundColor(CatalogTheme.secondaryText)
-                            Text(formattedCurrency(store.salesTarget ?? 0))
-                                .font(.system(size: 22, weight: .bold, design: .serif))
-                                .foregroundColor(CatalogTheme.primaryText)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                let performance = viewModel.storePerformance[store.id] ?? 0
+                let target = store.salesTarget ?? 0
+                let progress = target > 0 ? performance / target : 0
+                let remaining = max(0, target - performance)
+                
+                HStack(spacing: 24) {
+                        // Achievement Ring
+                        ActivityRingView(progress: progress)
+                            .frame(width: 140, height: 140)
                         
-                        Rectangle()
-                            .fill(CatalogTheme.divider)
-                            .frame(width: 1, height: 40)
-                            .padding(.horizontal, 16)
+                        Spacer(minLength: 0)
                         
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("Current Sales")
-                                .font(.system(size: 12, weight: .medium, design: .serif))
-                                .foregroundColor(CatalogTheme.secondaryText)
-                            let performance = viewModel.storePerformance[store.id] ?? 0
-                            Text(formattedCurrency(performance))
-                                .font(.system(size: 22, weight: .bold, design: .serif))
-                                .foregroundColor(CatalogTheme.primaryText)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                }
-
-                if !isEditing, let target = store.salesTarget, target > 0 {
-                    let performance = viewModel.storePerformance[store.id] ?? 0
-                    let progress = min(1.0, performance / target)
-                    
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack {
-                            Text("Progress to Target")
-                                .font(.system(size: 13, weight: .medium, design: .serif))
-                                .foregroundColor(CatalogTheme.secondaryText)
-                            Spacer()
-                            Text(String(format: "%.1f%%", progress * 100))
-                                .font(.system(size: 14, weight: .bold, design: .serif))
-                                .foregroundColor(CatalogTheme.primary)
-                        }
-                        
-                        ZStack(alignment: .leading) {
-                            Capsule()
-                                .fill(CatalogTheme.surface)
-                                .frame(height: 8)
+                        // Metrics
+                        VStack(alignment: .leading, spacing: 16) {
+                            salesMetricRow(
+                                title: "Current Sales",
+                                value: formatShortCurrency(performance),
+                                icon: "indianrupeesign.circle.fill"
+                            )
                             
-                            Capsule()
-                                .fill(CatalogTheme.primary)
-                                .frame(width: max(8, (UIScreen.main.bounds.width - 72) * CGFloat(progress)), height: 8)
+                            salesMetricRow(
+                                title: "Total Target",
+                                value: formatShortCurrency(target),
+                                icon: "target"
+                            )
+                            
+                            salesMetricRow(
+                                title: "Remaining",
+                                value: formatShortCurrency(remaining),
+                                icon: "arrow.right.circle.fill"
+                            )
                         }
-                        
-                        Text(progress >= 1.0 ? "Target Achieved! Excellent performance." : "Keep pushing to reach the monthly goal.")
-                            .font(.system(size: 12, design: .serif))
-                            .foregroundColor(progress >= 1.0 ? Color.green : CatalogTheme.mutedText)
-                            .italic()
                     }
-                    .padding(.top, 4)
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(16)
             .background(Color.white)
             .cornerRadius(20)
@@ -182,21 +146,29 @@ public struct StoreOverviewTab: View {
         return formatter.string(from: NSNumber(value: value)) ?? "₹0"
     }
 
-    private func handleTargetAction() async {
-        if isEditing {
-            let cleaned = editingTarget.replacingOccurrences(of: "₹", with: "").replacingOccurrences(of: ",", with: "")
-            if let target = Double(cleaned) {
-                await viewModel.updateStoreTarget(storeId: store.id, target: target)
-                await refreshStore()
-            }
-        } else {
-            editingTarget = String(format: "%.0f", store.salesTarget ?? 0)
-        }
-        isEditing.toggle()
-    }
-
     private func displayValue(_ value: String?) -> String {
         let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return trimmed.isEmpty ? "Not available" : trimmed
     }
-}
+
+    private func salesMetricRow(title: String, value: String, icon: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 12))
+                .foregroundColor(.white)
+                .frame(width: 28, height: 28)
+                .background(CatalogTheme.primary)
+                .clipShape(Circle())
+            
+            VStack(alignment: .leading, spacing: 0) {
+                Text(value)
+                    .font(.system(size: 20, weight: .bold, design: .serif))
+                    .foregroundColor(CatalogTheme.primaryText)
+                
+                Text(title)
+                    .font(.system(size: 12, weight: .medium, design: .serif))
+                    .foregroundColor(CatalogTheme.secondaryText)
+            }
+        }
+    }
+

@@ -328,7 +328,7 @@ public final class AdminService: @unchecked Sendable {
 
     /// Fetches gross sales (sum of all sales_orders.total_amount) and total target (sum of stores.sales_target)
     /// across all stores belonging to the admin's brand.
-    public func fetchGrossSalesAndTarget() async throws -> (grossSales: Double, totalTarget: Double) {
+    public func fetchGrossSalesAndTarget(timeRange: String = "monthly") async throws -> (grossSales: Double, totalTarget: Double) {
         let context = try await fetchCurrentCorporateAdminContext()
 
         // 1. Fetch all store IDs and their sales_target for this brand
@@ -365,12 +365,29 @@ public final class AdminService: @unchecked Sendable {
             }
         }
 
-        let orderRows: [OrderAmountRow] = try await client
+        var query = client
             .from("sales_orders")
             .select("total_amount")
             .in("store_id", values: storeIds.map { $0.uuidString })
-            .execute()
-            .value
+        
+        let now = Date()
+        let calendar = Calendar.current
+        
+        if timeRange == "monthly" {
+            if let startOfMonth = calendar.date(from: calendar.dateComponents([Calendar.Component.year, Calendar.Component.month], from: now)) {
+                let formatter = ISO8601DateFormatter()
+                formatter.formatOptions = [.withInternetDateTime]
+                query = query.gte("created_at", value: formatter.string(from: startOfMonth))
+            }
+        } else if timeRange == "yearly" {
+            if let startOfYear = calendar.date(from: calendar.dateComponents([Calendar.Component.year], from: now)) {
+                let formatter = ISO8601DateFormatter()
+                formatter.formatOptions = [.withInternetDateTime]
+                query = query.gte("created_at", value: formatter.string(from: startOfYear))
+            }
+        }
+
+        let orderRows: [OrderAmountRow] = try await query.execute().value
 
         let grossSales = orderRows.compactMap { $0.totalAmount }.reduce(0, +)
 
@@ -379,7 +396,7 @@ public final class AdminService: @unchecked Sendable {
 
     /// Fetches category-wise sales breakdown across all stores belonging to the admin's brand.
     /// Uses order_items joined with products (for category) and sales_orders (for store filtering).
-    public func fetchCategoryWiseSales(for storeId: UUID? = nil) async throws -> [CategorySales] {
+    public func fetchCategoryWiseSales(for storeId: UUID? = nil, timeRange: String = "monthly") async throws -> [CategorySales] {
         let context = try await fetchCurrentCorporateAdminContext()
 
         // 1. Get store IDs for the brand
@@ -425,12 +442,29 @@ public final class AdminService: @unchecked Sendable {
             enum CodingKeys: String, CodingKey { case orderId = "order_id" }
         }
 
-        let orderIdRows: [OrderIdRow] = try await client
+        var query = client
             .from("sales_orders")
             .select("order_id")
             .in("store_id", values: storeIds.map { $0.uuidString })
-            .execute()
-            .value
+        
+        let now = Date()
+        let calendar = Calendar.current
+        
+        if timeRange == "monthly" {
+            if let startOfMonth = calendar.date(from: calendar.dateComponents([Calendar.Component.year, Calendar.Component.month], from: now)) {
+                let formatter = ISO8601DateFormatter()
+                formatter.formatOptions = [.withInternetDateTime]
+                query = query.gte("created_at", value: formatter.string(from: startOfMonth))
+            }
+        } else if timeRange == "yearly" {
+            if let startOfYear = calendar.date(from: calendar.dateComponents([Calendar.Component.year], from: now)) {
+                let formatter = ISO8601DateFormatter()
+                formatter.formatOptions = [.withInternetDateTime]
+                query = query.gte("created_at", value: formatter.string(from: startOfYear))
+            }
+        }
+
+        let orderIdRows: [OrderIdRow] = try await query.execute().value
 
         let orderIds = orderIdRows.map { $0.orderId }
         guard !orderIds.isEmpty else { return [] }
@@ -455,7 +489,7 @@ public final class AdminService: @unchecked Sendable {
             .sorted { $0.totalSales > $1.totalSales }
     }
 
-    public func fetchTopPerformingStores() async throws -> [StorePerformance] {
+    public func fetchTopPerformingStores(timeRange: String = "monthly") async throws -> [StorePerformance] {
         _ = try await fetchCurrentCorporateAdminContext()
         
         // 1. Fetch all stores for this brand
@@ -465,11 +499,6 @@ public final class AdminService: @unchecked Sendable {
         guard !storeIds.isEmpty else { return [] }
         
         // 2. Fetch sales for current month
-        let now = Date()
-        let calendar = Calendar.current
-        let startOfMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: now))!
-        let formatter = ISO8601DateFormatter()
-        let startOfMonthString = formatter.string(from: startOfMonth)
         
         struct OrderRow: Decodable {
             let storeId: UUID
@@ -481,13 +510,29 @@ public final class AdminService: @unchecked Sendable {
             }
         }
         
-        let orderRows: [OrderRow] = try await client
+        var query = client
             .from("sales_orders")
             .select("store_id, total_amount")
             .in("store_id", values: storeIds.map { $0.uuidString })
-            .gte("created_at", value: startOfMonthString)
-            .execute()
-            .value
+        
+        let now = Date()
+        let calendar = Calendar.current
+        
+        if timeRange == "monthly" {
+            if let startOfMonth = calendar.date(from: calendar.dateComponents([Calendar.Component.year, Calendar.Component.month], from: now)) {
+                let formatter = ISO8601DateFormatter()
+                formatter.formatOptions = [.withInternetDateTime]
+                query = query.gte("created_at", value: formatter.string(from: startOfMonth))
+            }
+        } else if timeRange == "yearly" {
+            if let startOfYear = calendar.date(from: calendar.dateComponents([Calendar.Component.year], from: now)) {
+                let formatter = ISO8601DateFormatter()
+                formatter.formatOptions = [.withInternetDateTime]
+                query = query.gte("created_at", value: formatter.string(from: startOfYear))
+            }
+        }
+
+        let orderRows: [OrderRow] = try await query.execute().value
             
         // 3. Aggregate
         var salesMap: [UUID: Double] = [:]

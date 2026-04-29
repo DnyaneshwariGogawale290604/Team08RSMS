@@ -117,6 +117,18 @@ struct AdminDashboardView: View {
                 Text("Gross Sales vs Target")
                     .font(.system(size: 18, weight: .bold, design: .serif))
                     .foregroundColor(CatalogTheme.primaryText)
+                
+                Spacer()
+                
+                Picker("Time Range", selection: $dashboardViewModel.selectedTimeRange) {
+                    Text("Monthly").tag("monthly")
+                    Text("Yearly").tag("yearly")
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 160)
+                .onChange(of: dashboardViewModel.selectedTimeRange) { _ in
+                    Task { await dashboardViewModel.fetchDashboardData() }
+                }
 
                 Spacer()
 
@@ -128,8 +140,8 @@ struct AdminDashboardView: View {
             }
 
             HStack(spacing: 24) {
-                // Pie Chart for Sales vs Target
-                GrossSalesPieChartView(sales: dashboardViewModel.grossSales, target: dashboardViewModel.totalTarget)
+                // Achievement Ring
+                ActivityRingView(progress: dashboardViewModel.totalTarget > 0 ? dashboardViewModel.grossSales / dashboardViewModel.totalTarget : 0)
                     .frame(width: 140, height: 140)
                 
                 VStack(alignment: .leading, spacing: 16) {
