@@ -19,6 +19,7 @@ public final class DashboardViewModel: ObservableObject {
     // Top Performing Stores
     @Published public var topPerformingStores: [StorePerformance] = []
     @Published public var isTopStoresLoading = false
+    @Published public var selectedTimeRange: String = "monthly"
 
     public var remainingTarget: Double {
         max(0, totalTarget - grossSales)
@@ -48,11 +49,10 @@ public final class DashboardViewModel: ObservableObject {
     public func fetchGrossSalesVsTarget() async {
         isSalesLoading = true
         do {
-            let result = try await adminService.fetchGrossSalesAndTarget()
+            let result = try await adminService.fetchGrossSalesAndTarget(timeRange: selectedTimeRange)
             grossSales = result.grossSales
             totalTarget = result.totalTarget
         } catch {
-            // Silently fail — dashboard shows zeros if data is unavailable
             print("DashboardViewModel: fetchGrossSalesVsTarget error:", error)
         }
         isSalesLoading = false
@@ -61,7 +61,7 @@ public final class DashboardViewModel: ObservableObject {
     public func fetchCategoryWiseSales() async {
         isCategoryLoading = true
         do {
-            categorySales = try await adminService.fetchCategoryWiseSales()
+            categorySales = try await adminService.fetchCategoryWiseSales(timeRange: selectedTimeRange)
         } catch {
             print("DashboardViewModel: fetchCategoryWiseSales error:", error)
         }
@@ -71,11 +71,19 @@ public final class DashboardViewModel: ObservableObject {
     public func fetchTopPerformingStores() async {
         isTopStoresLoading = true
         do {
-            topPerformingStores = try await adminService.fetchTopPerformingStores()
+            topPerformingStores = try await adminService.fetchTopPerformingStores(timeRange: selectedTimeRange)
         } catch {
             print("DashboardViewModel: fetchTopPerformingStores error:", error)
         }
         isTopStoresLoading = false
+    }
+
+    public func fetchDashboardData() async {
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask { await self.fetchGrossSalesVsTarget() }
+            group.addTask { await self.fetchCategoryWiseSales() }
+            group.addTask { await self.fetchTopPerformingStores() }
+        }
     }
 
     public func acceptRequest(id: UUID) async {

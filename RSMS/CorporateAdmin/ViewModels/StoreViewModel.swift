@@ -8,6 +8,7 @@ public final class StoreViewModel: ObservableObject {
     @Published public var errorMessage: String?
     
     @Published public var storePerformance: [UUID: Double] = [:]
+    @Published public var selectedTimeRange: String = "monthly"
     
     private let service = StoreService.shared
     
@@ -20,7 +21,7 @@ public final class StoreViewModel: ObservableObject {
             
             var newPerformances: [UUID: Double] = [:]
             for store in stores {
-                let performance = try? await service.fetchStoreSalesPerformance(storeId: store.id)
+                let performance = try? await service.fetchStoreSalesPerformance(storeId: store.id, timeRange: selectedTimeRange)
                 newPerformances[store.id] = performance ?? 0
             }
             storePerformance = newPerformances

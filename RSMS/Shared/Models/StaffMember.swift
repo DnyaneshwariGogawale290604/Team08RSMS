@@ -78,20 +78,23 @@ public struct StaffListItem: Identifiable, Hashable, Sendable {
     public let assignmentId: UUID?
     public let assignmentName: String
     public let assignmentDetail: String
+    public let employeeId: String
 
-    public init(id: UUID, role: StaffRoleTab, user: User, assignmentId: UUID?, assignmentName: String, assignmentDetail: String) {
+    public init(id: UUID, role: StaffRoleTab, user: User, assignmentId: UUID?, assignmentName: String, assignmentDetail: String, employeeId: String) {
         self.id = id
         self.role = role
         self.user = user
         self.assignmentId = assignmentId
         self.assignmentName = assignmentName
         self.assignmentDetail = assignmentDetail
+        self.employeeId = employeeId
     }
 }
 
 public struct StaffCreationRequest: Sendable {
     public let role: StaffRoleTab
     public let employeeId: UUID
+    public let employeeNumber: String
     public let name: String
     public let phone: String
     public let email: String
@@ -102,6 +105,7 @@ public struct StaffCreationRequest: Sendable {
     public init(
         role: StaffRoleTab,
         employeeId: UUID,
+        employeeNumber: String,
         name: String,
         phone: String,
         email: String,
@@ -111,6 +115,7 @@ public struct StaffCreationRequest: Sendable {
     ) {
         self.role = role
         self.employeeId = employeeId
+        self.employeeNumber = employeeNumber
         self.name = name
         self.phone = phone
         self.email = email

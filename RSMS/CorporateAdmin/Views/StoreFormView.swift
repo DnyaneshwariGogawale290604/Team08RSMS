@@ -249,10 +249,21 @@ public struct StoreFormView: View {
                     .fill(Color.gray.opacity(0.2))
                     .frame(width: 1, height: 22)
 
-                Text("\(item.quantity)")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(.black)
-                    .frame(minWidth: 34)
+                TextField("", text: Binding(
+                    get: { String(item.quantity) },
+                    set: { newValue in
+                        if let val = Int(newValue), val >= 0 {
+                            updateQuantity(for: item.id, to: val)
+                        } else if newValue.isEmpty {
+                            updateQuantity(for: item.id, to: 0)
+                        }
+                    }
+                ))
+                .keyboardType(.numberPad)
+                .multilineTextAlignment(.center)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(.black)
+                .frame(width: 44)
 
                 Rectangle()
                     .fill(Color.gray.opacity(0.2))
@@ -366,6 +377,11 @@ public struct StoreFormView: View {
 
     private func addInventoryItem(_ product: Product) {
         selectedInventory.append(InventoryDraftItem(product: product, quantity: 1))
+    }
+
+    private func updateQuantity(for id: UUID, to newValue: Int) {
+        guard let index = selectedInventory.firstIndex(where: { $0.id == id }) else { return }
+        selectedInventory[index].quantity = newValue
     }
 
     private func incrementQuantity(for id: UUID) {

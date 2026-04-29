@@ -178,7 +178,7 @@ public final class StoreService: @unchecked Sendable {
             .value
     }
 
-    public func fetchStoreSalesPerformance(storeId: UUID) async throws -> Double {
+    public func fetchStoreSalesPerformance(storeId: UUID, timeRange: String = "monthly") async throws -> Double {
         struct OrderRow: Decodable {
             let totalAmount: Double?
             enum CodingKeys: String, CodingKey {
@@ -186,12 +186,28 @@ public final class StoreService: @unchecked Sendable {
             }
         }
 
-        let rows: [OrderRow] = try await client
-            .from("sales_orders")
+        var query = client.from("sales_orders")
             .select("total_amount")
             .eq("store_id", value: storeId)
-            .execute()
-            .value
+        
+        let now = Date()
+        let calendar = Calendar.current
+        
+        if timeRange == "monthly" {
+            if let startOfMonth = calendar.date(from: calendar.dateComponents([Calendar.Component.year, Calendar.Component.month], from: now)) {
+                let formatter = ISO8601DateFormatter()
+                formatter.formatOptions = [.withInternetDateTime]
+                query = query.gte("created_at", value: formatter.string(from: startOfMonth))
+            }
+        } else if timeRange == "yearly" {
+            if let startOfYear = calendar.date(from: calendar.dateComponents([Calendar.Component.year], from: now)) {
+                let formatter = ISO8601DateFormatter()
+                formatter.formatOptions = [.withInternetDateTime]
+                query = query.gte("created_at", value: formatter.string(from: startOfYear))
+            }
+        }
+
+        let rows: [OrderRow] = try await query.execute().value
 
         return rows.compactMap { $0.totalAmount }.reduce(0, +)
     }

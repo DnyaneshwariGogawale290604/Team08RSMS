@@ -148,6 +148,7 @@ public struct StoreDetailView: View {
                 store: storeDetails,
                 refreshStore: {
                     await loadStoreDetails()
+                    await viewModel.fetchStores() // Refresh performance data too
                 }
             )
         case 1:
