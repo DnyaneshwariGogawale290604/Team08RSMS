@@ -55,36 +55,51 @@ public final class DiscountViewModel: ObservableObject {
     
     public func loadData() async {
         isLoading = true
-        defer { isLoading = false }
+        isStoresLoading = true
+        defer { 
+            isLoading = false
+            isStoresLoading = false
+        }
+        
+        // Fetch stores independently to ensure they load even if coupons fail
+        do {
+            self.stores = try await storeService.fetchStores()
+        } catch {
+            print("DiscountViewModel fetchStores Error: \(error)")
+        }
         
         do {
-            async let couponsTask = service.fetchCoupons()
-            async let statsTask = service.fetchUsageStats()
-            async let storesTask = storeService.fetchStores()
-            
-            self.coupons = try await couponsTask
-            self.stats = try await statsTask
-            self.stores = try await storesTask
+            self.coupons = try await service.fetchCoupons()
         } catch {
-            print("DiscountViewModel Error: \(error)")
+            print("DiscountViewModel fetchCoupons Error: \(error)")
+        }
+        
+        do {
+            self.stats = try await service.fetchUsageStats()
+        } catch {
+            print("DiscountViewModel fetchStats Error: \(error)")
         }
     }
     
-    public func toggleCouponStatus(coupon: DiscountCoupon) async {
+    public func toggleCouponStatus(coupon: DiscountCoupon, targetStatus: Bool) {
         guard let index = coupons.firstIndex(where: { $0.id == coupon.id }) else { return }
-        let newStatus = !coupon.isActive
         
-        // Optimistic update
-        coupons[index].isActive = newStatus
+        // 1. Synchronous update for immediate UI response
+        coupons[index].isActive = targetStatus
         
-        do {
-            try await service.updateCouponStatus(id: coupon.id, isActive: newStatus)
-            // Refresh stats
-            stats = try await service.fetchUsageStats()
-        } catch {
-            // Revert on failure
-            coupons[index].isActive = !newStatus
-            print("DiscountViewModel Toggle Error: \(error)")
+        // 2. Asynchronous network call
+        Task {
+            do {
+                try await service.updateCouponStatus(id: coupon.id, isActive: targetStatus)
+            } catch {
+                // Revert on failure
+                await MainActor.run {
+                    if let revertIndex = self.coupons.firstIndex(where: { $0.id == coupon.id }) {
+                        self.coupons[revertIndex].isActive = !targetStatus
+                    }
+                }
+                print("DiscountViewModel Toggle Error: \(error)")
+            }
         }
     }
     

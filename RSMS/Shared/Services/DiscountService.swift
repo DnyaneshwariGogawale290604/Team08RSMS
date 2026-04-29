@@ -129,14 +129,13 @@ public final class DiscountService: @unchecked Sendable {
         let active = coupons.filter { $0.isActive && ($0.validUntil == nil || $0.validUntil! > Date()) }.count
         let expired = coupons.filter { $0.validUntil != nil && $0.validUntil! <= Date() }.count
         
-        // Sum of all discount_amount from discount_usages for this brand
-        struct TotalDiscountRow: Decodable { let total: Double? }
-        let usages: [DiscountUsage] = try await client
+        // Sum of all discount_amount from discount_usages for this brand by joining with coupons
+        let usages: [DiscountUsage] = (try? await client
             .from("discount_usages")
-            .select("discount_amount")
-            .eq("brand_id", value: brandId) // Assuming brand_id is in discount_usages or we join
+            .select("discount_amount, discount_coupons!inner(brand_id)")
+            .eq("discount_coupons.brand_id", value: brandId)
             .execute()
-            .value
+            .value) ?? []
         
         let totalDiscount = usages.reduce(0) { $0 + $1.discountAmount }
         
@@ -158,7 +157,7 @@ public final class DiscountService: @unchecked Sendable {
         let currentUserId = try await client.auth.session.user.id
         struct BrandRow: Decodable { let brand_id: UUID }
         let rows: [BrandRow] = try await client
-            .from("corporate_admins")
+            .from("users")
             .select("brand_id")
             .eq("user_id", value: currentUserId)
             .limit(1)
@@ -173,6 +172,7 @@ public final class DiscountService: @unchecked Sendable {
 
 // Helper structs for insert/update
 private struct DiscountCouponInsert: Encodable {
+    let id: UUID
     let brand_id: UUID
     let created_by: UUID
     let code: String
@@ -188,6 +188,7 @@ private struct DiscountCouponInsert: Encodable {
 
     init(coupon: DiscountCoupon, brandId: UUID, createdBy: UUID) {
         let formatter = ISO8601DateFormatter()
+        self.id = coupon.id
         self.brand_id = brandId
         self.created_by = createdBy
         self.code = coupon.code.uppercased()

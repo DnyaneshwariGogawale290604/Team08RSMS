@@ -1,4 +1,6 @@
 import SwiftUI
+import Supabase
+import PostgREST
 
 struct CouponFormView: View {
     @Environment(\.dismiss) private var dismiss
@@ -20,6 +22,7 @@ struct CouponFormView: View {
     @State private var isSaving = false
     @State private var showValidationError = false
     @State private var validationMessage = ""
+    @State private var showErrorAlert = false
     
     private var isEdit: Bool { coupon != nil }
     
@@ -74,6 +77,11 @@ struct CouponFormView: View {
             }
             .onAppear {
                 setupInitialData()
+            }
+            .alert("Error", isPresented: $showErrorAlert) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(validationMessage)
             }
         }
     }
@@ -264,7 +272,15 @@ struct CouponFormView: View {
             .padding(.leading, 4)
             
             VStack(spacing: 0) {
-                if viewModel.stores.isEmpty {
+                if viewModel.isStoresLoading && viewModel.stores.isEmpty {
+                    HStack {
+                        Spacer()
+                        ProgressView()
+                            .tint(CatalogTheme.primary)
+                        Spacer()
+                    }
+                    .padding()
+                } else if viewModel.stores.isEmpty {
                     Text("No stores available")
                         .font(BrandFont.body(14))
                         .foregroundColor(CatalogTheme.mutedText)
@@ -340,6 +356,13 @@ struct CouponFormView: View {
     }
     
     private func setupInitialData() {
+        // Ensure stores are loaded if they haven't been yet
+        if viewModel.stores.isEmpty {
+            Task {
+                await viewModel.loadData()
+            }
+        }
+
         if let coupon = coupon {
             code = coupon.code
             description = coupon.description ?? ""
@@ -375,10 +398,50 @@ struct CouponFormView: View {
         isSaving = true
         defer { isSaving = false }
         
+        let brandId: UUID
+        let currentUserId: UUID
+        do {
+            // Get brandId for uniqueness check and model creation
+            currentUserId = try SupabaseManager.shared.client.auth.session.user.id
+            struct UserBrandRow: Decodable { let brand_id: UUID }
+            let rows: [UserBrandRow] = try await SupabaseManager.shared.client
+                .from("users")
+                .select("brand_id")
+                .eq("user_id", value: currentUserId)
+                .limit(1)
+                .execute()
+                .value
+            
+            guard let bId = rows.first?.brand_id else {
+                throw NSError(domain: "CouponForm", code: 401, userInfo: [NSLocalizedDescriptionKey: "Brand context missing"])
+            }
+            brandId = bId
+        } catch {
+            showValidationError = true
+            validationMessage = "Could not verify brand context: \(error.localizedDescription)"
+            showErrorAlert = true
+            return
+        }
+        
+        // Uniqueness check for new coupons
+        if !isEdit {
+            do {
+                let isUnique = try await DiscountService.shared.isCodeUnique(code, brandId: brandId)
+                if !isUnique {
+                    showValidationError = true
+                    validationMessage = "Coupon code '\(code)' already exists."
+                    showErrorAlert = true
+                    return
+                }
+            } catch {
+                print("Uniqueness check error: \(error)")
+            }
+        }
+        
         let newCoupon = DiscountCoupon(
             id: coupon?.id ?? UUID(),
-            brandId: coupon?.brandId ?? UUID(), // Service will override with correct brandId
-            createdBy: coupon?.createdBy ?? UUID(), // Service will override
+            brandId: brandId,
+            createdBy: currentUserId,
             code: code.uppercased(),
             description: description.isEmpty ? nil : description,
             discountType: discountType,
@@ -401,8 +464,10 @@ struct CouponFormView: View {
             await viewModel.loadData()
             dismiss()
         } catch {
+            print("❌ Save Coupon Error: \(error)")
             showValidationError = true
             validationMessage = error.localizedDescription
+            showErrorAlert = true
         }
     }
 }

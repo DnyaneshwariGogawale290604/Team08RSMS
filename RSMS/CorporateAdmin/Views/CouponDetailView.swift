@@ -2,7 +2,8 @@ import SwiftUI
 import Charts
 
 struct CouponDetailView: View {
-    let coupon: DiscountCoupon
+    @State var coupon: DiscountCoupon
+    @StateObject private var viewModel = DiscountViewModel()
     @State private var usages: [DiscountUsage] = []
     @State private var stores: [Store] = []
     @State private var isLoading = false
@@ -17,7 +18,7 @@ struct CouponDetailView: View {
             CatalogTheme.background.ignoresSafeArea()
             
             ScrollView {
-                VStack(spacing: 24) {
+                VStack(spacing: 32) {
                     summaryCard
                     
                     if !usages.isEmpty {
@@ -44,6 +45,21 @@ struct CouponDetailView: View {
         }
         .task {
             await loadInitialData()
+        }
+        .sheet(isPresented: $showingEditSheet) {
+            CouponFormView(viewModel: viewModel, coupon: coupon)
+                .onDisappear {
+                    Task { await refreshCoupon() }
+                }
+        }
+    }
+    
+    private func refreshCoupon() async {
+        do {
+            self.coupon = try await DiscountService.shared.fetchCoupon(id: coupon.id)
+            await loadInitialData()
+        } catch {
+            print("Error refreshing coupon: \(error)")
         }
     }
     
@@ -115,6 +131,7 @@ struct CouponDetailView: View {
             }
         }
         .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.white)
         .cornerRadius(20)
         .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 4)
@@ -122,8 +139,8 @@ struct CouponDetailView: View {
     
     private var usageChartSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("DAILY USAGE (LAST 30 DAYS)")
-                .font(.system(size: 12, weight: .bold))
+            Text("Daily Usage (Last 30 days)")
+                .font(.system(size: 13, weight: .bold))
                 .foregroundColor(CatalogTheme.secondaryText)
                 .padding(.leading, 4)
             
@@ -153,17 +170,20 @@ struct CouponDetailView: View {
     
     private var storesSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("VISIBLE IN STORES")
-                .font(.system(size: 12, weight: .bold))
+            Text("Visible in stores")
+                .font(.system(size: 13, weight: .bold))
                 .foregroundColor(CatalogTheme.secondaryText)
                 .padding(.leading, 4)
             
             VStack(spacing: 0) {
                 if stores.isEmpty {
-                    Text("No stores assigned")
-                        .font(BrandFont.body(14))
-                        .foregroundColor(CatalogTheme.mutedText)
-                        .padding()
+                    VStack {
+                        Text("No stores assigned")
+                            .font(BrandFont.body(14))
+                            .foregroundColor(CatalogTheme.mutedText)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 80)
                 } else {
                     ForEach(stores) { store in
                         HStack {
@@ -192,8 +212,8 @@ struct CouponDetailView: View {
     
     private var usageHistorySection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("USAGE HISTORY")
-                .font(.system(size: 12, weight: .bold))
+            Text("Usage history")
+                .font(.system(size: 13, weight: .bold))
                 .foregroundColor(CatalogTheme.secondaryText)
                 .padding(.leading, 4)
             
@@ -206,8 +226,8 @@ struct CouponDetailView: View {
                             .font(BrandFont.body(14, weight: .bold))
                     }
                     .foregroundColor(CatalogTheme.mutedText)
-                    .padding(.vertical, 40)
                     .frame(maxWidth: .infinity)
+                    .frame(height: 160)
                 } else {
                     ForEach(usages) { usage in
                         VStack(alignment: .leading, spacing: 8) {

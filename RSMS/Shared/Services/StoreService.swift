@@ -109,25 +109,21 @@ public final class StoreService: @unchecked Sendable {
     }
 
     private func fetchCurrentCorporateAdminBrandId() async throws -> UUID {
-        struct CorporateAdminBrandRow: Decodable {
-            let brandId: UUID
-
-            enum CodingKeys: String, CodingKey {
-                case brandId = "brand_id"
-            }
-        }
-
         let currentUserId = try await client.auth.session.user.id
 
-        let rows: [CorporateAdminBrandRow] = try await client
-            .from("corporate_admins")
+        struct UserBrandRow: Decodable {
+            let brand_id: UUID
+        }
+
+        let rows: [UserBrandRow] = try await client
+            .from("users")
             .select("brand_id")
             .eq("user_id", value: currentUserId)
             .limit(1)
             .execute()
             .value
 
-        guard let brandId = rows.first?.brandId else {
+        guard let brandId = rows.first?.brand_id else {
             throw ServiceContextError.missingCorporateAdminContext
         }
 

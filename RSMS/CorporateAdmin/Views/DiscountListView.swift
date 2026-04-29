@@ -50,9 +50,6 @@ public struct DiscountListView: View {
                 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 20) {
-                        // Header Stats
-                        headerStatsView
-                        
                         // Search and Filters
                         VStack(spacing: 16) {
                             searchBar
@@ -145,14 +142,6 @@ public struct DiscountListView: View {
                 .padding(.horizontal, 20)
             }
             
-            Button {
-                showingStoreFilter = true
-            } label: {
-                Image(systemName: "line.3.horizontal.decrease.circle")
-                    .font(.system(size: 20))
-                    .foregroundColor(viewModel.selectedStoreFilter != nil ? CatalogTheme.primary : CatalogTheme.secondaryText)
-            }
-            .padding(.trailing, 20)
         }
     }
     
@@ -178,14 +167,10 @@ public struct DiscountListView: View {
     private var couponListSection: some View {
         VStack(spacing: 12) {
             ForEach(viewModel.filteredCoupons) { coupon in
-                ZStack {
-                    NavigationLink(destination: CouponDetailView(coupon: coupon)) {
-                        EmptyView()
-                    }
-                    .opacity(0)
-                    
+                NavigationLink(destination: CouponDetailView(coupon: coupon)) {
                     couponRow(coupon: coupon)
                 }
+                .buttonStyle(PlainButtonStyle())
                 .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                     Button(role: .destructive) {
                         Task { await viewModel.deleteCoupon(coupon) }
@@ -207,66 +192,105 @@ public struct DiscountListView: View {
     
     private func couponRow(coupon: DiscountCoupon) -> some View {
         let isExpired = coupon.validUntil != nil && coupon.validUntil! <= Date()
+        let isInactive = !coupon.isActive
+        let ticketColor = Color(red: 1.0, green: 0.94, blue: 0.96) // Soft Pink
         
-        return HStack(spacing: 14) {
-            // Leading Badge
-            Text(coupon.code)
-                .font(.system(size: 13, weight: .bold, design: .monospaced))
-                .foregroundColor(.white)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(isExpired ? CatalogTheme.mutedText : CatalogTheme.primary)
-                .clipShape(Capsule())
-            
-            VStack(alignment: .leading, spacing: 4) {
-                Text(coupon.description ?? coupon.code)
-                    .font(BrandFont.body(15, weight: .bold))
-                    .foregroundColor(CatalogTheme.primaryText)
-                    .lineLimit(1)
+        return ZStack(alignment: .topTrailing) {
+            HStack(spacing: 0) {
+                // Barcode Section
+                VStack {
+                    BarcodeView()
+                        .frame(width: 40, height: 80)
+                }
+                .frame(width: 80)
                 
-                HStack(spacing: 4) {
-                    Text(coupon.discountType == .percentage ? "\(Int(coupon.discountValue))% off" : "₹\(Int(coupon.discountValue)) flat")
-                    Text("·")
-                    if let expiry = coupon.validUntil {
-                        Text("Valid until \(expiry, style: .date)")
-                    } else {
-                        Text("No expiry")
+                // Dashed Divider
+                Rectangle()
+                    .fill(Color.clear)
+                    .frame(width: 2)
+                    .overlay(
+                        VStack(spacing: 5) {
+                            ForEach(0..<12) { _ in
+                                Rectangle()
+                                    .fill(Color.black.opacity(0.2))
+                                    .frame(width: 1.5, height: 4)
+                            }
+                        }
+                    )
+                
+                // Content Section
+                VStack(spacing: 6) {
+                    Text(coupon.code)
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .foregroundColor(CatalogTheme.primary.opacity(0.8))
+                        .tracking(1.5)
+                    
+                    Text(coupon.description ?? "DISCOUNT")
+                        .font(.system(size: 24, weight: .bold, design: .serif))
+                        .foregroundColor(.black)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                    
+                    VStack(spacing: 4) {
+                        Text(coupon.discountType == .percentage ? "\(Int(coupon.discountValue))% OFF" : "₹\(Int(coupon.discountValue)) FLAT")
+                            .font(.system(size: 13, weight: .black))
+                            .foregroundColor(CatalogTheme.primary)
+                        
+                        if let expiry = coupon.validUntil {
+                            VStack(spacing: 1) {
+                                Text("Valid Until")
+                                    .font(.system(size: 8, weight: .medium))
+                                    .foregroundColor(.gray)
+                                Text(expiry.formatted(date: .long, time: .omitted))
+                                    .font(.system(size: 11, weight: .bold))
+                                    .foregroundColor(.black)
+                            }
+                            .padding(.top, 2)
+                        }
                     }
                 }
-                .font(BrandFont.body(12))
-                .foregroundColor(CatalogTheme.secondaryText)
-                
-                Text("\(0) stores · Used \(coupon.usageCount)/\(coupon.usageLimit.map { "\($0)" } ?? "∞") times")
-                    .font(BrandFont.body(12))
-                    .foregroundColor(CatalogTheme.mutedText)
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 10)
             }
-            .opacity(isExpired ? 0.6 : 1.0)
+            .frame(height: 140)
+            .frame(maxWidth: .infinity)
+            .background(
+                TicketShape(notchOffset: 80)
+                    .fill(ticketColor)
+            )
+            .overlay(
+                TicketShape(notchOffset: 80)
+                    .stroke(Color.black.opacity(0.6), lineWidth: 1.2)
+            )
+            .opacity((isExpired || isInactive) ? 0.5 : 1.0)
+            .grayscale(isInactive ? 0.3 : 0)
+            .padding(.vertical, 8)
             
-            Spacer()
-            
-            if isExpired {
-                Text("Expired")
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Color.orange)
-                    .clipShape(Capsule())
-            } else {
-                Toggle("", isOn: Binding(
-                    get: { coupon.isActive },
-                    set: { _ in
-                        Task { await viewModel.toggleCouponStatus(coupon: coupon) }
-                    }
-                ))
-                .labelsHidden()
-                .tint(CatalogTheme.primary)
+            // Toggle & Actions
+            HStack(spacing: 12) {
+                if !isExpired {
+                    Toggle("", isOn: Binding(
+                        get: { coupon.isActive },
+                        set: { newValue in
+                            viewModel.toggleCouponStatus(coupon: coupon, targetStatus: newValue)
+                        }
+                    ))
+                    .labelsHidden()
+                    .tint(CatalogTheme.primary)
+                    .scaleEffect(0.7)
+                } else {
+                    Text("EXPIRED")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(Color.orange)
+                        .clipShape(Capsule())
+                }
             }
+            .padding(.trailing, 10)
+            .padding(.top, 14)
         }
-        .padding(16)
-        .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .shadow(color: Color.black.opacity(0.03), radius: 6, x: 0, y: 2)
     }
     
     private var emptyStateView: some View {
@@ -300,6 +324,68 @@ public struct DiscountListView: View {
             .padding(.top, 8)
             
             Spacer()
+        }
+    }
+}
+
+// MARK: - Ticket UI Components
+
+struct TicketShape: Shape {
+    var notchOffset: CGFloat
+    var notchRadius: CGFloat = 8
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        
+        // Start top left
+        path.move(to: CGPoint(x: rect.minX, y: rect.minY))
+        
+        // Top edge with notch
+        path.addLine(to: CGPoint(x: notchOffset - notchRadius, y: rect.minY))
+        path.addArc(center: CGPoint(x: notchOffset, y: rect.minY),
+                    radius: notchRadius,
+                    startAngle: .degrees(180),
+                    endAngle: .degrees(0),
+                    clockwise: true)
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
+        
+        // Right edge with notch
+        path.addArc(center: CGPoint(x: rect.maxX, y: rect.midY),
+                    radius: notchRadius,
+                    startAngle: .degrees(270),
+                    endAngle: .degrees(90),
+                    clockwise: true)
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+        
+        // Bottom edge with notch
+        path.addLine(to: CGPoint(x: notchOffset + notchRadius, y: rect.maxY))
+        path.addArc(center: CGPoint(x: notchOffset, y: rect.maxY),
+                    radius: notchRadius,
+                    startAngle: .degrees(0),
+                    endAngle: .degrees(180),
+                    clockwise: true)
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
+        
+        // Left edge with notch
+        path.addArc(center: CGPoint(x: rect.minX, y: rect.midY),
+                    radius: notchRadius,
+                    startAngle: .degrees(90),
+                    endAngle: .degrees(270),
+                    clockwise: true)
+        path.closeSubpath()
+        
+        return path
+    }
+}
+
+struct BarcodeView: View {
+    var body: some View {
+        HStack(spacing: 2) {
+            ForEach(0..<15) { _ in
+                Rectangle()
+                    .fill(Color.black.opacity(0.8))
+                    .frame(width: CGFloat.random(in: 1...3.5))
+            }
         }
     }
 }
