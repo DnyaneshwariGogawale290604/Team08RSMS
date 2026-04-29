@@ -54,7 +54,7 @@ public struct RequestsTabView: View {
                 }
             }
             .navigationTitle("Requests")
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarTitleDisplayMode(.large)
             .task { await viewModel.loadData() }
             .refreshable { await viewModel.loadData() }
             .onReceive(NotificationCenter.default.publisher(for: .inventoryManagerDataDidChange)) { _ in

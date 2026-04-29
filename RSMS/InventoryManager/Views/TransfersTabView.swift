@@ -90,7 +90,7 @@ public struct TransfersTabView: View {
             }
         }
         .navigationTitle("Workflows")
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarTitleDisplayMode(.large)
         .onAppear {
             if prefilledSKUMagic != nil {
                 selectedSection = 0

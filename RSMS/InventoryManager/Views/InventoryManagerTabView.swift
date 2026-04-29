@@ -47,6 +47,12 @@ public struct InventoryManagerTabView: View {
                     Label("Items", systemImage: "shippingbox")
                 }
                 .tag(3)
+
+            ReportsTabView()
+                .tabItem {
+                    Label("Reports", systemImage: "chart.bar.doc.horizontal")
+                }
+                .tag(4)
         }
         .accentColor(Color(hex: "#6E5155"))
         .onAppear {

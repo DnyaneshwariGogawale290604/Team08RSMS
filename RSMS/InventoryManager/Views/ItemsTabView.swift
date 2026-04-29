@@ -145,7 +145,7 @@ public struct ItemsTabView: View {
                 }
             }
             .navigationTitle("Items")
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarTitleDisplayMode(.large)
             .task {
                 await viewModel.loadDashboardData()
             }
