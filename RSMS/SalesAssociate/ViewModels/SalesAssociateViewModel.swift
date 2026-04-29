@@ -168,6 +168,23 @@ final class SalesAssociateViewModel: ObservableObject {
         }
     }
 
+    func deleteCustomer(customerId: UUID) async {
+        do {
+            try await client
+                .from("customers")
+                .delete()
+                .eq("id", value: customerId.uuidString)
+                .execute()
+            
+            // Remove from local list
+            customers.removeAll { $0.id == customerId }
+            customersCount = customers.count
+            errorMessage = nil
+        } catch {
+            errorMessage = "Failed to delete client: \(error.localizedDescription)"
+        }
+    }
+
     func fetchCatalog(search: String = "") async {
         do {
             let userId = try await resolveUserId()

@@ -86,7 +86,7 @@ struct SalesAssociateAccountSheet: View {
                     } label: {
                         Image(systemName: "xmark")
                     }
-                    .foregroundStyle(Color.luxuryPrimary)
+                    .foregroundStyle(Color.luxuryPrimaryText)
                 }
             }
         }

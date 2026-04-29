@@ -75,9 +75,8 @@ struct NewAppointmentSheet: View {
                     .foregroundStyle(Color.luxuryPrimaryText)
                 }
                 ToolbarItem(placement: .principal) {
-                    Text("NEW APPOINTMENT")
+                    Text("New Appointment")
                         .font(.system(size: 13, weight: .semibold))
-                        .kerning(2)
                         .foregroundStyle(Color.luxuryPrimaryText)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
@@ -115,14 +114,14 @@ struct NewAppointmentSheet: View {
     // MARK: - Client section
     private var clientSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionLabel("CLIENT")
+            sectionLabel("Client")
             if let customer = selectedCustomer {
                 HStack(spacing: 12) {
                     Circle()
                         .fill(Color(hex: "#C8913A").opacity(0.15))
                         .frame(width: 40, height: 40)
                         .overlay(
-                            Text(String(customer.name.prefix(1)).uppercased())
+                            Text(String(customer.name.prefix(1)))
                                 .font(.system(size: 16, weight: .semibold, design: .serif))
                                 .foregroundStyle(Color.luxuryPrimaryText)
                         )
@@ -140,7 +139,7 @@ struct NewAppointmentSheet: View {
                         .foregroundStyle(Color.luxuryPrimaryText)
                 }
                 .padding(14)
-                .background(Color.luxurySurface)
+                .background(Color.white)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
                 .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.luxuryDivider, lineWidth: 0.5))
             } else {
@@ -158,7 +157,7 @@ struct NewAppointmentSheet: View {
                             .foregroundStyle(Color.luxuryDivider)
                     }
                     .padding(16)
-                    .background(Color.luxurySurface)
+                    .background(Color.white)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                     .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.luxuryDivider, lineWidth: 0.5))
                 }
@@ -169,12 +168,12 @@ struct NewAppointmentSheet: View {
     // MARK: - Date & Time
     private var dateTimeSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionLabel("DATE & TIME")
+            sectionLabel("Date & Time")
             DatePicker("", selection: $appointmentDate, in: Date()..., displayedComponents: [.date, .hourAndMinute])
                 .datePickerStyle(.graphical)
-                .tint(Color.luxuryPrimaryText)
+                .tint(Color.luxuryPrimary)
                 .padding(12)
-                .background(Color.luxurySurface)
+                .background(Color.white)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
                 .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.luxuryDivider, lineWidth: 0.5))
         }
@@ -183,7 +182,7 @@ struct NewAppointmentSheet: View {
     // MARK: - Duration
     private var durationSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionLabel("DURATION")
+            sectionLabel("Duration")
             HStack(spacing: 8) {
                 ForEach(durationOptions, id: \.self) { mins in
                     Button {
@@ -194,7 +193,7 @@ struct NewAppointmentSheet: View {
                             .foregroundStyle(durationMins == mins ? Color.luxuryBackground : Color.luxuryPrimaryText)
                             .padding(.horizontal, 14)
                             .padding(.vertical, 8)
-                            .background(durationMins == mins ? Color.luxuryPrimaryText : Color.luxurySurface)
+                            .background(durationMins == mins ? Color.luxurySelection : Color.luxurySurface)
                             .clipShape(Capsule())
                             .overlay(Capsule().stroke(Color.luxuryDivider, lineWidth: 0.5))
                     }
@@ -206,7 +205,7 @@ struct NewAppointmentSheet: View {
     // MARK: - Products of interest
     private var productsSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionLabel("PRODUCTS OF INTEREST  \(selectedProductQtys.isEmpty ? "" : "(\(selectedProductQtys.count))")")
+            sectionLabel("Products of Interest \(selectedProductQtys.isEmpty ? "" : "(\(selectedProductQtys.count))")")
             // Search
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass").foregroundStyle(Color.luxurySecondaryText).font(.system(size: 13))
@@ -214,7 +213,7 @@ struct NewAppointmentSheet: View {
                     .font(BrandFont.body(13))
             }
             .padding(12)
-            .background(Color.luxurySurface)
+            .background(Color.white)
             .clipShape(RoundedRectangle(cornerRadius: 10))
             .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.luxuryDivider, lineWidth: 0.5))
 
@@ -232,7 +231,7 @@ struct NewAppointmentSheet: View {
                         }
                     }
                 }
-                .background(Color.luxurySurface)
+                .background(Color.white)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
                 .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.luxuryDivider, lineWidth: 0.5))
             }
@@ -294,13 +293,13 @@ struct NewAppointmentSheet: View {
     // MARK: - Notes
     private var notesSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionLabel("NOTES (OPTIONAL)")
+            sectionLabel("Notes (Optional)")
             TextEditor(text: $notes)
                 .font(BrandFont.body(14))
                 .foregroundStyle(Color.luxuryPrimaryText)
                 .frame(minHeight: 80)
                 .padding(12)
-                .background(Color.luxurySurface)
+                .background(Color.white)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
                 .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.luxuryDivider, lineWidth: 0.5))
         }
@@ -318,7 +317,7 @@ struct NewAppointmentSheet: View {
                             .font(BrandFont.body(14))
                     }
                     .padding(14)
-                    .background(Color.luxurySurface)
+                    .background(Color.white)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                     .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.luxuryDivider, lineWidth: 0.5))
                     .padding([.horizontal, .top], 16)
@@ -335,7 +334,7 @@ struct NewAppointmentSheet: View {
                                             .fill(Color(hex: "#C8913A").opacity(0.15))
                                             .frame(width: 38, height: 38)
                                             .overlay(
-                                                Text(String(customer.name.prefix(1)).uppercased())
+                                                Text(String(customer.name.prefix(1)))
                                                     .font(.system(size: 14, weight: .semibold, design: .serif))
                                                     .foregroundStyle(Color.luxuryPrimaryText)
                                             )
@@ -349,8 +348,8 @@ struct NewAppointmentSheet: View {
                                         }
                                         Spacer()
                                         if let cat = customer.customerCategory {
-                                            Text(cat.uppercased())
-                                                .font(.system(size: 9, weight: .bold)).kerning(0.8)
+                                            Text(cat)
+                                                .font(.system(size: 9, weight: .bold))
                                                 .foregroundStyle(Color(hex: "#C8913A"))
                                                 .padding(.horizontal, 7).padding(.vertical, 3)
                                                 .background(Color(hex: "#C8913A").opacity(0.1))
@@ -358,7 +357,7 @@ struct NewAppointmentSheet: View {
                                         }
                                     }
                                     .padding(.horizontal, 16).padding(.vertical, 12)
-                                    .background(Color.luxurySurface)
+                                    .background(Color.white)
                                     .clipShape(RoundedRectangle(cornerRadius: 12))
                                     .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.luxuryDivider, lineWidth: 0.5))
                                 }
@@ -374,8 +373,8 @@ struct NewAppointmentSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {
-                    Text("SELECT CLIENT")
-                        .font(.system(size: 13, weight: .semibold)).kerning(2)
+                    Text("Select Client")
+                        .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(Color.luxuryPrimaryText)
                 }
                 ToolbarItem(placement: .topBarLeading) {
@@ -388,9 +387,13 @@ struct NewAppointmentSheet: View {
                     Button {
                         showCreateCustomerInPicker = true
                     } label: {
-                        Image(systemName: "plus.circle.fill")
-                            .font(.system(size: 20))
-                            .foregroundStyle(Color.luxuryDeepAccent)
+                        Image(systemName: "plus")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(Color.luxuryPrimaryText)
+                            .frame(width: 30, height: 30)
+                            .background(Color.white)
+                            .clipShape(Circle())
+                            .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
                     }
                 }
             }
@@ -404,8 +407,8 @@ struct NewAppointmentSheet: View {
 
     private func sectionLabel(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 11, weight: .semibold))
-            .kerning(1.2)
-            .foregroundStyle(Color.luxurySecondaryText)
+            .font(.system(size: 18, weight: .bold, design: .serif))
+            .foregroundColor(CatalogTheme.primaryText)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

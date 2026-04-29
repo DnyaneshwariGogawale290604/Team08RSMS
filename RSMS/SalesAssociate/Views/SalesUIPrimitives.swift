@@ -56,9 +56,8 @@ struct BadgeView: View {
     var color: Color = .luxurySecondaryText
 
     var body: some View {
-        Text(text.uppercased())
+        Text(text)
             .font(.system(size: 9, weight: .semibold))
-            .kerning(0.8)
             .padding(.horizontal, 7)
             .padding(.vertical, 3)
             .background(color.opacity(0.12))
@@ -74,10 +73,9 @@ struct SectionHeader: View {
 
     var body: some View {
         HStack {
-            Text(title.uppercased())
-                .font(.system(size: 11, weight: .semibold))
-                .kerning(1.2)
-                .foregroundStyle(Color.luxurySecondaryText)
+            Text(title)
+                .font(.system(size: 18, weight: .bold, design: .serif))
+                .foregroundColor(CatalogTheme.primaryText)
 
             Spacer()
 

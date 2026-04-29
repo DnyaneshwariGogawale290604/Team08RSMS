@@ -250,7 +250,7 @@ struct SalesAssociateOrdersView: View {
                     BillAndPaymentsView(vm: AssociateSalesViewModel(), salesOrderId: orderId)
                 }
             }
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     SalesAssociateProfileButton(sessionViewModel: sessionViewModel)
@@ -296,7 +296,7 @@ struct SalesAssociateOrdersView: View {
                     .autocorrectionDisabled()
             }
             .padding(14)
-            .background(Color.luxurySurface)
+            .background(Color.white)
             .clipShape(RoundedRectangle(cornerRadius: 16))
 
             ScrollView(.horizontal, showsIndicators: false) {
@@ -319,7 +319,7 @@ struct SalesAssociateOrdersView: View {
                 .font(.system(size: 13, weight: .medium))
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
-                .background(selectedStatusFilter == filter ? Color.luxuryPrimary : Color.luxurySurface)
+                .background(selectedStatusFilter == filter ? Color.luxurySelection : Color.luxurySurface)
                 .foregroundStyle(selectedStatusFilter == filter ? Color.white : Color.luxuryDeepAccent)
                 .clipShape(Capsule())
         }
@@ -535,7 +535,7 @@ struct StandaloneReceiptSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {
-                    Text("ORDER CONFIRMED").font(.system(size: 13, weight: .semibold)).kerning(2).foregroundStyle(Color.luxuryPrimaryText)
+                    Text("Order Confirmed").font(.system(size: 13, weight: .semibold)).foregroundStyle(Color.luxuryPrimaryText)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { dismiss() } label: {
@@ -789,9 +789,8 @@ struct SAOrderDetailSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {
-                    Text("ORDER DETAILS")
+                    Text("Order Details")
                         .font(.system(size: 13, weight: .semibold))
-                        .kerning(2)
                         .foregroundStyle(Color.luxuryPrimaryText)
                 }
                 ToolbarItem(placement: .topBarTrailing) {

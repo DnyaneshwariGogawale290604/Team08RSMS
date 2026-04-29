@@ -23,7 +23,6 @@ struct SalesAssociateDashboardView: View {
                 } else {
                     ScrollView(showsIndicators: false) {
                         VStack(alignment: .leading, spacing: 24) {
-                            greetingHeader
                             salesMetricsSection
                             ratingSection
                             trendingSection
@@ -37,14 +36,9 @@ struct SalesAssociateDashboardView: View {
                     }
                 }
             }
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationTitle("Dashboard")
+            .navigationBarTitleDisplayMode(.large)
             .toolbar {
-                ToolbarItem(placement: .principal) {
-                    Text("DASHBOARD")
-                        .font(.system(size: 13, weight: .semibold))
-                        .kerning(2)
-                        .foregroundStyle(Color.luxuryPrimaryText)
-                }
                 ToolbarItem(placement: .topBarTrailing) {
                     SalesAssociateProfileButton(sessionViewModel: sessionViewModel)
                 }
@@ -79,7 +73,7 @@ struct SalesAssociateDashboardView: View {
 
     private var salesMetricsSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            sectionHeader(title: "MONTHLY PERFORMANCE")
+            sectionHeader(title: "Monthly Performance")
 
             if viewModel.todayOrderCount == 0 {
                 emptyStateCard(icon: "chart.bar", text: "No performance data for this month yet.")
@@ -95,7 +89,7 @@ struct SalesAssociateDashboardView: View {
 
     private var ratingSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            sectionHeader(title: "MY RATING")
+            sectionHeader(title: "My Rating")
             HStack(spacing: 24) {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(alignment: .firstTextBaseline, spacing: 4) {
@@ -129,7 +123,7 @@ struct SalesAssociateDashboardView: View {
 
     private var trendingSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            sectionHeader(title: "TRENDING PRODUCTS")
+            sectionHeader(title: "Trending Products")
 
             if viewModel.trendingProducts.isEmpty {
                 emptyStateCard(icon: "arrow.up.right", text: "No trend data yet — complete some orders to see trending products.")
@@ -149,9 +143,8 @@ struct SalesAssociateDashboardView: View {
     }
 
     private func trendingCard(trend: TrendingProduct, rank: Int) -> some View {
-        let isTop = rank == 1
-        let accentColor: Color = isTop ? Color(hex: "#C8913A") : Color.luxuryPrimary
-        let cardBg: Color = isTop ? Color(hex: "#FDF8F0") : Color.white
+        let accentColor: Color = Color.luxuryPrimary
+        let cardBg: Color = Color.white
 
         return VStack(alignment: .leading, spacing: 0) {
             // Top row: rank + flames
@@ -170,7 +163,7 @@ struct SalesAssociateDashboardView: View {
                         Image(systemName: "flame.fill")
                             .font(.system(size: 11))
                             .foregroundStyle(
-                                trend.flameLevel == 3 ? Color(hex: "#C8913A")
+                                trend.flameLevel == 3 ? Color.luxuryPrimary
                                 : trend.flameLevel == 2 ? Color.luxuryPrimary
                                 : Color.luxurySecondaryText
                             )
@@ -224,21 +217,20 @@ struct SalesAssociateDashboardView: View {
         }
         .frame(width: 160, height: 200)
         .background(cardBg)
-        .clipShape(RoundedRectangle(cornerRadius: 18))
-        .shadow(color: isTop ? accentColor.opacity(0.15) : Color.black.opacity(0.06), radius: 10, x: 0, y: 3)
+        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .shadow(color: Color.black.opacity(0.06), radius: 10, x: 0, y: 3)
         .overlay(
-            RoundedRectangle(cornerRadius: 18)
-                .stroke(isTop ? accentColor.opacity(0.3) : Color.clear, lineWidth: 1)
+            RoundedRectangle(cornerRadius: 20)
+                .stroke(Color.clear, lineWidth: 1)
         )
     }
 
     private var catalogSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
-                Text("PRODUCT CATALOG")
-                    .font(.system(size: 11, weight: .semibold))
-                    .kerning(1.2)
-                    .foregroundStyle(Color.luxurySecondaryText)
+                Text("Product Catalog")
+                    .font(.system(size: 18, weight: .bold, design: .serif))
+                    .foregroundColor(CatalogTheme.primaryText)
                 Spacer()
                 Button {
                     withAnimation { showCatalog.toggle() }
@@ -267,7 +259,7 @@ struct SalesAssociateDashboardView: View {
                             }
                     }
                     .padding(16)
-                    .background(Color.luxurySurface)
+                    .background(Color.white)
                     .clipShape(RoundedRectangle(cornerRadius: 16))
                     .padding(.horizontal, 16)
 
@@ -314,9 +306,8 @@ struct SalesAssociateDashboardView: View {
 
     private func sectionHeader(title: String) -> some View {
         Text(title)
-            .font(.system(size: 11, weight: .semibold))
-            .kerning(1.2)
-            .foregroundStyle(Color.luxurySecondaryText)
+            .font(.system(size: 18, weight: .bold, design: .serif))
+            .foregroundColor(CatalogTheme.primaryText)
             .padding(.horizontal, 16)
     }
 

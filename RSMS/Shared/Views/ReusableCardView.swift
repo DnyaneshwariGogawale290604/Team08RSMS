@@ -23,6 +23,7 @@ public extension Color {
     static let luxuryPrimaryText = Color(hex: "#1A1A1A")
     static let luxurySecondaryText = Color(hex: "#6B5B5B")
     static let luxuryMutedText = Color(hex: "#9A8A8A")
+    static let luxurySelection = Color(hex: "#462F32")
     static let luxuryDivider = Color.black.opacity(0.1)
 
     init(hex: String) {

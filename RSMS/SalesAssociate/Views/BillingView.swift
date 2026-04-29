@@ -68,9 +68,8 @@ struct BillingView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {
-                    Text("BILLING & PAYMENT")
+                    Text("Billing & Payment")
                         .font(.system(size: 13, weight: .semibold))
-                        .kerning(2)
                         .foregroundStyle(Color.luxuryPrimaryText)
                 }
                 ToolbarItem(placement: .topBarLeading) {
@@ -160,7 +159,7 @@ struct BillingView: View {
                 .padding(Spacing.md)
                 .background(Color.luxurySurface.opacity(0.5))
             }
-            .background(Color.luxurySurface)
+            .background(Color.white)
             .clipShape(RoundedRectangle(cornerRadius: Radius.lg))
             .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.luxuryDivider, lineWidth: 0.5))
             .padding(.horizontal, Spacing.md)
@@ -319,7 +318,7 @@ struct BillingView: View {
             }
         }
         .padding(Spacing.md)
-        .background(Color.luxurySurface)
+        .background(Color.white)
         .clipShape(RoundedRectangle(cornerRadius: Radius.lg))
         .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.luxuryDivider, lineWidth: 0.5))
         .padding(.horizontal, Spacing.md)
@@ -343,7 +342,7 @@ struct BillingView: View {
                                     vm.billingLegs[legIdx].items[itemIdx].method = method
                                 }
                             } label: {
-                                Text(method.uppercased())
+                                Text(method.capitalized)
                                     .font(BrandFont.body(12, weight: .medium))
                                     .foregroundStyle(
                                         item.method == method
@@ -402,7 +401,7 @@ struct BillingView: View {
             HStack(spacing: 12) {
                 // Amount field
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("AMOUNT")
+                    Text("Amount")
                         .font(.system(size: 10, weight: .bold))
                         .foregroundStyle(Color.luxurySecondaryText)
                     HStack {
@@ -448,7 +447,7 @@ struct BillingView: View {
                 // Tendered field — cash only, not paid
                 if item.method == "cash" && !item.isPaid {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("TENDERED")
+                        Text("Tendered")
                             .font(.system(size: 10, weight: .bold))
                             .foregroundStyle(Color.luxurySecondaryText)
                         TextField("0.00",
@@ -467,7 +466,7 @@ struct BillingView: View {
                 } else if item.method != "cash" && !item.isPaid {
                     // Gateway note
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("GATEWAY")
+                        Text("Gateway")
                             .font(.system(size: 10, weight: .bold))
                             .foregroundStyle(Color.luxurySecondaryText)
                         Text("Via \(vm.activeGateway.capitalized)")
@@ -714,7 +713,7 @@ struct BillingView: View {
                 }
             }
             .padding(Spacing.md)
-            .background(Color.luxurySurface)
+            .background(Color.white)
             .clipShape(RoundedRectangle(cornerRadius: Radius.md))
             .overlay(
                 RoundedRectangle(cornerRadius: Radius.md)
@@ -804,7 +803,7 @@ struct BillingView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .frame(height: 52)
-                .background(Color.luxurySurface)
+                .background(Color.white)
                 .foregroundStyle(Color.luxuryPrimaryText)
                 .clipShape(RoundedRectangle(cornerRadius: Radius.md))
                 .overlay(

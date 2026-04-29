@@ -58,9 +58,8 @@ struct BillAndPaymentsView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {
-                    Text("BILL & PAYMENTS")
+                    Text("Bill & Payments")
                         .font(.system(size: 13, weight: .semibold))
-                        .kerning(2)
                         .foregroundStyle(Color.luxuryPrimaryText)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
@@ -109,7 +108,7 @@ struct BillAndPaymentsView: View {
                         .font(BrandFont.body(12))
                         .foregroundStyle(Color.luxurySecondaryText)
                     BadgeView(
-                        text: summary.paymentStatus.uppercased(),
+                        text: summary.paymentStatus.capitalized,
                         color: summary.paymentStatus == "paid" ? Color.luxuryPrimary : Color(hex: "#C8913A")
                     )
                 }
@@ -138,7 +137,7 @@ struct BillAndPaymentsView: View {
             }
         }
         .padding(Spacing.md)
-        .background(Color.luxurySurface)
+        .background(Color.white)
         .clipShape(RoundedRectangle(cornerRadius: Radius.lg))
         .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.luxuryDivider, lineWidth: 0.5))
         .padding(.horizontal, Spacing.md)
@@ -154,7 +153,7 @@ struct BillAndPaymentsView: View {
                 Spacer()
                 
                 BadgeView(
-                    text: leg.status.uppercased(),
+                    text: leg.status.capitalized,
                     color: leg.status == "paid" ? Color.luxuryPrimary : Color(hex: "#C8913A")
                 )
             }
@@ -190,7 +189,7 @@ struct BillAndPaymentsView: View {
                         .foregroundStyle(Color.luxurySecondaryText)
                     
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(item.method.uppercased())
+                        Text(item.method.capitalized)
                             .font(.system(size: 10, weight: .bold))
                         if let note = item.note {
                             Text(note)
@@ -229,7 +228,7 @@ struct BillAndPaymentsView: View {
                     Button {
                         paymentMethod = method
                     } label: {
-                        Text(method.uppercased())
+                        Text(method.capitalized)
                             .font(BrandFont.body(11, weight: .bold))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 10)
@@ -253,7 +252,7 @@ struct BillAndPaymentsView: View {
                     VStack(spacing: 12) {
                         HStack {
                             VStack(alignment: .leading, spacing: 4) {
-                                Text("AMOUNT").font(.system(size: 10, weight: .bold)).foregroundStyle(Color.luxurySecondaryText)
+                                Text("Amount").font(.system(size: 10, weight: .bold)).foregroundStyle(Color.luxurySecondaryText)
                                 TextField("0", value: Binding(
                                     get: { currentSplits[index] },
                                     set: { val in
@@ -269,7 +268,7 @@ struct BillAndPaymentsView: View {
                             }
                             
                             VStack(alignment: .leading, spacing: 4) {
-                                Text("GATEWAY").font(.system(size: 10, weight: .bold)).foregroundStyle(Color.luxurySecondaryText)
+                                Text("Gateway").font(.system(size: 10, weight: .bold)).foregroundStyle(Color.luxurySecondaryText)
                                 Text(paymentMethod == "cash" ? "Record Cash" : "Via \(vm.activeGateway.capitalized)")
                                     .font(BrandFont.body(14))
                                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -292,7 +291,7 @@ struct BillAndPaymentsView: View {
                                 Image(systemName: "chevron.right")
                             }
                             .padding(Spacing.md)
-                            .background(Color.luxurySurface)
+                            .background(Color.white)
                             .cornerRadius(Radius.md)
                             .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(Color.luxuryDivider, lineWidth: 1))
                         }

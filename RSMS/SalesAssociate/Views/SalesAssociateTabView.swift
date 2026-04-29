@@ -30,7 +30,7 @@ struct SalesAssociateTabView: View {
                     Label("Clients", systemImage: "person.2")
                 }
         }
-        .tint(.luxuryPrimary)
+        .tint(.luxurySelection)
         .toolbarBackground(.visible, for: .tabBar)
         .toolbarBackground(Color.white, for: .tabBar)
         .environmentObject(orderStore)
@@ -45,7 +45,7 @@ struct SalesAssociateTabView: View {
         appearance.backgroundColor = UIColor.white
 
         let normalColor = UIColor(Color.luxuryMutedText)
-        let selectedColor = UIColor(Color.luxuryPrimary)
+        let selectedColor = UIColor(Color.luxurySelection)
 
         appearance.stackedLayoutAppearance.normal.iconColor = normalColor
         appearance.stackedLayoutAppearance.normal.titleTextAttributes = [.foregroundColor: normalColor]
