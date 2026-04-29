@@ -92,9 +92,14 @@ struct GRNFormSheet: View {
 
     private var shipmentSummaryCard: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Label("Shipment Details", systemImage: "shippingbox")
-                .font(.caption.weight(.semibold))
-                .foregroundColor(.appSecondaryText)
+            HStack(spacing: 6) {
+                Image(systemName: "shippingbox")
+                    .font(.system(size: 18))
+                    .foregroundColor(BoutiqueTheme.primary)
+                Text("Shipment Details")
+                    .font(.system(size: 18, weight: .bold, design: .serif))
+                    .foregroundColor(CatalogTheme.primaryText)
+            }
 
             if let asn = shipment.asnNumber {
                 HStack {
@@ -150,13 +155,18 @@ struct GRNFormSheet: View {
 
     private var physicalCheckCard: some View {
         VStack(spacing: 0) {
-            Label("Physical Inspection", systemImage: "eye")
-                .font(.caption.weight(.semibold))
-                .foregroundColor(.appSecondaryText)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 16)
-                .padding(.top, 14)
-                .padding(.bottom, 10)
+            HStack(spacing: 6) {
+                Image(systemName: "eye")
+                    .font(.system(size: 18))
+                    .foregroundColor(BoutiqueTheme.primary)
+                Text("Physical Inspection")
+                    .font(.system(size: 18, weight: .bold, design: .serif))
+                    .foregroundColor(CatalogTheme.primaryText)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 16)
+            .padding(.top, 14)
+            .padding(.bottom, 10)
 
             Divider().padding(.horizontal, 16)
 
@@ -237,9 +247,14 @@ struct GRNFormSheet: View {
 
     private var notesCard: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label("Inspection Notes", systemImage: "note.text")
-                .font(.caption.weight(.semibold))
-                .foregroundColor(.appSecondaryText)
+            HStack(spacing: 6) {
+                Image(systemName: "note.text")
+                    .font(.system(size: 18))
+                    .foregroundColor(BoutiqueTheme.primary)
+                Text("Inspection Notes")
+                    .font(.system(size: 18, weight: .bold, design: .serif))
+                    .foregroundColor(CatalogTheme.primaryText)
+            }
             TextEditor(text: $notes)
                 .frame(minHeight: 80, maxHeight: 120)
                 .font(.system(size: 14))

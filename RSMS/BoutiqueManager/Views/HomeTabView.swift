@@ -595,63 +595,103 @@ struct SalesTargetCard: View {
     let summary: DashboardSummary
 
     var body: some View {
-        VStack(spacing: 20) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Today's Sales")
-                        .font(.system(size: 18, weight: .bold, design: .serif))
-                        .foregroundColor(CatalogTheme.primaryText)
-                    Text(formatCurrency(summary.dailyRevenue))
-                        .font(.system(size: 34, weight: .bold))
-                        .foregroundColor(BoutiqueTheme.textPrimary)
-                        .contentTransition(.numericText())
-                }
-                Spacer()
+        VStack(alignment: .leading, spacing: 24) {
+            Text("Gross Sales vs Target")
+                .font(.system(size: 22, weight: .bold, design: .serif))
+                .foregroundColor(CatalogTheme.primaryText)
+            
+            HStack(spacing: 24) {
+                // Left: Circular Progress
                 let percent = summary.targetRevenue > 0
                     ? min(max(summary.dailyRevenue / summary.targetRevenue, 0), 1) : 0
+                
                 ZStack {
-                    Circle().stroke(BoutiqueTheme.border, lineWidth: 10)
+                    Circle()
+                        .stroke(BoutiqueTheme.primary.opacity(0.15), lineWidth: 16)
+                    
                     Circle()
                         .trim(from: 0, to: CGFloat(percent))
-                        .stroke(BoutiqueTheme.primary, style: StrokeStyle(lineWidth: 10, lineCap: .round))
+                        .stroke(BoutiqueTheme.primary, style: StrokeStyle(lineWidth: 16, lineCap: .butt))
                         .rotationEffect(.degrees(-90))
                         .animation(.easeOut(duration: 0.8), value: percent)
-                    Text("\(Int(percent * 100))%")
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundColor(BoutiqueTheme.textPrimary)
+                    
+                    VStack(spacing: 4) {
+                        Text("\(Int(percent * 100))%")
+                            .font(.system(size: 36, weight: .bold))
+                            .foregroundColor(BoutiqueTheme.textPrimary)
+                        
+                        Text("ACHIEVED")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(BoutiqueTheme.textSecondary)
+                    }
                 }
-                .frame(width: 72, height: 72)
-            }
-            Divider().background(BoutiqueTheme.border)
-            HStack(spacing: 0) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Target").font(.caption).foregroundColor(BoutiqueTheme.textSecondary)
-                    Text(formatCurrency(summary.targetRevenue))
-                        .font(.subheadline).fontWeight(.semibold)
-                        .foregroundColor(BoutiqueTheme.textPrimary)
-                }
+                .frame(width: 150, height: 150)
+                
                 Spacer()
-                let gap = max(summary.targetRevenue - summary.dailyRevenue, 0)
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text("Remaining").font(.caption).foregroundColor(BoutiqueTheme.textSecondary)
-                    Text(formatCurrency(gap))
-                        .font(.subheadline).fontWeight(.semibold)
-                        .foregroundColor(gap == 0 ? BoutiqueTheme.success : BoutiqueTheme.error)
+                
+                // Right: List
+                VStack(alignment: .leading, spacing: 20) {
+                    let gap = max(summary.targetRevenue - summary.dailyRevenue, 0)
+                    
+                    TargetStatRow(icon: "indianrupeesign", isFilled: true, value: formatCurrencyShort(summary.dailyRevenue), label: "Current Sales")
+                    
+                    TargetStatRow(icon: "target", isFilled: false, value: formatCurrencyShort(summary.targetRevenue), label: "Total Target")
+                    
+                    TargetStatRow(icon: "arrow.right", isFilled: true, value: formatCurrencyShort(gap), label: "Remaining")
                 }
             }
         }
-        .padding(20)
+        .padding(24)
         .background(Color.white)
-        .cornerRadius(16)
+        .cornerRadius(24)
         .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
     }
 
-    private func formatCurrency(_ value: Double) -> String {
+    private func formatCurrencyShort(_ value: Double) -> String {
+        if value >= 1_00_000 {
+            return String(format: "₹%.1f L", value / 1_00_000)
+        } else if value >= 1_000 {
+            return String(format: "₹%.1f K", value / 1_000)
+        }
         let formatter = NumberFormatter()
         formatter.numberStyle = .currency
         formatter.currencyCode = "INR"
         formatter.maximumFractionDigits = 0
         return formatter.string(from: NSNumber(value: value)) ?? "₹0"
+    }
+}
+
+struct TargetStatRow: View {
+    let icon: String
+    let isFilled: Bool
+    let value: String
+    let label: String
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                if isFilled {
+                    Circle().fill(BoutiqueTheme.primary).frame(width: 24, height: 24)
+                    Image(systemName: icon)
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.white)
+                } else {
+                    Image(systemName: icon)
+                        .font(.system(size: 24, weight: .regular))
+                        .foregroundColor(BoutiqueTheme.textSecondary)
+                }
+            }
+            .frame(width: 24, height: 24)
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(value)
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundColor(BoutiqueTheme.textPrimary)
+                Text(label)
+                    .font(.system(size: 13))
+                    .foregroundColor(BoutiqueTheme.textSecondary)
+            }
+        }
     }
 }
 

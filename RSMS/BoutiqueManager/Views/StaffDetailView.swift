@@ -13,23 +13,99 @@ public struct StaffDetailView: View {
     @State private var selectedTab = 0
 
     public var body: some View {
-        NavigationView {
-            ZStack {
-                BoutiqueTheme.offWhite.ignoresSafeArea()
+        ZStack {
+            BoutiqueTheme.offWhite.ignoresSafeArea()
 
-                ScrollView {
-                    VStack(spacing: 24) {
-                        // Avatar + name header
-                        StaffProfileHeader(staff: staff, averageRating: averageRating, ratingCount: ratings.count)
+            VStack(spacing: 0) {
+                // Custom Navigation Bar
+                HStack {
+                    Button(action: {
+                        presentationMode.wrappedValue.dismiss()
+                    }) {
+                        Text("Close")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(BoutiqueTheme.textPrimary)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(Color.white)
+                            .clipShape(Capsule())
+                            .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
+                    }
+                    
+                    Spacer()
+                    
+                    Text("Staff Details")
+                        .font(.system(size: 18, weight: .bold, design: .serif))
+                        .foregroundColor(CatalogTheme.primaryText)
+                    
+                    Spacer()
+                    
+                    Button(action: {
+                        // Action for Edit
+                    }) {
+                        Text("Edit")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(BoutiqueTheme.textPrimary)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(Color.white)
+                            .clipShape(Capsule())
+                            .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 16)
+                .padding(.bottom, 24)
 
-                        // Segmented control
-                        Picker("Tab", selection: $selectedTab) {
-                            Text("Appointments").tag(0)
-                            Text("Reviews").tag(1)
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 32) {
+                        // Avatar + Name Header
+                        VStack(spacing: 12) {
+                            ZStack {
+                                Circle()
+                                    .fill(BoutiqueTheme.border.opacity(0.4))
+                                    .frame(width: 100, height: 100)
+                                
+                                Text(String((staff.name ?? "U").prefix(1)).uppercased())
+                                    .font(.system(size: 40, weight: .bold, design: .serif))
+                                    .foregroundColor(CatalogTheme.primaryText)
+                            }
+                            
+                            VStack(spacing: 4) {
+                                Text(staff.name ?? "Unnamed Staff")
+                                    .font(.system(size: 24, weight: .bold, design: .serif))
+                                    .foregroundColor(CatalogTheme.primaryText)
+                                
+                                Text(staff.role?.rawValue ?? "Staff Member")
+                                    .font(.system(size: 16))
+                                    .foregroundColor(BoutiqueTheme.textSecondary)
+                            }
                         }
-                        .pickerStyle(SegmentedPickerStyle())
-
+                        
+                        // Details Card
+                        VStack(spacing: 0) {
+                            DetailRow(icon: "number", label: "Employee ID", value: "EMP-\(staff.id.uuidString.prefix(6).uppercased())")
+                            Divider().padding(.leading, 56)
+                            DetailRow(icon: "envelope.fill", label: "Email", value: staff.email ?? "N/A")
+                            Divider().padding(.leading, 56)
+                            DetailRow(icon: "phone.fill", label: "Phone", value: staff.phone ?? "N/A")
+                            Divider().padding(.leading, 56)
+                            DetailRow(icon: "building.2.fill", label: "Role", value: staff.role?.rawValue ?? "N/A")
+                        }
+                        .background(Color.white)
+                        .cornerRadius(24)
+                        .shadow(color: Color.black.opacity(0.03), radius: 10, x: 0, y: 4)
+                        .padding(.horizontal, 20)
+                        
+                        // Keep the existing appointments/reviews tabs below if needed
                         VStack(alignment: .leading, spacing: 14) {
+                            Picker("Tab", selection: $selectedTab) {
+                                Text("Appointments").tag(0)
+                                Text("Reviews").tag(1)
+                            }
+                            .pickerStyle(SegmentedPickerStyle())
+                            .padding(.horizontal, 20)
+
                             if isLoading {
                                 HStack { Spacer(); ProgressView(); Spacer() }
                                     .padding()
@@ -39,7 +115,6 @@ public struct StaffDetailView: View {
                                     .foregroundColor(BoutiqueTheme.error)
                                     .padding()
                             } else if selectedTab == 0 {
-                                // Appointments Tab
                                 if appointments.isEmpty {
                                     HStack(spacing: 12) {
                                         Image(systemName: "calendar.badge.exclamationmark")
@@ -52,13 +127,14 @@ public struct StaffDetailView: View {
                                     .frame(maxWidth: .infinity)
                                     .background(BoutiqueTheme.beige)
                                     .cornerRadius(14)
+                                    .padding(.horizontal, 20)
                                 } else {
                                     ForEach(appointments) { appointment in
-                                        AppointmentCard(appointment: appointment)
+                                        StaffAppointmentCard(appointment: appointment)
+                                            .padding(.horizontal, 20)
                                     }
                                 }
                             } else {
-                                // Reviews Tab
                                 if ratings.isEmpty {
                                     HStack(spacing: 12) {
                                         Image(systemName: "star.slash")
@@ -71,24 +147,23 @@ public struct StaffDetailView: View {
                                     .frame(maxWidth: .infinity)
                                     .background(BoutiqueTheme.beige)
                                     .cornerRadius(14)
+                                    .padding(.horizontal, 20)
                                 } else {
                                     ForEach(ratings) { rating in
-                                        RatingCard(rating: rating)
+                                        StaffRatingCard(rating: rating)
+                                            .padding(.horizontal, 20)
                                     }
                                 }
                             }
                         }
+                        .padding(.top, 10)
                     }
-                    .padding(16)
+                    .padding(.bottom, 40)
                 }
             }
-            .navigationTitle("Staff Profile")
-            .navigationBarTitleDisplayMode(.inline)
-            .navigationBarItems(trailing: Button("Done") {
-                presentationMode.wrappedValue.dismiss()
-            })
-            .onAppear { loadData() }
         }
+        .navigationBarHidden(true)
+        .onAppear { loadData() }
     }
 
     private var averageRating: Double {
@@ -103,17 +178,16 @@ public struct StaffDetailView: View {
             do {
                 async let fetchedRatings = DataService.shared.fetchStaffRatings(salesAssociateId: staff.id)
                 async let fetchedAppointments = DataService.shared.fetchAppointments(salesAssociateId: staff.id)
-                
-                let (ratingsResult, appointmentsResult) = try await (fetchedRatings, fetchedAppointments)
+                let (r, a) = try await (fetchedRatings, fetchedAppointments)
                 
                 await MainActor.run {
-                    self.ratings = ratingsResult
-                    self.appointments = appointmentsResult
+                    self.ratings = r
+                    self.appointments = a
                     self.isLoading = false
                 }
             } catch {
                 await MainActor.run {
-                    self.errorMsg = "Could not load data. (\(error.localizedDescription))"
+                    self.errorMsg = error.localizedDescription
                     self.isLoading = false
                 }
             }
@@ -121,125 +195,115 @@ public struct StaffDetailView: View {
     }
 }
 
-// MARK: - Profile Header
-
-private struct StaffProfileHeader: View {
-    let staff: User
-    let averageRating: Double
-    let ratingCount: Int
-
+struct DetailRow: View {
+    let icon: String
+    let label: String
+    let value: String
+    
     var body: some View {
-        VStack(spacing: 16) {
-            // Avatar
-            ZStack {
-                Circle()
-                    .fill(BoutiqueTheme.beige)
-                    .frame(width: 80, height: 80)
-                Text(String((staff.name ?? "U").prefix(1)).uppercased())
-                    .font(.system(size: 32, weight: .bold))
-                    .foregroundColor(BoutiqueTheme.textPrimary)
-            }
-
-            VStack(spacing: 4) {
-                Text(staff.name ?? "Unnamed Staff")
-                    .font(.title3)
-                    .fontWeight(.bold)
-                    .foregroundColor(BoutiqueTheme.textPrimary)
-                Text(staff.email ?? "")
-                    .font(.subheadline)
+        HStack(spacing: 16) {
+            Image(systemName: icon)
+                .font(.system(size: 20))
+                .foregroundColor(CatalogTheme.primaryText)
+                .frame(width: 24)
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text(label)
+                    .font(.system(size: 12, weight: .bold))
                     .foregroundColor(BoutiqueTheme.textSecondary)
-                if let phone = staff.phone, !phone.isEmpty {
-                    Text(phone)
-                        .font(.caption)
-                        .foregroundColor(BoutiqueTheme.textSecondary)
-                }
+                
+                Text(value)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(BoutiqueTheme.textPrimary)
             }
-
-            // Star rating summary
-            HStack(spacing: 4) {
-                ForEach(1...5, id: \.self) { star in
-                    Image(systemName: starIcon(for: star, avg: averageRating))
-                        .foregroundColor(Color(red: 0.9, green: 0.7, blue: 0.0))
-                        .font(.body)
-                }
-                if ratingCount > 0 {
-                    Text(String(format: "%.1f", averageRating))
-                        .font(.headline)
-                        .fontWeight(.bold)
-                        .foregroundColor(BoutiqueTheme.textPrimary)
-                        .padding(.leading, 4)
-                    Text("/ 5")
-                        .font(.subheadline)
-                        .foregroundColor(BoutiqueTheme.textSecondary)
-                }
-            }
+            Spacer()
         }
-        .padding(20)
-        .frame(maxWidth: .infinity)
-        .background(BoutiqueTheme.card)
-        .cornerRadius(20)
-        .shadow(color: Color.black.opacity(0.02), radius: 6, x: 0, y: 2)
-    }
-
-    private func starIcon(for star: Int, avg: Double) -> String {
-        if Double(star) <= avg { return "star.fill" }
-        if Double(star) - avg < 1 { return "star.leadinghalf.filled" }
-        return "star"
+        .padding(.vertical, 16)
+        .padding(.horizontal, 20)
     }
 }
 
-// MARK: - Individual Rating Card
+// Sub-views for Appointment / Rating cards
+struct StaffAppointmentCard: View {
+    let appointment: Appointment
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(appointment.customer?.name ?? "Unknown Client")
+                    .font(.headline)
+                    .foregroundColor(BoutiqueTheme.textPrimary)
+                Spacer()
+                Text(formatDate(appointment.appointmentDate))
+                    .font(.caption)
+                    .foregroundColor(BoutiqueTheme.textSecondary)
+            }
+            Text(appointment.notes ?? "General Visit")
+                .font(.subheadline)
+                .foregroundColor(BoutiqueTheme.textSecondary)
+            
+            Text(appointment.status.uppercased())
+                .font(.caption2).fontWeight(.bold)
+                .foregroundColor(appointment.status.lowercased() == "completed" ? BoutiqueTheme.success : BoutiqueTheme.primary)
+                .padding(.horizontal, 8).padding(.vertical, 4)
+                .background(appointment.status.lowercased() == "completed" ? BoutiqueTheme.success.opacity(0.1) : BoutiqueTheme.primary.opacity(0.1))
+                .cornerRadius(6)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.white)
+        .cornerRadius(14)
+        .shadow(color: Color.black.opacity(0.03), radius: 6, x: 0, y: 3)
+    }
+    
+    private func formatDate(_ date: Date?) -> String {
+        guard let d = date else { return "" }
+        let f = DateFormatter()
+        f.dateStyle = .medium
+        f.timeStyle = .short
+        return f.string(from: d)
+    }
+}
 
-private struct RatingCard: View {
+struct StaffRatingCard: View {
     let rating: AssociateRating
-
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .center, spacing: 6) {
-                // Stars
+            HStack {
                 HStack(spacing: 2) {
-                    ForEach(1...5, id: \.self) { star in
-                        Image(systemName: Double(star) <= rating.ratingValue ? "star.fill" : "star")
+                    ForEach(0..<5) { i in
+                        Image(systemName: i < Int(rating.ratingValue) ? "star.fill" : "star")
                             .font(.system(size: 12))
                             .foregroundColor(Color(red: 0.9, green: 0.7, blue: 0.0))
                     }
                 }
-                Text(String(format: "%.0f/5", rating.ratingValue))
-                    .font(.caption)
-                    .fontWeight(.semibold)
-                    .foregroundColor(BoutiqueTheme.textPrimary)
                 Spacer()
-                if let date = rating.createdAt {
-                    Text(formatDate(date))
+                if let d = rating.createdAt {
+                    Text(d)
                         .font(.caption2)
                         .foregroundColor(BoutiqueTheme.textSecondary)
                 }
             }
-
-            if let feedback = rating.feedbackText, !feedback.isEmpty {
-                Text("\"\(feedback)\"")
-                    .font(.subheadline.italic())
+            
+            if let fb = rating.feedbackText, !fb.isEmpty {
+                Text(fb)
+                    .font(.subheadline)
                     .foregroundColor(BoutiqueTheme.textPrimary)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .italic()
             }
         }
-        .padding(14)
-        .background(BoutiqueTheme.card)
-        .cornerRadius(20)
-        .shadow(color: Color.black.opacity(0.02), radius: 6, x: 0, y: 2)
-    }
-
-    private func formatDate(_ iso: String) -> String {
-        let fmt = ISO8601DateFormatter()
-        fmt.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let date = fmt.date(from: iso) {
-            let out = DateFormatter()
-            out.dateStyle = .medium
-            out.timeStyle = .none
-            return out.string(from: date)
-        }
-        return String(iso.prefix(10))
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.white)
+        .cornerRadius(14)
+        .shadow(color: Color.black.opacity(0.03), radius: 6, x: 0, y: 3)
     }
 }
 
-
+struct StaffProfileHeader: View {
+    let staff: User
+    let averageRating: Double
+    let ratingCount: Int
+    var body: some View { EmptyView() } // Obsoleted but kept to avoid compilation errors if used elsewhere
+}

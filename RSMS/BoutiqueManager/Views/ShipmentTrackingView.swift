@@ -98,8 +98,8 @@ public struct ShipmentTrackingView: View {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(request.product?.name ?? "Unknown Product")
-                        .font(.headline)
-                        .foregroundColor(BoutiqueTheme.textPrimary)
+                        .font(.system(size: 18, weight: .bold, design: .serif))
+                        .foregroundColor(CatalogTheme.primaryText)
                     
                     Text("Qty: \(request.requestedQuantity)")
                         .font(.subheadline)

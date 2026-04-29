@@ -51,8 +51,13 @@ public struct StaffManagementView: View {
                         List {
                             ForEach(filteredStaff) { staff in
                                 // Tap → detail (ratings), swipe/edit button → edit form
-                                Button(action: { staffToView = staff }) {
-                                    StaffRow(staff: staff)
+                                StaffRow(staff: staff, onCall: {
+                                    if let phone = staff.phone, let url = URL(string: "tel://\(phone)"), UIApplication.shared.canOpenURL(url) {
+                                        UIApplication.shared.open(url)
+                                    }
+                                })
+                                .onTapGesture {
+                                    staffToView = staff
                                 }
                                 .listRowInsets(EdgeInsets())
                                 .listRowBackground(Color.clear)
@@ -112,6 +117,7 @@ public struct StaffManagementView: View {
 
 struct StaffRow: View {
     let staff: User
+    var onCall: (() -> Void)? = nil
 
     var body: some View {
         HStack(spacing: 14) {
@@ -128,9 +134,8 @@ struct StaffRow: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(staff.name ?? "Unnamed Staff")
-                    .font(.body)
-                    .fontWeight(.medium)
-                    .foregroundColor(BoutiqueTheme.textPrimary)
+                    .font(.system(size: 18, weight: .bold, design: .serif))
+                    .foregroundColor(CatalogTheme.primaryText)
 
                 if let sales = staff.totalSales {
                     Text("Total Sales: \(formatCurrency(sales))")
@@ -156,9 +161,26 @@ struct StaffRow: View {
                 }
             }
 
-            Image(systemName: "chevron.right")
-                .foregroundColor(BoutiqueTheme.border)
-                .font(.caption)
+            if staff.phone != nil && !staff.phone!.isEmpty {
+                Button(action: {
+                    onCall?()
+                }) {
+                    ZStack {
+                        Circle()
+                            .fill(BoutiqueTheme.primary.opacity(0.1))
+                            .frame(width: 32, height: 32)
+                        Image(systemName: "phone.fill")
+                            .font(.system(size: 14))
+                            .foregroundColor(BoutiqueTheme.primary)
+                    }
+                }
+                .buttonStyle(PlainButtonStyle())
+                .padding(.leading, 8)
+            } else {
+                Image(systemName: "chevron.right")
+                    .foregroundColor(BoutiqueTheme.border)
+                    .font(.caption)
+            }
         }
         .padding(.vertical, 10)
         .padding(.horizontal, 14)

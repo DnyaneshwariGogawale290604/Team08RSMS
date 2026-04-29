@@ -199,9 +199,8 @@ struct StockLevelRow: View {
                 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(product.name)
-                        .font(.body)
-                        .fontWeight(.medium)
-                        .foregroundColor(BoutiqueTheme.textPrimary)
+                        .font(.system(size: 18, weight: .bold, design: .serif))
+                        .foregroundColor(CatalogTheme.primaryText)
                 }
                 
                 Spacer()
@@ -320,9 +319,8 @@ struct AlertCard: View {
             // Header: Product name + Status
             HStack(alignment: .top, spacing: 12) {
                 Text(alert.message.components(separatedBy: " is low").first ?? alert.message)
-                    .font(.headline)
-                    .fontWeight(.bold)
-                    .foregroundColor(BoutiqueTheme.textPrimary)
+                    .font(.system(size: 18, weight: .bold, design: .serif))
+                    .foregroundColor(CatalogTheme.primaryText)
                     .lineLimit(2)
                 
                 Spacer()
