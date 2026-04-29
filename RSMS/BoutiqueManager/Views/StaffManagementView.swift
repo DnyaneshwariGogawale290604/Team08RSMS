@@ -5,6 +5,17 @@ public struct StaffManagementView: View {
     @State private var showAddStaff = false
     @State private var staffToEdit: User?
     @State private var staffToView: User?       // tapped → detail sheet
+    @State private var searchText = ""
+
+    private var filteredStaff: [User] {
+        if searchText.isEmpty {
+            return staffVM.staffList
+        } else {
+            return staffVM.staffList.filter {
+                ($0.name ?? "").localizedCaseInsensitiveContains(searchText)
+            }
+        }
+    }
 
     public var body: some View {
         NavigationView {
@@ -38,7 +49,7 @@ public struct StaffManagementView: View {
                         }
 
                         List {
-                            ForEach(staffVM.staffList) { staff in
+                            ForEach(filteredStaff) { staff in
                                 // Tap → detail (ratings), swipe/edit button → edit form
                                 Button(action: { staffToView = staff }) {
                                     StaffRow(staff: staff)
@@ -64,6 +75,7 @@ public struct StaffManagementView: View {
                         }
                         .listStyle(.plain)
                         .padding(.horizontal)
+                        .searchable(text: $searchText, prompt: "Search staff...")
                     }
                 }
             }
@@ -121,7 +133,7 @@ struct StaffRow: View {
                     .foregroundColor(BoutiqueTheme.textPrimary)
 
                 if let sales = staff.totalSales {
-                    Text(formatCurrency(sales))
+                    Text("Total Sales: \(formatCurrency(sales))")
                         .font(.caption)
                         .fontWeight(.bold)
                         .foregroundColor(BoutiqueTheme.primary)

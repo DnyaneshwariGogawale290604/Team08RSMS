@@ -1,5 +1,8 @@
 import Foundation
 import Combine
+#if canImport(UIKit)
+import UIKit
+#endif
 
 @MainActor
 public final class BoutiqueShipmentViewModel: ObservableObject {
@@ -65,17 +68,28 @@ public final class BoutiqueShipmentViewModel: ObservableObject {
         shipment: Shipment,
         quantityReceived: Int,
         condition: GoodsReceivedNote.GRNCondition,
-        notes: String
+        notes: String,
+        proofImage: UIImage? = nil
     ) async -> String? {
         isLoading = true
         defer { isLoading = false }
         do {
+            var proofUrl: String? = nil
+            if let image = proofImage, condition == .damaged || condition == .partial {
+                // Non-throwing — returns nil if upload fails; GRN still proceeds
+                proofUrl = await StorageService.shared.uploadImage(image, toBucket: "damaged_goods_proofs")
+                if proofUrl == nil {
+                    print("[BoutiqueShipmentVM] Image upload failed; proceeding without proof URL")
+                }
+            }
+
             let grn = try await RequestService.shared.createGRN(
                 shipmentId: shipment.id,
                 requestId: shipment.requestId,
                 quantityReceived: quantityReceived,
                 condition: condition,
-                notes: notes
+                notes: notes,
+                proofImageUrl: proofUrl
             )
             lastGeneratedGRN = grn
             await loadAll()

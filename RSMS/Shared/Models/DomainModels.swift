@@ -58,6 +58,57 @@ public struct DashboardSummary: Sendable {
     public var dailyRevenue: Double
     public var targetRevenue: Double
     public var activeAlertsCount: Int
+    public var todayOrderCount: Int
+    public var todayAvgOrderValue: Double
+    
+    public init(dailyRevenue: Double, targetRevenue: Double, activeAlertsCount: Int, todayOrderCount: Int = 0, todayAvgOrderValue: Double = 0) {
+        self.dailyRevenue = dailyRevenue
+        self.targetRevenue = targetRevenue
+        self.activeAlertsCount = activeAlertsCount
+        self.todayOrderCount = todayOrderCount
+        self.todayAvgOrderValue = todayAvgOrderValue
+    }
+}
+
+public struct StaffPerformanceData: Identifiable, Sendable {
+    public let id: UUID
+    public let name: String
+    public let totalSales: Double
+    public let avgRating: Double
+    public let ratingCount: Int
+    public let orderCount: Int
+}
+
+public struct ProductSalesData: Identifiable, Sendable {
+    public let id: UUID
+    public let productId: UUID
+    public let name: String
+    public let category: String
+    public let unitsSold: Int
+    public let revenue: Double
+    
+    public init(productId: UUID, name: String, category: String, unitsSold: Int, revenue: Double) {
+        self.id = UUID()
+        self.productId = productId
+        self.name = name
+        self.category = category
+        self.unitsSold = unitsSold
+        self.revenue = revenue
+    }
+}
+
+public struct DailySalesData: Identifiable, Sendable {
+    public let id: UUID
+    public let dayLabel: String
+    public let amount: Double
+    public let isToday: Bool
+    
+    public init(dayLabel: String, amount: Double, isToday: Bool) {
+        self.id = UUID()
+        self.dayLabel = dayLabel
+        self.amount = amount
+        self.isToday = isToday
+    }
 }
 
 public struct AssociateRating: Identifiable, Hashable, Sendable {

@@ -83,11 +83,8 @@ public struct InventoryManagementView: View {
                                 inventoryList: inventoryVM.inventoryList,
                                 orderedProductIds: inventoryVM.orderedProductIds,
                                 onDismiss: { id in inventoryVM.resolveAlert(id: id) },
-                                onOrder: { productId in
-                                    if let product = inventoryVM.inventoryList.first(where: { $0.productId == productId }) {
-                                        let orderQty = max(1, product.baselineQuantity - product.stockQuantity)
-                                        inventoryVM.orderStock(productId: productId, quantity: orderQty)
-                                    }
+                                onOrder: { productId, orderQty in
+                                    inventoryVM.orderStock(productId: productId, quantity: orderQty)
                                 }
                             )
                         }
@@ -250,7 +247,7 @@ struct LowStockTab: View {
     let inventoryList: [InventoryProduct]
     let orderedProductIds: Set<UUID>
     let onDismiss: (UUID) -> Void
-    let onOrder: (UUID) -> Void
+    let onOrder: (UUID, Int) -> Void
     
     var body: some View {
         if alerts.isEmpty {
@@ -275,7 +272,7 @@ struct LowStockTab: View {
                             isOrdered: orderedProductIds.contains(alert.productId),
                             hideOrderButton: false,
                             onResolve: { onDismiss(alert.id) },
-                            onOrder: { onOrder(alert.productId) }
+                            onOrder: { qty in onOrder(alert.productId, qty) }
                         )
                     }
                 }
@@ -293,7 +290,11 @@ struct AlertCard: View {
     let isOrdered: Bool
     let hideOrderButton: Bool
     let onResolve: () -> Void
-    let onOrder: () -> Void
+    let onOrder: (Int) -> Void
+    
+    @State private var showDismissAlert = false
+    @State private var showOrderAlert = false
+    @State private var orderQuantity = ""
     
     private var isCritical: Bool { alert.priority == .critical }
     
@@ -379,7 +380,7 @@ struct AlertCard: View {
                 // Action buttons
                 VStack(spacing: 8) {
                     if !hideOrderButton {
-                        Button(action: onResolve) {
+                        Button(action: { showDismissAlert = true }) {
                             Text("Dismiss")
                                 .font(.system(size: 13, weight: .medium))
                                 .fixedSize(horizontal: true, vertical: false)
@@ -388,6 +389,12 @@ struct AlertCard: View {
                                 .padding(.vertical, 8)
                                 .background(isRejected ? BoutiqueTheme.textSecondary.opacity(0.12) : BoutiqueTheme.surface)
                                 .cornerRadius(10)
+                        }
+                        .alert("Dismiss Alert?", isPresented: $showDismissAlert) {
+                            Button("Cancel", role: .cancel) {}
+                            Button("Dismiss", role: .destructive) { onResolve() }
+                        } message: {
+                            Text("Are you sure you want to dismiss this low stock alert?")
                         }
                     } else {
                         Button(action: onResolve) {
@@ -403,7 +410,7 @@ struct AlertCard: View {
                     }
                     
                     if !hideOrderButton {
-                        Button(action: onOrder) {
+                        Button(action: { showOrderAlert = true }) {
                             HStack(spacing: 4) {
                                 Image(systemName: isOrdered ? "box.truck.fill" : "box.truck")
                                     .font(.system(size: 11))
@@ -420,6 +427,22 @@ struct AlertCard: View {
                                 RoundedRectangle(cornerRadius: 10)
                                     .stroke(isOrdered ? BoutiqueTheme.border : BoutiqueTheme.textPrimary.opacity(0.2), lineWidth: 1)
                             )
+                        }
+                        .disabled(isOrdered && !isRejected)
+                        .alert("Order Quantity", isPresented: $showOrderAlert) {
+                            TextField("Enter quantity", text: $orderQuantity)
+#if canImport(UIKit)
+                                .keyboardType(.numberPad)
+#endif
+                            Button("Cancel", role: .cancel) { orderQuantity = "" }
+                            Button("Place Order") {
+                                if let qty = Int(orderQuantity), qty > 0 {
+                                    onOrder(qty)
+                                }
+                                orderQuantity = ""
+                            }
+                        } message: {
+                            Text("Enter the quantity you wish to order.")
                         }
                     }
                 }
