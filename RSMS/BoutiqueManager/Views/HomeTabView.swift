@@ -152,7 +152,7 @@ struct WeeklyRevenueCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            DashSectionHeader(icon: "chart.bar.xaxis", title: "WEEKLY REVENUE")
+            DashSectionHeader(icon: "chart.bar.xaxis", title: "Weekly Revenue")
 
             HStack(alignment: .bottom, spacing: 8) {
                 ForEach(data) { day in
@@ -204,7 +204,7 @@ struct TopProductsCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            DashSectionHeader(icon: "star.fill", title: "TOP SELLING PRODUCTS")
+            DashSectionHeader(icon: "star.fill", title: "Top Selling Products")
 
             ForEach(Array(products.enumerated()), id: \.1.id) { index, product in
                 VStack(alignment: .leading, spacing: 4) {
@@ -257,7 +257,7 @@ struct StaffSpotlightCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            DashSectionHeader(icon: "person.2.fill", title: "STAFF PERFORMANCE")
+            DashSectionHeader(icon: "person.2.fill", title: "Staff Performance")
             HStack(spacing: 10) {
                 if let star = top {
                     StaffPerformanceCard(staff: star, isStar: true)
@@ -349,10 +349,10 @@ struct LowStockDropdownCard: View {
                     HStack(spacing: 6) {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .foregroundColor(alertCount > 0 ? BoutiqueTheme.error : BoutiqueTheme.primary)
-                            .font(.system(size: 11))
-                        Text("LOW STOCK ALERTS")
-                            .font(.system(size: 11, weight: .bold, design: .serif))
-                            .foregroundColor(BoutiqueTheme.secondaryText)
+                            .font(.system(size: 18))
+                        Text("Low Stock Alerts")
+                            .font(.system(size: 18, weight: .bold, design: .serif))
+                            .foregroundColor(CatalogTheme.primaryText)
                             .tracking(1)
                     }
                     Spacer()
@@ -413,7 +413,7 @@ struct AppointmentsSectionCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            DashSectionHeader(icon: "calendar", title: "TODAY'S APPOINTMENTS")
+            DashSectionHeader(icon: "calendar", title: "Today's Appointments")
 
             if appointments.isEmpty {
                 HStack(spacing: 10) {
@@ -449,12 +449,11 @@ struct DashSectionHeader: View {
     var body: some View {
         HStack(spacing: 6) {
             Image(systemName: icon)
-                .font(.system(size: 11))
+                .font(.system(size: 18))
                 .foregroundColor(BoutiqueTheme.primary)
             Text(title)
-                .font(.system(size: 11, weight: .bold, design: .serif))
-                .foregroundColor(BoutiqueTheme.secondaryText)
-                .tracking(1)
+                .font(.system(size: 18, weight: .bold, design: .serif))
+                .foregroundColor(CatalogTheme.primaryText)
         }
     }
 }
@@ -599,9 +598,9 @@ struct SalesTargetCard: View {
         VStack(spacing: 20) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("TODAY'S SALES")
-                        .font(.system(size: 10, weight: .bold, design: .serif))
-                        .foregroundColor(BoutiqueTheme.secondaryText).tracking(1.2)
+                    Text("Today's Sales")
+                        .font(.system(size: 18, weight: .bold, design: .serif))
+                        .foregroundColor(CatalogTheme.primaryText)
                     Text(formatCurrency(summary.dailyRevenue))
                         .font(.system(size: 34, weight: .bold))
                         .foregroundColor(BoutiqueTheme.textPrimary)
