@@ -5,7 +5,7 @@ public struct SalesOrder: Identifiable, Codable, Sendable {
     public let customerId: UUID?
     public let salesAssociateId: UUID?
     public let storeId: UUID?
-    public let totalAmount: Double
+    public var totalAmount: Double
     public let status: String?
     public let createdAt: Date
     public let ratingValue: Int?

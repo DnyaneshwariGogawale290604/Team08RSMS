@@ -217,27 +217,26 @@ public actor DataService {
     private static let productColumns = "product_id,name,brand_id,category,price,sku,making_price,image_url,is_active,size_options,tax,total_price"
 
     public func fetchProducts() async throws -> [Product] {
-        let result: [Product] = try await client
+        let resultResponse: PostgrestResponse<LossyDecodableArray<Product>> = try await client
             .from("products")
             .select(DataService.productColumns)
             .eq("is_active", value: true)
             .execute()
-            .value
-        return try await attachVariants(to: result)
+        return try await attachVariants(to: resultResponse.value.elements)
     }
 
     public func fetchProductsForCurrentBrand() async throws -> [Product] {
         let brandId = try await resolveCurrentUserBrandIdOrThrow()
         print("[DataService] fetchProductsForCurrentBrand — brandId: \(brandId)")
 
-        let result: [Product] = try await client
+        let resultResponse: PostgrestResponse<LossyDecodableArray<Product>> = try await client
             .from("products")
             .select(DataService.productColumns)
             .eq("brand_id", value: brandId)
             .eq("is_active", value: true)
             .order("name", ascending: true)
             .execute()
-            .value
+        let result = resultResponse.value.elements
         print("[DataService] fetchProductsForCurrentBrand — fetched \(result.count) products")
         return try await attachVariants(to: result)
     }
@@ -247,13 +246,13 @@ public actor DataService {
         let brandId = try await resolveCurrentUserBrandIdOrThrow()
         print("[DataService] fetchAllProductsForCurrentBrand — brandId: \(brandId)")
 
-        let result: [Product] = try await client
+        let resultResponse: PostgrestResponse<LossyDecodableArray<Product>> = try await client
             .from("products")
             .select(DataService.productColumns)
             .eq("brand_id", value: brandId)
             .order("name", ascending: true)
             .execute()
-            .value
+        let result = resultResponse.value.elements
         print("[DataService] fetchAllProductsForCurrentBrand — fetched \(result.count) products")
         return try await attachVariants(to: result)
     }
@@ -262,13 +261,13 @@ public actor DataService {
         guard !products.isEmpty else { return products }
 
         let productIds = products.map { $0.id.uuidString }
-        let variants: [ProductVariant] = try await client
+        let variantsResponse: PostgrestResponse<LossyDecodableArray<ProductVariant>> = try await client
             .from("product_variants")
             .select("variant_id,product_id,name,image_urls,info_text,created_at")
             .in("product_id", values: productIds)
             .order("created_at", ascending: true)
             .execute()
-            .value
+        let variants = variantsResponse.value.elements
 
         let groupedVariants = Dictionary(grouping: variants, by: \.productId)
         return products.map { product in
@@ -1101,6 +1100,27 @@ public actor DataService {
         return rows.first?.brandId
     }
 }
+
+private struct LossyDecodableArray<Element: Decodable>: Decodable {
+    let elements: [Element]
+
+    init(from decoder: Decoder) throws {
+        var container = try decoder.unkeyedContainer()
+        var elements: [Element] = []
+
+        while !container.isAtEnd {
+            if let value = try? container.decode(Element.self) {
+                elements.append(value)
+            } else {
+                _ = try? container.decode(LossyDecodableDiscard.self)
+            }
+        }
+
+        self.elements = elements
+    }
+}
+
+private struct LossyDecodableDiscard: Decodable {}
 
 private enum DataServiceError: LocalizedError {
     case missingCurrentUserBrand

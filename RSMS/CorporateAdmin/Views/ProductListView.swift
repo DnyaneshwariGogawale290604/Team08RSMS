@@ -155,19 +155,22 @@ public struct ProductListView: View {
             StatsCardView(
                 title: "Total",
                 value: "\(filteredProducts.count)",
-                icon: "shippingbox.fill"
+                icon: "shippingbox.fill",
+                color: CatalogTheme.primary
             )
 
             StatsCardView(
                 title: "Active",
                 value: "\(activeCount)",
-                icon: "checkmark.circle.fill"
+                icon: "checkmark.circle.fill",
+                color: Color(hex: "#2F8F62")
             )
 
             StatsCardView(
                 title: "Inactive",
                 value: "\(inactiveCount)",
-                icon: "pause.circle.fill"
+                icon: "pause.circle.fill",
+                color: Color(hex: "#B65B5B")
             )
         }
     }
@@ -253,34 +256,35 @@ private struct StatsCardView: View {
     let title: String
     let value: String
     let icon: String
+    let color: Color // Retained to preserve call site signature
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             ZStack {
                 Circle()
-                    .fill(CatalogTheme.surface)
+                    .fill(Color(hex: "#EDE6E3").opacity(0.15))
                     .frame(width: 28, height: 28)
 
                 Image(systemName: icon)
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(CatalogTheme.primary)
+                    .foregroundColor(Color(hex: "#EDE6E3"))
             }
 
             Text(value)
                 .font(.system(size: 20, weight: .bold))
-                .foregroundColor(CatalogTheme.primaryText)
+                .foregroundColor(Color(hex: "#EDE6E3"))
 
             Text(title)
                 .font(.system(size: 12, weight: .regular))
-                .foregroundColor(CatalogTheme.secondaryText)
+                .foregroundColor(Color(hex: "#EDE6E3").opacity(0.9))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
         .background(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(Color(hex: "#EFE6E6"))
+                .fill(Color(hex: "#632C2C"))
         )
-        .shadow(color: Color.black.opacity(0.03), radius: 4, x: 0, y: 2)
+        .shadow(color: Color.black.opacity(0.06), radius: 6, x: 0, y: 3)
     }
 }
 
@@ -404,11 +408,23 @@ private struct ProductCardView: View {
 
     @ViewBuilder
     private var productImage: some View {
-        if !product.allImageUrls.isEmpty {
-            ProductImageCarousel(imageUrls: product.allImageUrls, height: 140) {
-                imagePlaceholder
+        if let firstImageUrl = product.allImageUrls.first,
+           let url = URL(string: firstImageUrl) {
+            GeometryReader { proxy in
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: proxy.size.width, height: proxy.size.height)
+                            .clipped()
+                    default:
+                        imagePlaceholder
+                            .frame(width: proxy.size.width, height: proxy.size.height)
+                    }
+                }
             }
-            .frame(height: 140)
         } else {
             imagePlaceholder
         }
@@ -579,32 +595,49 @@ private struct ProductImageCarousel<Placeholder: View>: View {
     @State private var selectedIndex = 0
 
     var body: some View {
-        ZStack(alignment: .bottom) {
+        ZStack {
             if imageUrls.isEmpty {
                 placeholder()
             } else {
-                TabView(selection: $selectedIndex) {
-                    ForEach(Array(imageUrls.enumerated()), id: \.offset) { index, imageUrl in
-                        carouselImage(imageUrl)
-                            .tag(index)
-                    }
-                }
-                .tabViewStyle(.page(indexDisplayMode: .never))
+                carouselImage(imageUrls[safe: selectedIndex] ?? imageUrls[0])
+                    .id(selectedIndex)
+                    .transition(.opacity)
+                    .animation(.easeInOut(duration: 0.18), value: selectedIndex)
             }
 
             if imageUrls.count > 1 {
-                HStack(spacing: 5) {
-                    ForEach(imageUrls.indices, id: \.self) { index in
-                        Circle()
-                            .fill(index == selectedIndex ? Color.white : Color.white.opacity(0.45))
-                            .frame(width: index == selectedIndex ? 7 : 5, height: index == selectedIndex ? 7 : 5)
+                HStack {
+                    carouselButton(systemName: "chevron.left") {
+                        selectedIndex = selectedIndex == 0 ? imageUrls.count - 1 : selectedIndex - 1
+                    }
+
+                    Spacer()
+
+                    carouselButton(systemName: "chevron.right") {
+                        selectedIndex = selectedIndex == imageUrls.count - 1 ? 0 : selectedIndex + 1
                     }
                 }
                 .padding(.horizontal, 8)
-                .padding(.vertical, 5)
-                .background(Color.black.opacity(0.22))
-                .clipShape(Capsule())
-                .padding(.bottom, 8)
+
+                VStack {
+                    Spacer()
+
+                    HStack(spacing: 5) {
+                        ForEach(imageUrls.indices, id: \.self) { index in
+                            Circle()
+                                .fill(index == selectedIndex ? Color.white : Color.white.opacity(0.45))
+                                .frame(width: index == selectedIndex ? 7 : 5, height: index == selectedIndex ? 7 : 5)
+                                .onTapGesture {
+                                    selectedIndex = index
+                                }
+                        }
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 5)
+                    .background(Color.black.opacity(0.22))
+                    .clipShape(Capsule())
+                    .padding(.bottom, 8)
+                }
             }
         }
         .frame(height: height)
@@ -631,5 +664,23 @@ private struct ProductImageCarousel<Placeholder: View>: View {
         } else {
             placeholder()
         }
+    }
+
+    private func carouselButton(systemName: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .font(.system(size: 13, weight: .bold))
+                .foregroundColor(.white)
+                .frame(width: 30, height: 30)
+                .background(Color.black.opacity(0.28))
+                .clipShape(Circle())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private extension Array {
+    subscript(safe index: Int) -> Element? {
+        indices.contains(index) ? self[index] : nil
     }
 }

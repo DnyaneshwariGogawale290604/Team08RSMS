@@ -17,6 +17,7 @@ public struct Product: Identifiable, Codable, Hashable, Sendable {
     public var reorderQuantity: Int?
     public var stockQuantity: Int?
     public var variants: [ProductVariant]?
+    public var createdAt: Date?
 
     enum CodingKeys: String, CodingKey {
         case id = "product_id"
@@ -31,8 +32,7 @@ public struct Product: Identifiable, Codable, Hashable, Sendable {
         case tax
         case totalPrice = "total_price"
         case sizeOptions = "size_options"
-        case reorderPoint = "reorder_point"
-        case reorderQuantity = "reorder_quantity"
+        case createdAt = "created_at"
     }
 
     // Custom decoder: DB columns are all nullable (text, numeric) so we
@@ -81,10 +81,16 @@ public struct Product: Identifiable, Codable, Hashable, Sendable {
         } else {
             sizeOptions = nil
         }
-        reorderPoint = try? c.decodeIfPresent(Int.self, forKey: .reorderPoint) ?? 5
-        reorderQuantity = try? c.decodeIfPresent(Int.self, forKey: .reorderQuantity) ?? 20
+        reorderPoint = 5
+        reorderQuantity = 20
         stockQuantity = nil
         variants = nil
+        
+        if let date = try? c.decodeIfPresent(Date.self, forKey: .createdAt) {
+            createdAt = date
+        } else {
+            createdAt = nil
+        }
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -101,8 +107,7 @@ public struct Product: Identifiable, Codable, Hashable, Sendable {
         try c.encodeIfPresent(tax, forKey: .tax)
         try c.encodeIfPresent(totalPrice, forKey: .totalPrice)
         try c.encodeIfPresent(sizeOptions, forKey: .sizeOptions)
-        try c.encodeIfPresent(reorderPoint, forKey: .reorderPoint)
-        try c.encodeIfPresent(reorderQuantity, forKey: .reorderQuantity)
+        try c.encodeIfPresent(createdAt, forKey: .createdAt)
     }
 
     // Memberwise init for constructing products in code
@@ -111,7 +116,7 @@ public struct Product: Identifiable, Codable, Hashable, Sendable {
                 imageUrl: String? = nil, isActive: Bool? = true,
                 tax: Double? = nil, totalPrice: Double? = nil, sizeOptions: [String]? = nil,
                 reorderPoint: Int? = 5, reorderQuantity: Int? = 20, stockQuantity: Int? = nil,
-                variants: [ProductVariant]? = nil) {
+                variants: [ProductVariant]? = nil, createdAt: Date? = nil) {
         self.id = id
         self.name = name
         self.brandId = brandId
@@ -128,6 +133,7 @@ public struct Product: Identifiable, Codable, Hashable, Sendable {
         self.reorderQuantity = reorderQuantity
         self.stockQuantity = stockQuantity
         self.variants = variants
+        self.createdAt = createdAt
     }
 
     public enum StockStatus: Int, Comparable {

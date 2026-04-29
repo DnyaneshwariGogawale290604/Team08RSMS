@@ -315,8 +315,12 @@ private struct VariantEditorRow: View {
     let isBaseModel: Bool
     let onRemove: () -> Void
 
-    private var remainingImageSlots: Int {
-        max(0, 5 - draft.existingImageUrls.count)
+    private var totalImageCount: Int {
+        draft.existingImageUrls.count + draft.selectedImages.count
+    }
+
+    private var availableImageSlots: Int {
+        max(0, 5 - totalImageCount)
     }
 
     var body: some View {
@@ -359,10 +363,10 @@ private struct VariantEditorRow: View {
                             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                     }
 
-                    if draft.existingImageUrls.count + draft.selectedImages.count < 5 {
+                    if totalImageCount < 5 {
                         PhotosPicker(
                             selection: $draft.pickerItems,
-                            maxSelectionCount: remainingImageSlots,
+                            maxSelectionCount: availableImageSlots,
                             matching: .images
                         ) {
                             VStack(spacing: 6) {
@@ -380,7 +384,7 @@ private struct VariantEditorRow: View {
                 .padding(.vertical, 2)
             }
 
-            Text("\(draft.existingImageUrls.count + draft.selectedImages.count)/5 images")
+            Text("\(totalImageCount)/5 images")
                 .font(.caption)
                 .foregroundColor(CatalogTheme.secondaryText)
         }
@@ -412,17 +416,23 @@ private struct VariantEditorRow: View {
 
     @MainActor
     private func loadImages(from items: [PhotosPickerItem]) async {
-        var loadedImages: [UIImage] = []
+        guard availableImageSlots > 0 else {
+            draft.pickerItems = []
+            return
+        }
+
+        var loadedImages = draft.selectedImages
 
         for item in items {
-            if loadedImages.count >= remainingImageSlots { break }
+            if loadedImages.count + draft.existingImageUrls.count >= 5 { break }
             if let data = try? await item.loadTransferable(type: Data.self),
                let image = UIImage(data: data) {
                 loadedImages.append(image)
             }
         }
 
-        draft.selectedImages = Array(loadedImages.prefix(remainingImageSlots))
+        draft.selectedImages = Array(loadedImages.prefix(max(0, 5 - draft.existingImageUrls.count)))
+        draft.pickerItems = []
     }
 }
 

@@ -13,14 +13,14 @@ public final class ProductService: @unchecked Sendable {
     public func fetchProducts() async throws -> [Product] {
         let brandId = try await resolveCurrentUserBrandIdOrThrow()
 
-        let response: PostgrestResponse<[Product]> = try await client
+        let response: PostgrestResponse<LossyDecodableArray<Product>> = try await client
             .from("products")
             .select("product_id,name,brand_id,category,price,sku,making_price,image_url,is_active,tax,total_price")
             .eq("brand_id", value: brandId)
             .order("name", ascending: true)
             .execute()
 
-        return try await attachVariants(to: response.value)
+        return try await attachVariants(to: response.value.elements)
     }
 
     public func uploadImage(_ image: UIImage) async -> String? {
@@ -129,9 +129,14 @@ public final class ProductService: @unchecked Sendable {
 
             print("Insert response:", response)
             print("INSERT SUCCESS")
-            try await syncVariants(productId: response.value.id, variants: variants, uploadedImageUrls: variantImageUrls)
-            let productsWithVariants = try await attachVariants(to: [response.value])
-            return productsWithVariants.first ?? response.value
+            try await insertVariants(productId: response.value.id, variants: variants, uploadedImageUrls: variantImageUrls)
+            var insertedProduct = response.value
+            insertedProduct.variants = localVariants(
+                productId: response.value.id,
+                variants: variants,
+                uploadedImageUrls: variantImageUrls
+            )
+            return insertedProduct
         } catch {
             print("INSERT ERROR:", error)
             throw error
@@ -258,13 +263,13 @@ public final class ProductService: @unchecked Sendable {
         guard !products.isEmpty else { return products }
 
         let productIds = products.map { $0.id.uuidString }
-        let variants: [ProductVariant] = try await client
+        let variantsResponse: PostgrestResponse<LossyDecodableArray<ProductVariant>> = try await client
             .from("product_variants")
             .select("variant_id,product_id,name,image_urls,info_text,created_at")
             .in("product_id", values: productIds)
             .order("created_at", ascending: true)
             .execute()
-            .value
+        let variants = variantsResponse.value.elements
 
         let groupedVariants = Dictionary(grouping: variants, by: \.productId)
         return products.map { product in
@@ -296,6 +301,14 @@ public final class ProductService: @unchecked Sendable {
             .eq("product_id", value: productId)
             .execute()
 
+        try await insertVariants(productId: productId, variants: variants, uploadedImageUrls: uploadedImageUrls)
+    }
+
+    private func insertVariants(
+        productId: UUID,
+        variants: [ProductVariantDraftInput],
+        uploadedImageUrls: [(id: UUID, urls: [String])]
+    ) async throws {
         let payload = variants.compactMap { variant -> ProductVariantInsert? in
             let trimmedName = variant.name.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !trimmedName.isEmpty else { return nil }
@@ -323,6 +336,31 @@ public final class ProductService: @unchecked Sendable {
             .from("product_variants")
             .insert(payload)
             .execute()
+    }
+
+    private func localVariants(
+        productId: UUID,
+        variants: [ProductVariantDraftInput],
+        uploadedImageUrls: [(id: UUID, urls: [String])]
+    ) -> [ProductVariant] {
+        variants.compactMap { variant in
+            let trimmedName = variant.name.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmedName.isEmpty else { return nil }
+
+            let newUrls = uploadedImageUrls.first(where: { $0.id == variant.id })?.urls ?? []
+            let urls = Array((variant.existingImageUrls + newUrls)
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+                .prefix(5))
+
+            return ProductVariant(
+                id: variant.id,
+                productId: productId,
+                name: trimmedName,
+                imageUrls: urls,
+                infoText: variant.infoText
+            )
+        }
     }
 
     private func resolveCurrentUserBrandIdOrThrow() async throws -> UUID {
@@ -366,6 +404,27 @@ public struct ProductVariantDraftInput: @unchecked Sendable {
         self.newImages = newImages
     }
 }
+
+private struct LossyDecodableArray<Element: Decodable>: Decodable {
+    let elements: [Element]
+
+    init(from decoder: Decoder) throws {
+        var container = try decoder.unkeyedContainer()
+        var elements: [Element] = []
+
+        while !container.isAtEnd {
+            if let value = try? container.decode(Element.self) {
+                elements.append(value)
+            } else {
+                _ = try? container.decode(LossyDecodableDiscard.self)
+            }
+        }
+
+        self.elements = elements
+    }
+}
+
+private struct LossyDecodableDiscard: Decodable {}
 
 private struct ProductVariantInsert: Encodable {
     let variant_id: UUID

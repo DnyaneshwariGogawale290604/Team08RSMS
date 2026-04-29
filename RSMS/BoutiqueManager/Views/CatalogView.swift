@@ -17,6 +17,35 @@ public struct CatalogView: View {
                 BoutiqueTheme.background.ignoresSafeArea()
                 
                 VStack(spacing: 0) {
+                    // Hero Banner
+                    VStack(spacing: 16) {
+                        Text("ELEGANCE REDEFINED")
+                            .font(.system(size: 10, weight: .bold))
+                            .tracking(2.5)
+                            .foregroundColor(.white.opacity(0.8))
+                        
+                        Text("Crafting Timeless\nSophistication")
+                            .font(BrandFont.display(38, weight: .semibold))
+                            .foregroundColor(.white)
+                            .multilineTextAlignment(.center)
+                            .lineSpacing(4)
+                        
+                        Button(action: {}) {
+                            Text("SHOP COLLECTION")
+                                .font(.system(size: 11, weight: .bold))
+                                .tracking(1)
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 24)
+                                .padding(.vertical, 12)
+                                .background(Color.white.opacity(0.15))
+                                .clipShape(Capsule())
+                        }
+                        .padding(.top, 8)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 40)
+                    .background(BoutiqueTheme.deepAccent)
+                    
                     // Search Bar
                     HStack(spacing: 12) {
                         Image(systemName: "magnifyingglass")
@@ -33,28 +62,28 @@ public struct CatalogView: View {
                     .padding(.horizontal, 14)
                     .frame(height: 44)
                     .background(
-                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
                             .fill(BoutiqueTheme.surface)
                     )
                     .padding(.horizontal, 16)
-                    .padding(.top, 8)
+                    .padding(.top, 20)
                     .padding(.bottom, 4)
                     
                     // Category Pills
                     if !catalogVM.categories.isEmpty {
                         ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 10) {
+                            HStack(spacing: 24) {
                                 CategoryPill(label: "All", isSelected: catalogVM.selectedCategory == nil) {
                                     catalogVM.selectedCategory = nil
                                 }
                                 ForEach(catalogVM.categories, id: \.self) { cat in
-                                    CategoryPill(label: cat, isSelected: catalogVM.selectedCategory == cat) {
+                                    CategoryPill(label: cat.capitalized, isSelected: catalogVM.selectedCategory == cat) {
                                         catalogVM.selectedCategory = (catalogVM.selectedCategory == cat) ? nil : cat
                                     }
                                 }
                             }
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 10)
+                            .padding(.horizontal, 24)
+                            .padding(.vertical, 16)
                         }
                     }
                     
@@ -87,8 +116,15 @@ public struct CatalogView: View {
                     }
                 }
             }
-            .navigationTitle("Catalog")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text("CATALOG")
+                        .font(.system(size: 13, weight: .semibold))
+                        .kerning(2)
+                        .foregroundStyle(BoutiqueTheme.primaryText)
+                }
+            }
             .toolbarColorScheme(.light, for: .navigationBar)
             
             .onAppear {
@@ -110,14 +146,24 @@ struct CategoryPill: View {
     
     var body: some View {
         Button(action: action) {
-            Text(label)
-                .font(.caption)
-                .fontWeight(isSelected ? .semibold : .regular)
-                .foregroundColor(isSelected ? .white : BoutiqueTheme.chipInactiveText)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(isSelected ? BoutiqueTheme.primary : BoutiqueTheme.surface)
-                .clipShape(RoundedRectangle(cornerRadius: AppTheme.buttonCornerRadius, style: .continuous))
+            VStack(spacing: 6) {
+                Text(label)
+                    .font(.system(size: 16))
+                    .fontWeight(isSelected ? .bold : .regular)
+                    .foregroundColor(isSelected ? BoutiqueTheme.deepAccent : BoutiqueTheme.secondaryText)
+                
+                if isSelected {
+                    Rectangle()
+                        .fill(BoutiqueTheme.deepAccent)
+                        .frame(height: 2)
+                        .padding(.horizontal, 4)
+                } else {
+                    Rectangle()
+                        .fill(Color.clear)
+                        .frame(height: 2)
+                }
+            }
+            .padding(.horizontal, 8)
         }
     }
 }
@@ -453,28 +499,42 @@ private struct BoutiqueProductImageCarousel<Placeholder: View>: View {
             if imageUrls.isEmpty {
                 placeholder()
             } else {
-                TabView(selection: $selectedIndex) {
-                    ForEach(Array(imageUrls.enumerated()), id: \.offset) { index, imageUrl in
-                        carouselImage(imageUrl)
-                            .tag(index)
-                    }
-                }
-                .tabViewStyle(.page(indexDisplayMode: .never))
+                carouselImage(imageUrls[safe: selectedIndex] ?? imageUrls[0])
+                    .id(selectedIndex)
+                    .transition(.opacity)
+                    .animation(.easeInOut(duration: 0.18), value: selectedIndex)
             }
 
             if imageUrls.count > 1 {
-                HStack(spacing: 5) {
-                    ForEach(imageUrls.indices, id: \.self) { index in
-                        Circle()
-                            .fill(index == selectedIndex ? Color.white : Color.white.opacity(0.45))
-                            .frame(width: index == selectedIndex ? 7 : 5, height: index == selectedIndex ? 7 : 5)
+                VStack(spacing: 8) {
+                    HStack {
+                        carouselButton(systemName: "chevron.left") {
+                            selectedIndex = selectedIndex == 0 ? imageUrls.count - 1 : selectedIndex - 1
+                        }
+
+                        Spacer()
+
+                        carouselButton(systemName: "chevron.right") {
+                            selectedIndex = selectedIndex == imageUrls.count - 1 ? 0 : selectedIndex + 1
+                        }
                     }
+
+                    HStack(spacing: 5) {
+                        ForEach(imageUrls.indices, id: \.self) { index in
+                            Circle()
+                                .fill(index == selectedIndex ? Color.white : Color.white.opacity(0.45))
+                                .frame(width: index == selectedIndex ? 7 : 5, height: index == selectedIndex ? 7 : 5)
+                                .onTapGesture {
+                                    selectedIndex = index
+                                }
+                        }
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 5)
+                    .background(Color.black.opacity(0.22))
+                    .clipShape(Capsule())
                 }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 5)
-                .background(Color.black.opacity(0.22))
-                .clipShape(Capsule())
-                .padding(.bottom, 8)
+                .padding(8)
             }
         }
         .frame(height: height)
@@ -504,5 +564,23 @@ private struct BoutiqueProductImageCarousel<Placeholder: View>: View {
         } else {
             placeholder()
         }
+    }
+
+    private func carouselButton(systemName: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .font(.system(size: 13, weight: .bold))
+                .foregroundColor(.white)
+                .frame(width: 30, height: 30)
+                .background(Color.black.opacity(0.28))
+                .clipShape(Circle())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private extension Array {
+    subscript(safe index: Int) -> Element? {
+        indices.contains(index) ? self[index] : nil
     }
 }

@@ -125,9 +125,9 @@ struct SalesAssociateSalesView: View {
                     }
                 }
                 ToolbarItem(placement: .principal) {
-                    Text(vm.selectedCustomer != nil ? vm.selectedCustomer!.name.uppercased() : "NEW SALE")
+                    Text(vm.selectedCustomer != nil ? vm.selectedCustomer!.name : "New Sale")
                         .font(.system(size: 13, weight: .semibold))
-                        .kerning(2)
+                        .kerning(1)
                         .foregroundStyle(Color.luxuryPrimaryText)
                         .lineLimit(1)
                         .truncationMode(.tail)
@@ -185,6 +185,16 @@ struct SalesAssociateSalesView: View {
                 for: NSNotification.Name("OpenRazorpayCheckout")
             )) { _ in
                 vm.openRazorpayCheckout()
+            }
+            .onReceive(NotificationCenter.default.publisher(
+                for: NSNotification.Name("OpenCashfreeCheckout")
+            )) { _ in
+                vm.openCashfreeCheckout()
+            }
+            .onReceive(NotificationCenter.default.publisher(
+                for: NSNotification.Name("OpenPayUCheckout")
+            )) { _ in
+                vm.openPayUCheckout()
             }
         }
         .task { await vm.fetchCustomers() }
@@ -451,10 +461,7 @@ struct SalesAssociateSalesView: View {
                     .execute()
             }
 
-            // 3. Mark appointment as completed now that it has been saved/processed
-            await avm.updateStatus("completed", for: apptId)
-
-            // 4. Refresh appointments list so the card reflects the new products
+            // 3. Refresh appointments list so the card reflects the new products
             await avm.fetchAppointments()
 
             isSaving = false
@@ -473,8 +480,9 @@ struct SalesAssociateSalesView: View {
 
     private func beginCheckout() async {
         // If order already exists (loaded from appointment)
-        // go straight to billing
+        // go straight to billing, but update it first if cart changed
         if vm.currentOrder != nil {
+            await vm.syncOrderWithCart(appointmentId: appointmentId)
             await vm.fetchPaymentConfig()
             vm.showBilling = true
             return
