@@ -140,7 +140,7 @@ struct ProductCard: View {
                     .frame(height: 130)
 
                 if !product.allImageUrls.isEmpty {
-                    BoutiqueProductImageCarousel(imageUrls: product.allImageUrls, height: 130) {
+                    BoutiqueProductImageCarousel(imageUrls: product.allImageUrls, height: 130, showDots: false) {
                         fallbackIcon(for: product)
                     }
                     .frame(height: 130)
@@ -209,6 +209,7 @@ struct ProductCard: View {
                 .stroke(BoutiqueTheme.divider, lineWidth: 0.5)
         )
         .shadow(color: Color.black.opacity(0.03), radius: 4, x: 0, y: 2)
+        .contentShape(Rectangle())
         .scaleEffect(isPressed ? 1.02 : 1)
         .animation(.easeInOut(duration: 0.25), value: isPressed)
         .onLongPressGesture(minimumDuration: 0.01, pressing: { pressing in
@@ -335,7 +336,7 @@ private struct BoutiqueProductDetailSheet: View {
         NavigationView {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    BoutiqueProductImageCarousel(imageUrls: selectedVariant.imageUrls, height: 280) {
+                    BoutiqueProductImageCarousel(imageUrls: selectedVariant.imageUrls, height: 280, showDots: true) {
                         detailPlaceholder
                     }
                     .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
@@ -448,11 +449,13 @@ private struct BoutiqueProductImageCarousel<Placeholder: View>: View {
     let imageUrls: [String]
     let height: CGFloat
     let placeholder: () -> Placeholder
+    let showDots: Bool
     @State private var selectedIndex: Int
 
-    init(imageUrls: [String], height: CGFloat, @ViewBuilder placeholder: @escaping () -> Placeholder) {
+    init(imageUrls: [String], height: CGFloat, showDots: Bool = true, @ViewBuilder placeholder: @escaping () -> Placeholder) {
         self.imageUrls = imageUrls
         self.height = height
+        self.showDots = showDots
         self.placeholder = placeholder
         self._selectedIndex = State(initialValue: 0)
     }
@@ -469,9 +472,10 @@ private struct BoutiqueProductImageCarousel<Placeholder: View>: View {
                     }
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
+                .allowsHitTesting(showDots) // Disable interaction if no dots (makes it just show first image and pass through taps)
             }
 
-            if imageUrls.count > 1 {
+            if showDots && imageUrls.count > 1 {
                 HStack(spacing: 5) {
                     ForEach(imageUrls.indices, id: \.self) { index in
                         Circle()
