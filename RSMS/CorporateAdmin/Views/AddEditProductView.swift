@@ -273,6 +273,7 @@ public struct AddEditProductView: View {
                 addBaseVariant()
             }
         }
+        .dismissKeyboardOnTap()
         .alert(
             "Product Save Failed",
             isPresented: Binding(

@@ -217,6 +217,7 @@ struct VendorGRNFormSheet: View {
                 .padding(.vertical, 24)
             }
         }
+        .dismissKeyboardOnTap()
         .navigationTitle("Receive Vendor Goods")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

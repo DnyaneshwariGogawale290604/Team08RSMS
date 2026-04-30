@@ -60,10 +60,15 @@ public struct OrderStockView: View {
             }
             .tint(.appAccent)
         }
+        .dismissKeyboardOnTap()
     }
     
     private func placeOrder() {
-        guard let id = selectedInventoryId, let quantity = Int(quantityToOrderStr), quantity > 0 else { return }
+        guard let id = selectedInventoryId, let quantity = Int(quantityToOrderStr), quantity > 0 else {
+            Haptics.shared.error()
+            return
+        }
+        Haptics.shared.success()
         inventoryVM.orderStock(productId: id, quantity: quantity)
         presentationMode.wrappedValue.dismiss()
     }
