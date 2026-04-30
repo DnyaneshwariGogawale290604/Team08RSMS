@@ -113,16 +113,7 @@ struct BillingView: View {
                     QRCodeView(qrString: qrString)
                 }
             }
-            // Rating prompt — shown after successful checkout
-            .sheet(isPresented: $vm.showRatingPrompt) {
-                RatingPromptSheet(vm: vm)
-            }
-            // Once rating is dismissed (or skipped), close billing sheet too
-            .onChange(of: vm.showRatingPrompt) { isShowing in
-                if !isShowing && checkoutCompleted {
-                    dismiss()
-                }
-            }
+
         }
     }
 
@@ -969,9 +960,9 @@ struct BillingView: View {
                             orderStore: orderStore,
                             appointmentsVM: appointmentsVM
                         ) {
-                            // Mark checkout complete — billing sheet will dismiss
-                            // automatically once the rating prompt is closed.
+                            // Mark checkout complete and dismiss
                             checkoutCompleted = true
+                            dismiss()
                         }
                     }
                 } else {
