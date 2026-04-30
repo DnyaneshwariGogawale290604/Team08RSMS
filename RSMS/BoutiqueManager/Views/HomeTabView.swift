@@ -63,7 +63,7 @@ public struct HomeTabView: View {
             .toolbarColorScheme(.light, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    BoutiqueProfileButton()
+                    BoutiqueManagerProfileButton(sessionViewModel: sessionViewModel)
                 }
             }
             .onAppear {

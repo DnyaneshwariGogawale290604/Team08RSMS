@@ -6,6 +6,7 @@ public struct InventoryManagerTabView: View {
     @State private var prefilledSKUMagic: String? = nil
     @State private var categoryFilterMagic: String? = nil
     @State private var repairFilter: ItemsTabView.RepairFilter = .all
+    @State private var showingAccountSheet = false
 
     public init(sessionViewModel: SessionViewModel) {
         self.sessionViewModel = sessionViewModel
@@ -75,5 +76,54 @@ public struct InventoryManagerTabView: View {
         UITabBar.appearance().standardAppearance = appearance
         UITabBar.appearance().scrollEdgeAppearance = appearance
         UITabBar.appearance().unselectedItemTintColor = normalColor
+    }
+
+    private var accountTab: some View {
+        NavigationView {
+            ZStack {
+                Color.luxuryBackground.ignoresSafeArea()
+
+                VStack(spacing: 20) {
+                    Spacer()
+
+                    Image(systemName: "shippingbox")
+                        .font(.system(size: 72))
+                        .foregroundColor(.luxurySecondaryText)
+
+                    Text("Inventory Manager")
+                        .font(.system(size: 24, weight: .bold, design: .serif))
+                        .foregroundColor(.luxuryPrimaryText)
+
+                    LanguageSwitcherRow()
+                        .padding(.horizontal, 24)
+
+                    Button {
+                        Task { await sessionViewModel.signOut() }
+                    } label: {
+                        Text("Logout")
+                            .font(.system(size: 16, weight: .semibold, design: .default))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .luxuryPrimaryButtonChrome(cornerRadius: 16)
+                    }
+                    .buttonStyle(LuxuryPressStyle())
+                    .padding(.horizontal, 24)
+
+                    Spacer()
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .navigationTitle("Account")
+            .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button { showingAccountSheet = false } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.luxuryPrimaryText)
+                    }
+                }
+            }
+        }
     }
 }

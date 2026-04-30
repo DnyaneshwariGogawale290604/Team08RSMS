@@ -1,28 +1,34 @@
 import SwiftUI
 
-struct SalesAssociateProfileButton: View {
+public struct BoutiqueManagerProfileButton: View {
     @ObservedObject var sessionViewModel: SessionViewModel
     @State private var showingAccountSheet = false
 
-    var body: some View {
+    public init(sessionViewModel: SessionViewModel) {
+        self.sessionViewModel = sessionViewModel
+    }
+
+    public var body: some View {
         Button {
             showingAccountSheet = true
         } label: {
-            AppProfileToolbarButton()
+            Image(systemName: "person.crop.circle")
+                .font(.title2)
+                .foregroundColor(BoutiqueTheme.textPrimary)
+                .accessibilityLabel("Account")
         }
-        .buttonStyle(.plain)
         .sheet(isPresented: $showingAccountSheet) {
-            SalesAssociateAccountSheet(sessionViewModel: sessionViewModel)
+            BoutiqueManagerAccountSheet(sessionViewModel: sessionViewModel)
         }
     }
 }
 
-struct SalesAssociateAccountSheet: View {
+public struct BoutiqueManagerAccountSheet: View {
     @ObservedObject var sessionViewModel: SessionViewModel
     @Environment(\.dismiss) private var dismiss
 
-    var body: some View {
-        NavigationStack {
+    public var body: some View {
+        NavigationView {
             ZStack {
                 Color.luxuryBackground.ignoresSafeArea()
 
@@ -34,11 +40,11 @@ struct SalesAssociateAccountSheet: View {
                             .font(.system(size: 68))
                             .foregroundStyle(Color.luxurySecondaryText)
 
-                        Text("Sales Associate")
+                        Text("Boutique Manager")
                             .font(BrandFont.display(24, weight: .bold))
                             .foregroundStyle(Color.luxuryPrimaryText)
 
-                        Text("Clienteling, appointments, orders, and billing in one place.")
+                        Text("Store overview, reports, and staff management.")
                             .font(BrandFont.body(14))
                             .foregroundStyle(Color.luxurySecondaryText)
                             .multilineTextAlignment(.center)
@@ -47,15 +53,19 @@ struct SalesAssociateAccountSheet: View {
 
                     VStack(spacing: 14) {
                         HStack(spacing: 12) {
+                            NavigationLink(destination: StoreProfileView()) {
+                                accountInfoCard(
+                                    title: "Store Profile",
+                                    subtitle: "View and edit details",
+                                    icon: "storefront.fill"
+                                )
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                            
                             accountInfoCard(
-                                title: "Client Book",
-                                subtitle: "Profiles and preferences",
-                                icon: "person.2.fill"
-                            )
-                            accountInfoCard(
-                                title: "Checkout",
-                                subtitle: "Orders and billing",
-                                icon: "bag.fill"
+                                title: "Reports",
+                                subtitle: "Sales and inventory",
+                                icon: "chart.bar.doc.horizontal.fill"
                             )
                         }
 
@@ -80,7 +90,7 @@ struct SalesAssociateAccountSheet: View {
             .navigationTitle("Account")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
+                ToolbarItem(placement: .navigationBarLeading) {
                     Button {
                         dismiss()
                     } label: {
