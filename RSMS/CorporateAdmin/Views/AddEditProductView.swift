@@ -24,176 +24,284 @@ public struct AddEditProductView: View {
     }
 
     public var body: some View {
-        NavigationView {
-            Form {
-                Section(header: sectionHeader("Basic Info")) {
-                    TextField("Product Name", text: $name)
-                        .textInputAutocapitalization(.words)
-                    HStack {
-                        TextField("Category", text: $category)
-                            .textInputAutocapitalization(.words)
-
-                        if !availableCategories.isEmpty {
-                            Menu {
-                                ForEach(availableCategories, id: \.self) { categoryName in
-                                    Button(categoryName) {
-                                        category = categoryName
-                                    }
+        ZStack {
+            Color.luxuryBackground.ignoresSafeArea()
+            
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 24) {
+                    // 1. Basic Info
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Basic Info").headingStyle()
+                            .padding(.horizontal, 4)
+                        
+                        ReusableCardView {
+                            VStack(spacing: 16) {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Product Name")
+                                        .font(.caption.bold())
+                                        .foregroundColor(.luxurySecondaryText)
+                                    TextField("Enter name", text: $name)
+                                        .textFieldStyle(PlainTextFieldStyle())
+                                        .padding(12)
+                                        .background(Color.luxuryBackground)
+                                        .cornerRadius(10)
                                 }
-                            } label: {
-                                Image(systemName: "chevron.down.circle")
-                                    .foregroundColor(CatalogTheme.primary)
+                                
+                                detailDivider()
+                                
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Category")
+                                        .font(.caption.bold())
+                                        .foregroundColor(.luxurySecondaryText)
+                                    HStack {
+                                        TextField("Select or type", text: $category)
+                                            .textFieldStyle(PlainTextFieldStyle())
+                                        
+                                        if !availableCategories.isEmpty {
+                                            Menu {
+                                                ForEach(availableCategories, id: \.self) { cat in
+                                                    Button(cat) { category = cat }
+                                                }
+                                            } label: {
+                                                Image(systemName: "chevron.down.circle.fill")
+                                                    .foregroundColor(.luxuryDeepAccent)
+                                            }
+                                        }
+                                    }
+                                    .padding(12)
+                                    .background(Color.luxuryBackground)
+                                    .cornerRadius(10)
+                                }
                             }
                         }
                     }
-                }
-                .listRowBackground(CatalogTheme.card)
+                    .padding(.horizontal, 20)
 
-                Section(header: variantSectionHeader) {
-                    if variantDrafts.count > 1 {
-                        Button {
-                            applyFirstVariantInfoToAll()
-                        } label: {
-                            Label("Same Info for All", systemImage: "text.badge.checkmark")
-                        }
-                    }
-
-                    ForEach($variantDrafts) { $draft in
-                        VariantEditorRow(draft: $draft, isBaseModel: draft.id == variantDrafts.first?.id) {
-                            removeVariant(draft.id)
-                        }
-                    }
-
-                    Button {
-                        addVariant()
-                    } label: {
-                        Label("Add Variant", systemImage: "plus.circle.fill")
-                    }
-                    .disabled(variantDrafts.count >= 12)
-                }
-                .listRowBackground(CatalogTheme.card)
-                
-                Section(header: sectionHeader("Pricing & Details")) {
-                    TextField("Sale Price (₹)", text: $price)
-                        .keyboardType(.decimalPad)
-                    TextField("Making Price (₹)", text: $makingPrice)
-                        .keyboardType(.decimalPad)
-                    TextField("SKU", text: $sku)
-                }
-                .listRowBackground(CatalogTheme.card)
-
-                Section(header: sectionHeader("Tax Configuration")) {
-                    HStack {
-                        Text("Tax Rate")
-                            .foregroundColor(CatalogTheme.primaryText)
-                        Spacer()
-                        TextField("18", text: $taxPercentage)
-                            .keyboardType(.decimalPad)
-                            .multilineTextAlignment(.trailing)
-                            .frame(width: 60)
-                        Text("%")
-                            .foregroundColor(CatalogTheme.secondaryText)
-                    }
-
-                    if let priceVal = Double(price), priceVal > 0,
-                       let taxRate = Double(taxPercentage), taxRate >= 0 {
-                        let taxAmount = priceVal * taxRate / 100
-                        let total = priceVal + taxAmount
+                    // 2. Variants
+                    VStack(alignment: .leading, spacing: 12) {
                         HStack {
-                            Text("Tax Amount")
-                                .foregroundColor(CatalogTheme.secondaryText)
+                            Text("Variants").headingStyle()
                             Spacer()
-                            Text(String(format: "₹%.2f", taxAmount))
-                                .foregroundColor(CatalogTheme.primaryText)
-                                .fontWeight(.medium)
+                            Text("1-5 images each")
+                                .font(.caption)
+                                .foregroundColor(.luxurySecondaryText)
                         }
-                        HStack {
-                            Text("Total Price (incl. tax)")
-                                .foregroundColor(CatalogTheme.secondaryText)
-                            Spacer()
-                            Text(String(format: "₹%.2f", total))
-                                .foregroundColor(CatalogTheme.deepAccent)
-                                .fontWeight(.bold)
+                        .padding(.horizontal, 4)
+                        
+                        ReusableCardView {
+                            VStack(spacing: 16) {
+                                if variantDrafts.count > 1 {
+                                    Button { applyFirstVariantInfoToAll() } label: {
+                                        Label("Same Info for All", systemImage: "text.badge.checkmark")
+                                            .font(.caption.bold())
+                                            .foregroundColor(.luxuryDeepAccent)
+                                    }
+                                    detailDivider()
+                                }
+
+                                ForEach($variantDrafts) { $draft in
+                                    VariantEditorRow(draft: $draft, isBaseModel: draft.id == variantDrafts.first?.id) {
+                                        removeVariant(draft.id)
+                                    }
+                                    
+                                    if draft.id != variantDrafts.last?.id {
+                                        detailDivider()
+                                    }
+                                }
+
+                                Button { addVariant() } label: {
+                                    HStack {
+                                        Image(systemName: "plus.circle.fill")
+                                        Text("Add Variant")
+                                            .font(.subheadline.bold())
+                                    }
+                                    .foregroundColor(.luxuryDeepAccent)
+                                }
+                                .disabled(variantDrafts.count >= 12)
+                            }
                         }
                     }
-                }
-                .listRowBackground(CatalogTheme.card)
+                    .padding(.horizontal, 20)
 
-                Section {
-                    Toggle("Active Status", isOn: $isActive)
-                        .tint(CatalogTheme.primary)
-                }
-                .listRowBackground(CatalogTheme.card)
-            }
-            .scrollContentBackground(.hidden)
-            .background(CatalogTheme.background.ignoresSafeArea())
-            .tint(CatalogTheme.primary)
-            .navigationTitle(editingProduct == nil ? "Add Product" : "Edit Product")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button { dismiss() } label: {
-                        AppToolbarGlyph(systemImage: "xmark", backgroundColor: CatalogTheme.deepAccent)
+                    // 3. Pricing
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Pricing & Details").headingStyle()
+                            .padding(.horizontal, 4)
+                        
+                        ReusableCardView {
+                            VStack(spacing: 16) {
+                                HStack(spacing: 16) {
+                                    VStack(alignment: .leading, spacing: 8) {
+                                        Text("Sale Price (₹)")
+                                            .font(.caption.bold())
+                                            .foregroundColor(.luxurySecondaryText)
+                                        TextField("0.00", text: $price)
+                                            .keyboardType(.decimalPad)
+                                            .textFieldStyle(PlainTextFieldStyle())
+                                            .padding(12)
+                                            .background(Color.luxuryBackground)
+                                            .cornerRadius(10)
+                                    }
+                                    
+                                    VStack(alignment: .leading, spacing: 8) {
+                                        Text("Making Price (₹)")
+                                            .font(.caption.bold())
+                                            .foregroundColor(.luxurySecondaryText)
+                                        TextField("0.00", text: $makingPrice)
+                                            .keyboardType(.decimalPad)
+                                            .textFieldStyle(PlainTextFieldStyle())
+                                            .padding(12)
+                                            .background(Color.luxuryBackground)
+                                            .cornerRadius(10)
+                                    }
+                                }
+                                
+                                detailDivider()
+                                
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("SKU")
+                                        .font(.caption.bold())
+                                        .foregroundColor(.luxurySecondaryText)
+                                    TextField("e.g. RING-001", text: $sku)
+                                        .textFieldStyle(PlainTextFieldStyle())
+                                        .padding(12)
+                                        .background(Color.luxuryBackground)
+                                        .cornerRadius(10)
+                                }
+                            }
+                        }
                     }
-                    .buttonStyle(.plain)
-                }
+                    .padding(.horizontal, 20)
 
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        guard !isSaving else { return }
-                        isSaving = true
-                        save()
-                    } label: {
-                        AppToolbarGlyph(
-                            systemImage: "checkmark",
-                            enabled: !(name.isEmpty || price.isEmpty || isSaving),
-                            backgroundColor: CatalogTheme.deepAccent
-                        )
+                    // 4. Tax
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Tax Configuration").headingStyle()
+                            .padding(.horizontal, 4)
+                        
+                        ReusableCardView {
+                            VStack(spacing: 16) {
+                                HStack {
+                                    Text("Tax Rate (%)")
+                                        .font(.subheadline)
+                                        .foregroundColor(.luxurySecondaryText)
+                                    Spacer()
+                                    TextField("18", text: $taxPercentage)
+                                        .keyboardType(.decimalPad)
+                                        .multilineTextAlignment(.trailing)
+                                        .font(.subheadline.bold())
+                                        .frame(width: 80)
+                                        .padding(8)
+                                        .background(Color.luxuryBackground)
+                                        .cornerRadius(8)
+                                }
+                                
+                                if let priceVal = Double(price), priceVal > 0,
+                                   let taxRate = Double(taxPercentage), taxRate >= 0 {
+                                    let taxAmount = priceVal * taxRate / 100
+                                    let total = priceVal + taxAmount
+                                    
+                                    detailDivider()
+                                    
+                                    detailRow(label: "Tax Amount", value: String(format: "₹%.2f", taxAmount))
+                                    detailRow(label: "Total (Incl. Tax)", value: String(format: "₹%.2f", total), valueColor: .luxuryDeepAccent)
+                                }
+                            }
+                        }
                     }
-                    .buttonStyle(.plain)
-                    .disabled(name.isEmpty || price.isEmpty || isSaving)
-                }
-            }
-            .onAppear {
-                if let product = editingProduct {
-                    name = product.name
-                    category = product.category
-                    price = String(product.price)
-                    sku = product.sku ?? ""
-                    makingPrice = product.makingPrice.map { String(format: "%.2f", $0) } ?? ""
-                    isActive = product.isActive ?? true
-                    if let existingTax = product.tax, product.price > 0 {
-                        let rate = (existingTax / product.price) * 100
-                        taxPercentage = String(format: "%.1f", rate)
-                    }
-                    variantDrafts = product.displayVariants.map {
-                        ProductVariantDraft(
-                            id: $0.id,
-                            name: $0.name,
-                            infoText: $0.infoText ?? "",
-                            existingImageUrls: $0.imageUrls
-                        )
-                    }
-                }
+                    .padding(.horizontal, 20)
 
-                if variantDrafts.isEmpty {
-                    addBaseVariant()
+                    // 5. Status
+                    ReusableCardView {
+                        Toggle("Active Status", isOn: $isActive)
+                            .font(.subheadline.bold())
+                            .tint(.luxuryDeepAccent)
+                    }
+                    .padding(.horizontal, 20)
                 }
-            }
-            .alert(
-                "Product Save Failed",
-                isPresented: Binding(
-                    get: { viewModel.errorMessage != nil },
-                    set: { if !$0 { viewModel.errorMessage = nil } }
-                )
-            ) {
-                Button("OK", role: .cancel) {
-                    viewModel.errorMessage = nil
-                }
-            } message: {
-                Text(viewModel.errorMessage ?? "Unable to save product.")
+                .padding(.vertical, 24)
             }
         }
+        .navigationTitle(editingProduct == nil ? "Add Product" : "Edit Product")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button { dismiss() } label: {
+                    AppToolbarGlyph(systemImage: "xmark", backgroundColor: .luxuryDeepAccent)
+                }
+                .buttonStyle(.plain)
+            }
+
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    guard !isSaving else { return }
+                    isSaving = true
+                    save()
+                } label: {
+                    AppToolbarGlyph(
+                        systemImage: "checkmark",
+                        enabled: !(name.isEmpty || price.isEmpty || isSaving),
+                        backgroundColor: .luxuryDeepAccent
+                    )
+                }
+                .buttonStyle(.plain)
+                .disabled(name.isEmpty || price.isEmpty || isSaving)
+            }
+        }
+        .onAppear {
+            if let product = editingProduct {
+                name = product.name
+                category = product.category
+                price = String(product.price)
+                sku = product.sku ?? ""
+                makingPrice = product.makingPrice.map { String(format: "%.2f", $0) } ?? ""
+                isActive = product.isActive ?? true
+                if let existingTax = product.tax, product.price > 0 {
+                    let rate = (existingTax / product.price) * 100
+                    taxPercentage = String(format: "%.1f", rate)
+                }
+                variantDrafts = product.displayVariants.map {
+                    ProductVariantDraft(
+                        id: $0.id,
+                        name: $0.name,
+                        infoText: $0.infoText ?? "",
+                        existingImageUrls: $0.imageUrls
+                    )
+                }
+            }
+
+            if variantDrafts.isEmpty {
+                addBaseVariant()
+            }
+        }
+        .alert(
+            "Product Save Failed",
+            isPresented: Binding(
+                get: { viewModel.errorMessage != nil },
+                set: { if !$0 { viewModel.errorMessage = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) {
+                viewModel.errorMessage = nil
+            }
+        } message: {
+            Text(viewModel.errorMessage ?? "Unable to save product.")
+        }
+    }
+
+    private func detailRow(label: String, value: String, valueColor: Color = .luxuryPrimaryText) -> some View {
+        HStack {
+            Text(label)
+                .font(.subheadline)
+                .foregroundColor(.luxurySecondaryText)
+            Spacer()
+            Text(value)
+                .font(.subheadline.bold())
+                .foregroundColor(valueColor)
+        }
+    }
+
+    private func detailDivider() -> some View {
+        Divider().overlay(Color.black.opacity(0.08))
     }
 
     private func sectionHeader(_ title: String) -> some View {

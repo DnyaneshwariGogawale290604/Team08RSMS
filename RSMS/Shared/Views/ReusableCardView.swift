@@ -25,7 +25,7 @@ public extension Color {
     static let luxurySecondaryText = Color(hex: "#6B5B5B")
     static let luxuryMutedText = Color(hex: "#9A8A8A")
     static let luxurySelection = Color(hex: "#462F32")
-    static let luxuryDivider = Color.black.opacity(0.1)
+    static let luxuryDivider = Color.black.opacity(0.08)
 
     init(hex: String) {
         let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)

@@ -44,65 +44,115 @@ struct ShipmentDetailsSheet: View {
     }()
 
     var body: some View {
-        NavigationView {
-            Form {
-                // MARK: Order Summary
-                Section {
-                    LabeledContent("Product") {
-                        Text(group.product?.name ?? "Unknown Product")
-                            .foregroundColor(.primary)
-                            .multilineTextAlignment(.trailing)
-                    }
-                    LabeledContent("Boutique") {
-                        Text(group.store?.name ?? "Unknown Boutique")
-                            .foregroundColor(.primary)
-                            .multilineTextAlignment(.trailing)
-                    }
-                    LabeledContent("Qty to Dispatch") {
-                        TextField("Units", text: $dispatchQuantityText)
-                            .multilineTextAlignment(.trailing)
-                            .keyboardType(.numberPad)
-                            .onChange(of: dispatchQuantityText) { newValue in
-                                dispatchQuantityText = newValue.filter { $0.isNumber }
+        ZStack {
+            Color.appBackground.ignoresSafeArea()
+            
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 24) {
+                    // MARK: Order Summary
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Order Summary").headingStyle()
+                            .padding(.horizontal, 4)
+                        
+                        ReusableCardView {
+                            VStack(spacing: 0) {
+                                detailRow(label: "Product", value: group.product?.name ?? "Unknown Product")
+                                detailDivider()
+                                detailRow(label: "Boutique", value: group.store?.name ?? "Unknown Boutique")
+                                detailDivider()
+                                
+                                HStack {
+                                    Text("Qty to Dispatch")
+                                        .font(.subheadline)
+                                        .foregroundColor(.appSecondaryText)
+                                    Spacer()
+                                    TextField("Units", text: $dispatchQuantityText)
+                                        .font(.subheadline.bold())
+                                        .foregroundColor(.appPrimaryText)
+                                        .multilineTextAlignment(.trailing)
+                                        .keyboardType(.numberPad)
+                                        .onChange(of: dispatchQuantityText) { newValue in
+                                            dispatchQuantityText = newValue.filter { $0.isNumber }
+                                        }
+                                }
+                                .padding(.vertical, 12)
+                                
+                                if group.requests.count > 1 {
+                                    detailDivider()
+                                    HStack(spacing: 6) {
+                                        Image(systemName: "info.circle.fill")
+                                            .font(.caption)
+                                            .foregroundColor(.appAccent)
+                                        Text("\(group.requests.count) requests merged · total \(group.totalQuantity) units")
+                                            .font(.caption)
+                                            .foregroundColor(.appSecondaryText)
+                                    }
+                                    .padding(.vertical, 8)
+                                }
                             }
-                    }
-                    if group.requests.count > 1 {
-                        HStack(spacing: 6) {
-                            Image(systemName: "info.circle")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            Text("\(group.requests.count) requests merged · total \(group.totalQuantity) units")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
                         }
                     }
-                } header: {
-                    Text("Order Summary").headingStyle()
-                }
+                    .padding(.horizontal, 20)
 
-                // MARK: Carrier & Tracking
-                Section {
-                    TextField("e.g. FedEx, DHL, Blue Dart", text: $carrier)
-                        .autocorrectionDisabled()
-                    TextField("Tracking number", text: $trackingNumber)
-                        .autocorrectionDisabled()
-                        .keyboardType(.asciiCapable)
-                    DatePicker("Est. Delivery", selection: $estimatedDelivery,
-                               in: Date()..., displayedComponents: .date)
-                } header: {
-                    Text("Carrier & Tracking").headingStyle()
-                }
+                    // MARK: Carrier & Tracking
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Carrier & Tracking").headingStyle()
+                            .padding(.horizontal, 4)
+                        
+                        ReusableCardView {
+                            VStack(spacing: 16) {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Carrier")
+                                        .font(.caption.bold())
+                                        .foregroundColor(.appSecondaryText)
+                                    TextField("e.g. FedEx, DHL, Blue Dart", text: $carrier)
+                                        .textFieldStyle(PlainTextFieldStyle())
+                                        .padding(12)
+                                        .background(Color.appBackground)
+                                        .cornerRadius(10)
+                                }
+                                
+                                Divider().overlay(Color.black.opacity(0.08))
+                                
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Tracking Number")
+                                        .font(.caption.bold())
+                                        .foregroundColor(.appSecondaryText)
+                                    TextField("Enter number", text: $trackingNumber)
+                                        .textFieldStyle(PlainTextFieldStyle())
+                                        .padding(12)
+                                        .background(Color.appBackground)
+                                        .cornerRadius(10)
+                                        .keyboardType(.asciiCapable)
+                                }
+                                
+                                Divider().overlay(Color.black.opacity(0.08))
+                                
+                                DatePicker("Est. Delivery", selection: $estimatedDelivery, in: Date()..., displayedComponents: .date)
+                                    .font(.subheadline)
+                                    .foregroundColor(.appSecondaryText)
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 20)
 
-                // MARK: Notes
-                Section {
-                    TextEditor(text: $notes)
-                        .frame(minHeight: 80)
-                } header: {
-                    Text("Notes (Optional)").headingStyle()
-                }
+                    // MARK: Notes
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Notes (Optional)").headingStyle()
+                            .padding(.horizontal, 4)
+                        
+                        ReusableCardView {
+                            TextEditor(text: $notes)
+                                .frame(minHeight: 100)
+                                .scrollContentBackground(.hidden)
+                                .background(Color.appBackground)
+                                .cornerRadius(10)
+                                .padding(4)
+                        }
+                    }
+                    .padding(.horizontal, 20)
 
-                // MARK: Submit
-                Section {
+                    // MARK: Submit
                     Button {
                         Task { await submitShipment() }
                     } label: {
@@ -110,43 +160,68 @@ struct ShipmentDetailsSheet: View {
                             Spacer()
                             if viewModel.isLoading {
                                 ProgressView()
+                                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
                             } else {
                                 Label("Confirm & Generate ASN", systemImage: "shippingbox.fill")
-                                    .fontWeight(.semibold)
+                                    .font(.headline)
                             }
                             Spacer()
                         }
+                        .padding()
+                        .background(isFormValid && !viewModel.isLoading ? Color.appAccent : CatalogTheme.inactiveBadge)
+                        .foregroundColor(.white)
+                        .cornerRadius(12)
+                        .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
                     }
-                    .foregroundColor(isFormValid && !viewModel.isLoading ? .green : .secondary)
                     .disabled(!isFormValid || viewModel.isLoading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
                 }
+                .padding(.vertical, 24)
             }
-            .navigationTitle("Shipment Details")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button { dismiss() } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(.primary)
-                    }
+        }
+        .navigationTitle("Shipment Details")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button { dismiss() } label: {
+                    AppToolbarGlyph(systemImage: "xmark", backgroundColor: .appAccent)
                 }
+                .buttonStyle(.plain)
             }
-            .overlay {
-                if showSuccess {
-                    asnSuccessBanner
-                        .transition(.move(edge: .top).combined(with: .opacity))
-                }
+        }
+        .overlay {
+            if showSuccess {
+                asnSuccessBanner
+                    .transition(.move(edge: .top).combined(with: .opacity))
             }
-            .alert("Error Creating Shipment", isPresented: $showErrorAlert) {
-                Button("OK", role: .cancel) { viewModel.errorMessage = nil }
-            } message: {
-                Text(viewModel.errorMessage ?? "An unknown error occurred.")
-            }
+        }
+        .alert("Error Creating Shipment", isPresented: $showErrorAlert) {
+            Button("OK", role: .cancel) { viewModel.errorMessage = nil }
+        } message: {
+            Text(viewModel.errorMessage ?? "An unknown error occurred.")
         }
         .onAppear {
             dispatchQuantityText = "\(group.totalQuantity)"
         }
+    }
+
+    private func detailRow(label: String, value: String) -> some View {
+        HStack {
+            Text(label)
+                .font(.subheadline)
+                .foregroundColor(.appSecondaryText)
+            Spacer()
+            Text(value)
+                .font(.subheadline.bold())
+                .foregroundColor(.appPrimaryText)
+        }
+        .padding(.vertical, 12)
+    }
+    
+    private func detailDivider() -> some View {
+        Divider()
+            .overlay(Color.black.opacity(0.08))
     }
 
     // MARK: - Success Banner

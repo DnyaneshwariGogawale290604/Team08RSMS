@@ -29,60 +29,159 @@ struct GRNItemRegistrationSheet: View {
     private var category: String { product?.category.isEmpty == true ? "General" : (product?.category ?? "General") }
 
     var body: some View {
-        NavigationView {
-            ZStack {
-                Color(UIColor.systemGroupedBackground).ignoresSafeArea()
-
-                ScrollView(showsIndicators: false) {
-                    VStack(spacing: 20) {
-                        // Header Info
-                        headerCard
-
-                        // RFID rows
-                        rfidListCard
-
-                        // Error
-                        if let err = errorMessage {
-                            HStack {
-                                Image(systemName: "exclamationmark.triangle.fill")
-                                Text(err).font(.subheadline)
+        ZStack {
+            Color.appBackground.ignoresSafeArea()
+            
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 24) {
+                    // Header Info
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("GRN Details").headingStyle()
+                            .padding(.horizontal, 4)
+                        
+                        ReusableCardView {
+                            VStack(spacing: 0) {
+                                detailRow(label: "GRN Number", value: grnNumber)
+                                detailDivider()
+                                detailRow(label: "Batch Number", value: batchNumber)
+                                detailDivider()
+                                detailRow(label: "Product", value: productName)
+                                detailDivider()
+                                detailRow(label: "Items to Register", value: "\(quantityReceived) units")
                             }
-                            .foregroundColor(.red)
-                            .padding()
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color.red.opacity(0.1))
-                            .cornerRadius(12)
-                            .padding(.horizontal)
                         }
+                    }
+                    .padding(.horizontal, 20)
 
-                        // Submit button
-                        submitButton
+                    // RFID rows
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            Text("RFID Tags").headingStyle()
+                            Spacer()
+                            Button {
+                                generateDefaultTags()
+                            } label: {
+                                Label("Auto-fill", systemImage: "wand.and.stars")
+                                    .font(.caption.bold())
+                                    .foregroundColor(.appAccent)
+                            }
+                        }
+                        .padding(.horizontal, 4)
+                        
+                        ReusableCardView {
+                            VStack(spacing: 0) {
+                                ForEach(rfidTags.indices, id: \.self) { idx in
+                                    VStack(spacing: 0) {
+                                        HStack(spacing: 12) {
+                                            Text("\(idx + 1)")
+                                                .font(.caption2.bold())
+                                                .foregroundColor(.white)
+                                                .frame(width: 24, height: 24)
+                                                .background(Color.appAccent)
+                                                .clipShape(Circle())
+
+                                            TextField("RFID Tag", text: $rfidTags[idx])
+                                                .font(.system(size: 14, design: .monospaced))
+                                                .foregroundColor(.appPrimaryText)
+                                                .autocapitalization(.allCharacters)
+                                                .disableAutocorrection(true)
+
+                                            Button {
+                                                rfidTags[idx] = generateSingleTag(index: idx)
+                                            } label: {
+                                                Image(systemName: "arrow.clockwise")
+                                                    .font(.caption)
+                                                    .foregroundColor(.appSecondaryText)
+                                            }
+                                        }
+                                        .padding(.vertical, 12)
+
+                                        if idx < rfidTags.count - 1 {
+                                            detailDivider()
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
-                    .padding(.top, 16)
-                    .padding(.bottom, 40)
-                }
-            }
-            .navigationTitle("Register Items")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
+                    .padding(.horizontal, 20)
+
+                    if let err = errorMessage {
+                        HStack {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                            Text(err).font(.caption.bold())
+                        }
+                        .foregroundColor(.red)
+                        .padding()
+                        .frame(maxWidth: .infinity)
+                        .background(Color.red.opacity(0.1))
+                        .cornerRadius(12)
+                        .padding(.horizontal, 20)
+                    }
+
+                    // Submit button
                     Button {
-                        onDone()
-                        dismiss()
+                        Task { await registerItems() }
                     } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(.primary)
+                        HStack {
+                            Spacer()
+                            if isSubmitting {
+                                ProgressView().tint(.white)
+                            } else {
+                                Label("Register \(quantityReceived) Items & Update Stock", systemImage: "tag.fill")
+                                    .font(.headline)
+                            }
+                            Spacer()
+                        }
+                        .padding()
+                        .background(!isSubmitting && rfidTagsAreValid ? Color.appAccent : CatalogTheme.inactiveBadge)
+                        .foregroundColor(.white)
+                        .cornerRadius(12)
+                        .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
                     }
+                    .disabled(isSubmitting || !rfidTagsAreValid)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
                 }
+                .padding(.vertical, 24)
             }
-            .overlay {
-                if showDoneOverlay {
-                    doneOverlay.transition(.opacity)
-                }
-            }
-            .onAppear { generateDefaultTags() }
         }
+        .navigationTitle("Register Items")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button {
+                    onDone()
+                    dismiss()
+                } label: {
+                    AppToolbarGlyph(systemImage: "xmark", backgroundColor: .appAccent)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .overlay {
+            if showDoneOverlay {
+                doneOverlay.transition(.opacity)
+            }
+        }
+        .onAppear { generateDefaultTags() }
+    }
+
+    private func detailRow(label: String, value: String) -> some View {
+        HStack {
+            Text(label)
+                .font(.subheadline)
+                .foregroundColor(.appSecondaryText)
+            Spacer()
+            Text(value)
+                .font(.subheadline.bold())
+                .foregroundColor(.appPrimaryText)
+        }
+        .padding(.vertical, 12)
+    }
+    
+    private func detailDivider() -> some View {
+        Divider().overlay(Color.black.opacity(0.08))
     }
 
     // MARK: - Sub-views

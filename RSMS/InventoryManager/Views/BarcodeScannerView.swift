@@ -227,35 +227,32 @@ public struct AddItemScanView: View {
     }
     
     public var body: some View {
-        NavigationView {
-            ZStack {
-                Color.appBackground.ignoresSafeArea()
-                
-                switch scanPhase {
-                case .scanning:
-                    scanningPhaseView
-                case .scanned:
-                    scannedConfirmView
-                case .details:
-                    detailsFormView
-                }
+        ZStack {
+            Color.appBackground.ignoresSafeArea()
+            
+            switch scanPhase {
+            case .scanning:
+                scanningPhaseView
+            case .scanned:
+                scannedConfirmView
+            case .details:
+                detailsFormView
             }
-            .navigationTitle(scanPhase == .scanning ? "Scan Barcode" : (scanPhase == .scanned ? "Code Detected" : "Item Details"))
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button { presentationMode.wrappedValue.dismiss() } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(.primary)
-                    }
+        }
+        .navigationTitle(scanPhase == .scanning ? "Scan Barcode" : (scanPhase == .scanned ? "Code Detected" : "Item Details"))
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button { presentationMode.wrappedValue.dismiss() } label: {
+                    AppToolbarGlyph(systemImage: "xmark", backgroundColor: .appAccent)
                 }
-                if scanCount > 0 {
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Text("\(scanCount) added")
-                            .font(.caption.bold())
-                            .foregroundColor(.green)
-                    }
+                .buttonStyle(.plain)
+            }
+            if scanCount > 0 {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Text("\(scanCount) added")
+                        .font(.caption.bold())
+                        .foregroundColor(.green)
                 }
             }
         }
@@ -268,17 +265,10 @@ public struct AddItemScanView: View {
             BarcodeScannerRepresentable { code, type in
                 scannedCode = code
                 scannedType = type
-                
-                // Auto-parse: try to extract product info from code
                 parseScannedCode(code)
-                
-                // Fallback to the first available product if no match is found,
-                // so that we can auto-add without requiring user input.
                 if selectedProduct == nil {
                     selectedProduct = viewModel.products.first
                 }
-                
-                // Immediately add to inventory bypassing forms
                 addItemFromScan()
             }
             .ignoresSafeArea()
@@ -288,117 +278,76 @@ public struct AddItemScanView: View {
                 Spacer()
                 
                 ZStack {
-                    // Scanning frame
-                    RoundedRectangle(cornerRadius: 20)
-                        .stroke(Color.appAccent, lineWidth: 3)
+                    RoundedRectangle(cornerRadius: 24)
+                        .stroke(Color.appAccent.opacity(0.6), lineWidth: 2)
                         .frame(width: 280, height: 180)
                     
-                    // Corner accents
                     ViewfinderCornersView()
                         .frame(width: 280, height: 180)
                     
-                    // Animated scan line
                     ScanLineView()
                         .frame(width: 260, height: 160)
                 }
                 
                 Spacer()
                 
-                // Bottom info bar
-                VStack(spacing: 12) {
-                    Text("Position barcode within the frame")
-                        .font(.subheadline)
-                        .foregroundColor(.white)
+                VStack(spacing: 20) {
+                    VStack(spacing: 8) {
+                        Text("Position barcode within the frame")
+                            .font(.subheadline.bold())
+                            .foregroundColor(.white)
+                        
+                        Text("Supports EAN, UPC, QR, Code128, DataMatrix")
+                            .font(.caption)
+                            .foregroundColor(.white.opacity(0.6))
+                    }
                     
-                    Text("Supports EAN, UPC, QR, Code128, DataMatrix")
-                        .font(.caption)
-                        .foregroundColor(.white.opacity(0.7))
-                    
-                    // Torch toggle
                     Button(action: toggleTorch) {
-                        HStack {
+                        HStack(spacing: 12) {
                             Image(systemName: isTorchOn ? "flashlight.on.fill" : "flashlight.off.fill")
                             Text(isTorchOn ? "Torch On" : "Torch Off")
                                 .font(.caption.bold())
                         }
                         .foregroundColor(.white)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(isTorchOn ? Color.yellow.opacity(0.8) : Color.white.opacity(0.2))
-                        .cornerRadius(20)
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 12)
+                        .background(isTorchOn ? Color.appAccent : Color.white.opacity(0.15))
+                        .background(Blur(style: .systemThinMaterialDark))
+                        .cornerRadius(100)
                     }
                 }
-                .padding()
-                .padding(.bottom, 20)
+                .padding(.bottom, 40)
             }
             
-            // Visual success feedback
+            // Success Overlay
             if showSuccess, let item = lastScannedItem {
                 ZStack {
-                    Color.black.opacity(0.6).ignoresSafeArea()
+                    Color.black.opacity(0.45).ignoresSafeArea()
                     VStack(spacing: 16) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 80))
+                        Image(systemName: "checkmark.seal.fill")
+                            .font(.system(size: 64))
                             .foregroundColor(.green)
                         
                         Text("Item Added!")
-                            .font(.title2.bold())
-                            .foregroundColor(.white)
+                            .font(.title3.bold())
+                            .foregroundColor(.appPrimaryText)
                         
-                        VStack(spacing: 8) {
-                            Text(item.productName)
-                                .font(.headline)
-                                .foregroundColor(.white)
-                            Text("ID: \(item.id)")
-                                .font(.subheadline)
-                                .foregroundColor(.gray)
-                            Text("Location: \(item.location)")
-                                .font(.subheadline)
-                                .foregroundColor(.gray)
-                            Text("Time: \(item.timestamp.formatted(date: .omitted, time: .standard))")
-                                .font(.caption)
-                                .foregroundColor(.gray)
+                        VStack(spacing: 12) {
+                            detailRow(label: "Product", value: item.productName)
+                            Divider().overlay(Color.black.opacity(0.08))
+                            detailRow(label: "ID", value: item.id)
+                            Divider().overlay(Color.black.opacity(0.08))
+                            detailRow(label: "Location", value: item.location)
                         }
                         .padding()
-                        .background(Color.appBackground.opacity(0.9))
-                        .cornerRadius(12)
+                        .background(Color.appBackground)
+                        .cornerRadius(16)
                     }
-                    .padding(30)
-                    .background(Color.gray.opacity(0.2))
-                    .cornerRadius(20)
-                }
-                .transition(.scale.combined(with: .opacity))
-            }
-            
-            // Visual Duplicate Error Feedback
-            if showDuplicateError, let rfid = duplicateRFID {
-                ZStack {
-                    Color.black.opacity(0.6).ignoresSafeArea()
-                    VStack(spacing: 16) {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .font(.system(size: 80))
-                            .foregroundColor(.orange)
-                        
-                        Text("Duplicate Scan")
-                            .font(.title2.bold())
-                            .foregroundColor(.white)
-                        
-                        VStack(spacing: 8) {
-                            Text("ID: \(rfid)")
-                                .font(.headline)
-                                .foregroundColor(.white)
-                            Text("This item is already in the database.")
-                                .font(.subheadline)
-                                .foregroundColor(.gray)
-                                .multilineTextAlignment(.center)
-                        }
-                        .padding()
-                        .background(Color.appBackground.opacity(0.9))
-                        .cornerRadius(12)
-                    }
-                    .padding(30)
-                    .background(Color.gray.opacity(0.2))
-                    .cornerRadius(20)
+                    .padding(32)
+                    .background(Color.appSurface)
+                    .cornerRadius(24)
+                    .shadow(radius: 20)
+                    .padding(.horizontal, 40)
                 }
                 .transition(.scale.combined(with: .opacity))
             }
@@ -408,80 +357,53 @@ public struct AddItemScanView: View {
     // MARK: - Phase 2: Code Scanned Confirmation
     
     private var scannedConfirmView: some View {
-        ScrollView {
-            VStack(spacing: 24) {
-                // Success checkmark
-                ZStack {
-                    Circle()
-                        .fill(Color.green.opacity(0.15))
-                        .frame(width: 100, height: 100)
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 32) {
+                VStack(spacing: 16) {
+                    ZStack {
+                        Circle()
+                            .fill(Color.green.opacity(0.1))
+                            .frame(width: 100, height: 100)
+                        
+                        Image(systemName: "barcode.viewfinder")
+                            .font(.system(size: 40))
+                            .foregroundColor(.green)
+                    }
                     
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 50))
-                        .foregroundColor(.green)
+                    Text("Barcode Detected!")
+                        .font(.title2.bold())
+                        .foregroundColor(.appPrimaryText)
                 }
-                .padding(.top, 30)
+                .padding(.top, 40)
                 
-                Text("Barcode Detected!")
-                    .font(.title2.bold())
-                    .foregroundColor(.appPrimaryText)
-                
-                // Scanned code card
                 ReusableCardView {
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack {
-                            Image(systemName: "barcode")
-                                .foregroundColor(.appAccent)
-                            Text("Scanned Code")
-                                .font(.caption)
+                    VStack(alignment: .leading, spacing: 16) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Scanned Value")
+                                .font(.caption.bold())
                                 .foregroundColor(.appSecondaryText)
+                            Text(scannedCode ?? "—")
+                                .font(.system(.title3, design: .monospaced).bold())
+                                .foregroundColor(.appAccent)
                         }
                         
-                        Text(scannedCode ?? "—")
-                            .font(.system(.title3, design: .monospaced).bold())
-                            .foregroundColor(.appPrimaryText)
-                            .textSelection(.enabled)
+                        Divider().overlay(Color.black.opacity(0.08))
                         
                         HStack {
-                            Text("Type: \(friendlyCodeType(scannedType))")
+                            Label(friendlyCodeType(scannedType), systemImage: "info.circle")
+                                .font(.caption.bold())
+                                .foregroundColor(.appSecondaryText)
+                            Spacer()
+                            Text("Auto-generated RFID")
                                 .font(.caption)
                                 .foregroundColor(.appSecondaryText)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(Color.appBorder.opacity(0.5))
-                                .cornerRadius(6)
-                            
-                            Spacer()
-                            
-                            Text("RFID: RFID-\(scannedCode?.prefix(8) ?? "0000")")
-                                .font(.caption)
-                                .foregroundColor(.appAccent)
                         }
                     }
                 }
-                .padding(.horizontal)
+                .padding(.horizontal, 20)
                 
-                // Action buttons
-                VStack(spacing: 12) {
-                    Button(action: {
-                        withAnimation { scanPhase = .details }
-                    }) {
-                        HStack {
-                            Image(systemName: "pencil.and.list.clipboard")
-                            Text("Fill Details & Add to Inventory")
-                        }
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.appAccent)
-                        .foregroundColor(.white)
-                        .cornerRadius(14)
-                    }
-                    
-                    Button(action: {
-                        // Quick add with auto-parsed info
-                        quickAddItem()
-                    }) {
+                VStack(spacing: 16) {
+                    Button(action: quickAddItem) {
                         HStack {
                             Image(systemName: "bolt.fill")
                             Text("Quick Add (Auto-Fill)")
@@ -489,117 +411,186 @@ public struct AddItemScanView: View {
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(Color.green)
+                        .background(Color.appAccent)
                         .foregroundColor(.white)
-                        .cornerRadius(14)
+                        .cornerRadius(12)
+                    }
+                    
+                    Button(action: { withAnimation { scanPhase = .details } }) {
+                        HStack {
+                            Image(systemName: "pencil.and.list.clipboard")
+                            Text("Customize Details")
+                        }
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.white)
+                        .foregroundColor(.appPrimaryText)
+                        .cornerRadius(12)
+                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.appBorder, lineWidth: 1))
                     }
                     
                     Button(action: {
-                        // Re-scan
                         scannedCode = nil
                         scannedType = ""
                         selectedProduct = nil
                         withAnimation { scanPhase = .scanning }
                     }) {
-                        HStack {
-                            Image(systemName: "camera.viewfinder")
-                            Text("Scan Another")
-                        }
-                        .font(.subheadline)
-                        .foregroundColor(.appSecondaryText)
+                        Label("Scan Another", systemImage: "camera.viewfinder")
+                            .font(.subheadline.bold())
+                            .foregroundColor(.appSecondaryText)
                     }
                     .padding(.top, 8)
                 }
-                .padding(.horizontal)
+                .padding(.horizontal, 20)
             }
-            .padding(.bottom, 30)
         }
     }
     
     // MARK: - Phase 3: Detail Entry Form
     
     private var detailsFormView: some View {
-        Form {
-            Section(header: Text("Scanned Barcode").headingStyle()) {
-                HStack {
-                    Image(systemName: "barcode")
-                        .foregroundColor(.appAccent)
-                    Text(scannedCode ?? "—")
-                        .font(.system(.body, design: .monospaced))
-                }
-                
-                HStack {
-                    Text("Code Type")
-                        .foregroundColor(.appSecondaryText)
-                    Spacer()
-                    Text(friendlyCodeType(scannedType))
-                        .foregroundColor(.appPrimaryText)
-                }
-            }
-            
-            Section(header: Text("Product Information").headingStyle()) {
-                Picker("Select Product", selection: $selectedProduct) {
-                    Text("Choose a product...").tag(nil as Product?)
-                    ForEach(viewModel.products, id: \.id) { product in
-                        Text(product.name).tag(product as Product?)
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 24) {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Scanned Barcode").headingStyle()
+                        .padding(.horizontal, 4)
+                    
+                    ReusableCardView {
+                        VStack(spacing: 0) {
+                            detailRow(label: "Code", value: scannedCode ?? "—")
+                            Divider().overlay(Color.black.opacity(0.08))
+                            detailRow(label: "Type", value: friendlyCodeType(scannedType))
+                        }
                     }
                 }
-                
-                if let product = selectedProduct {
-                    LabeledContent("Category", value: product.category.isEmpty ? "General" : product.category)
-                        .foregroundColor(.appSecondaryText)
-                }
-                
-                TextField("Batch Number", text: $batchNo)
-            }
-            
-            Section(header: Text("Location").headingStyle()) {
-                Picker("Storage Location", selection: $location) {
-                    ForEach(viewModel.locations, id: \.self) { loc in
-                        Text(loc).tag(loc)
+                .padding(.horizontal, 20)
+
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Product Information").headingStyle()
+                        .padding(.horizontal, 4)
+                    
+                    ReusableCardView {
+                        VStack(spacing: 16) {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Select Product")
+                                    .font(.caption.bold())
+                                    .foregroundColor(.appSecondaryText)
+                                Picker("Product", selection: $selectedProduct) {
+                                    Text("Choose...").tag(nil as Product?)
+                                    ForEach(viewModel.products, id: \.id) { product in
+                                        Text(product.name).tag(product as Product?)
+                                    }
+                                }
+                                .pickerStyle(MenuPickerStyle())
+                                .padding(8)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(Color.appBackground)
+                                .cornerRadius(10)
+                            }
+                            
+                            if let product = selectedProduct {
+                                Divider().overlay(Color.black.opacity(0.08))
+                                detailRow(label: "Category", value: product.category.isEmpty ? "General" : product.category)
+                            }
+                            
+                            Divider().overlay(Color.black.opacity(0.08))
+                            
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Batch Number")
+                                    .font(.caption.bold())
+                                    .foregroundColor(.appSecondaryText)
+                                TextField("e.g. B-SCAN", text: $batchNo)
+                                    .textFieldStyle(PlainTextFieldStyle())
+                                    .padding(12)
+                                    .background(Color.appBackground)
+                                    .cornerRadius(10)
+                            }
+                        }
                     }
                 }
-            }
-            
-            Section {
+                .padding(.horizontal, 20)
+                
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Location").headingStyle()
+                        .padding(.horizontal, 4)
+                    
+                    ReusableCardView {
+                        HStack {
+                            Text("Storage Location")
+                                .font(.subheadline)
+                                .foregroundColor(.appSecondaryText)
+                            Spacer()
+                            Picker("Location", selection: $location) {
+                                ForEach(viewModel.locations, id: \.self) { loc in
+                                    Text(loc).tag(loc)
+                                }
+                            }
+                            .pickerStyle(MenuPickerStyle())
+                        }
+                    }
+                }
+                .padding(.horizontal, 20)
+
                 Button(action: addItemFromScan) {
                     HStack {
+                        Spacer()
                         Image(systemName: "plus.circle.fill")
                         Text("Add to Inventory")
+                            .font(.headline)
+                        Spacer()
                     }
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .foregroundColor(.white)
                     .padding()
-                    .background(selectedProduct == nil ? Color.gray : Color.appAccent)
+                    .background(selectedProduct == nil ? CatalogTheme.inactiveBadge : Color.appAccent)
+                    .foregroundColor(.white)
                     .cornerRadius(12)
                 }
                 .disabled(selectedProduct == nil)
-                .listRowBackground(Color.clear)
-                .listRowInsets(EdgeInsets())
-            }
-            
-            if let err = errorText {
-                Section {
+                .padding(.horizontal, 20)
+
+                if let err = errorText {
                     HStack {
                         Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundColor(.red)
-                        Text(err)
-                            .foregroundColor(.red)
-                            .font(.caption)
+                        Text(err).font(.caption.bold())
                     }
+                    .foregroundColor(.red)
+                    .padding()
+                    .frame(maxWidth: .infinity)
+                    .background(Color.red.opacity(0.1))
+                    .cornerRadius(12)
+                    .padding(.horizontal, 20)
                 }
-            }
-        }
-        .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
+                
                 Button { withAnimation { scanPhase = .scanned } } label: {
-                    Image(systemName: "arrow.uturn.backward")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(.primary)
+                    Label("Back to Scan Summary", systemImage: "arrow.uturn.backward")
+                        .font(.caption.bold())
+                        .foregroundColor(.appSecondaryText)
                 }
+                .padding(.bottom, 20)
             }
+            .padding(.vertical, 24)
         }
+    }
+
+    private func detailRow(label: String, value: String) -> some View {
+        HStack {
+            Text(label)
+                .font(.subheadline)
+                .foregroundColor(.appSecondaryText)
+            Spacer()
+            Text(value)
+                .font(.subheadline.bold())
+                .foregroundColor(.appPrimaryText)
+        }
+        .padding(.vertical, 12)
+    }
+
+    struct Blur: UIViewRepresentable {
+        var style: UIBlurEffect.Style
+        func makeUIView(context: Context) -> UIVisualEffectView {
+            UIVisualEffectView(effect: UIBlurEffect(style: style))
+        }
+        func updateUIView(_ uiView: UIVisualEffectView, context: Context) {}
     }
     
     // MARK: - Helpers

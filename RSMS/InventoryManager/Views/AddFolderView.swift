@@ -186,17 +186,19 @@ public struct AddFolderView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button { presentationMode.wrappedValue.dismiss() } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(.primary)
+                        AppToolbarGlyph(systemImage: "xmark", backgroundColor: .appAccent)
                     }
+                    .buttonStyle(.plain)
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button { createFolder() } label: {
-                        Image(systemName: "checkmark")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(!folderName.isEmpty ? .primary : Color.gray)
+                        AppToolbarGlyph(
+                            systemImage: "checkmark",
+                            enabled: !folderName.isEmpty,
+                            backgroundColor: .appAccent
+                        )
                     }
+                    .buttonStyle(.plain)
                     .disabled(folderName.isEmpty)
                 }
             }

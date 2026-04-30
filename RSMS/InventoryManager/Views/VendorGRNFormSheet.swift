@@ -38,62 +38,230 @@ struct VendorGRNFormSheet: View {
     }
 
     var body: some View {
-        NavigationView {
+        ZStack {
+            Color.appBackground.ignoresSafeArea()
+            
             ScrollView(showsIndicators: false) {
-                VStack(spacing: 20) {
+                VStack(spacing: 24) {
                     // Order info card
-                    orderSummaryCard
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Order Details").headingStyle()
+                            .padding(.horizontal, 4)
+                        
+                        ReusableCardView {
+                            VStack(spacing: 0) {
+                                detailRow(label: "PO Number", value: "PO-\(vendorOrder.id.uuidString.prefix(5).uppercased())", valueColor: .appAccent)
+                                
+                                if let vendor = vendorOrder.vendor {
+                                    detailDivider()
+                                    detailRow(label: "Vendor", value: vendor.name)
+                                }
+                                
+                                detailDivider()
+                                detailRow(label: "Ordered Qty", value: "\(orderedQuantity) units")
+                                
+                                if let product = vendorOrder.product {
+                                    detailDivider()
+                                    detailRow(label: "Product", value: product.name)
+                                }
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 20)
 
                     // Physical check card
-                    physicalCheckCard
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Physical Inspection").headingStyle()
+                            .padding(.horizontal, 4)
+                        
+                        ReusableCardView {
+                            VStack(spacing: 0) {
+                                HStack {
+                                    Text("Qty Received")
+                                        .font(.subheadline)
+                                        .foregroundColor(.appSecondaryText)
+                                    Spacer()
+                                    TextField("Enter quantity", text: $quantityReceived)
+                                        .font(.subheadline.bold())
+                                        .foregroundColor(.appPrimaryText)
+                                        .multilineTextAlignment(.trailing)
+                                        .keyboardType(.numberPad)
+                                        .frame(width: 100)
+                                }
+                                .padding(.vertical, 12)
+                                
+                                detailDivider()
+                                
+                                VStack(alignment: .leading, spacing: 12) {
+                                    Text("Condition")
+                                        .font(.caption.bold())
+                                        .foregroundColor(.appSecondaryText)
+                                        .padding(.top, 8)
+
+                                    HStack(spacing: 12) {
+                                        ForEach(GoodsReceivedNote.GRNCondition.allCases, id: \.self) { cond in
+                                            conditionButton(cond)
+                                        }
+                                    }
+                                    .padding(.bottom, 12)
+                                }
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 20)
 
                     // Notes
-                    notesCard
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Inspection Notes").headingStyle()
+                            .padding(.horizontal, 4)
+                        
+                        ReusableCardView {
+                            TextEditor(text: $notes)
+                                .frame(minHeight: 100)
+                                .scrollContentBackground(.hidden)
+                                .background(Color.appBackground)
+                                .cornerRadius(10)
+                                .padding(4)
+                        }
+                    }
+                    .padding(.horizontal, 20)
 
-                    // Photo Proof (only if damaged or partial)
+                    // Photo Proof
                     if selectedCondition == .damaged || selectedCondition == .partial {
-                        photoProofCard
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Photo Proof Required").headingStyle()
+                                .foregroundColor(.red)
+                                .padding(.horizontal, 4)
+                            
+                            ReusableCardView {
+                                VStack(spacing: 16) {
+                                    Text("Please attach a clear photo showing the damage or issue.")
+                                        .font(.caption)
+                                        .foregroundColor(.appSecondaryText)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                    
+                                    if let img = proofImage {
+                                        ZStack(alignment: .topTrailing) {
+                                            Image(uiImage: img)
+                                                .resizable()
+                                                .scaledToFill()
+                                                .frame(height: 180)
+                                                .frame(maxWidth: .infinity)
+                                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                                            
+                                            Button {
+                                                proofImage = nil
+                                                photoItem = nil
+                                            } label: {
+                                                AppToolbarGlyph(systemImage: "trash", backgroundColor: .red)
+                                            }
+                                            .padding(12)
+                                        }
+                                    } else {
+                                        PhotosPicker(selection: $photoItem, matching: .images) {
+                                            VStack(spacing: 8) {
+                                                Image(systemName: "photo.badge.plus")
+                                                    .font(.title2)
+                                                Text("Add Photo Proof")
+                                                    .font(.subheadline.bold())
+                                            }
+                                            .foregroundColor(.appAccent)
+                                            .frame(maxWidth: .infinity)
+                                            .frame(height: 120)
+                                            .background(Color.appAccent.opacity(0.12))
+                                            .cornerRadius(12)
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 12)
+                                                    .stroke(Color.appAccent.opacity(0.2), style: StrokeStyle(lineWidth: 1, dash: [4]))
+                                            )
+                                        }
+                                        .onChange(of: photoItem) { newItem in
+                                            Task {
+                                                if let data = try? await newItem?.loadTransferable(type: Data.self),
+                                                   let uiImage = UIImage(data: data) {
+                                                    proofImage = uiImage
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 20)
                     }
 
                     // Submit
-                    submitButton
-                }
-                .padding(.horizontal, 20)
-                .padding(.top, 16)
-                .padding(.bottom, 40)
-            }
-            .background(Color(UIColor.systemGroupedBackground).ignoresSafeArea())
-            .navigationTitle("Receive Vendor Goods")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button { dismiss() } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(.primary)
+                    Button {
+                        Task { await submitGRN() }
+                    } label: {
+                        HStack {
+                            Spacer()
+                            if viewModel.isLoading {
+                                ProgressView().tint(.white)
+                            } else {
+                                Label("Confirm Receipt & Generate GRN", systemImage: "checkmark.seal.fill")
+                                    .font(.headline)
+                            }
+                            Spacer()
+                        }
+                        .padding()
+                        .background(isFormValid && !viewModel.isLoading ? Color.appAccent : CatalogTheme.inactiveBadge)
+                        .foregroundColor(.white)
+                        .cornerRadius(12)
+                        .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
                     }
+                    .disabled(!isFormValid || viewModel.isLoading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
                 }
-            }
-            .overlay {
-                if showSuccess {
-                    grnSuccessOverlay
-                        .transition(.opacity)
-                }
-            }
-            .onAppear {
-                quantityReceived = "\(orderedQuantity)"
-            }
-            .sheet(isPresented: $showSMSComposer) {
-                MessageComposerView(
-                    recipients: [extractPhone(from: vendorOrder.vendor?.contactInfo, defaultPhone: "1234567890")],
-                    body: smsBody
-                ) { result in
-                    // When the user dismisses the SMS view, close the GRN sheet as well.
-                    onGRNCreated(generatedGRN)
-                    dismiss()
-                }
+                .padding(.vertical, 24)
             }
         }
+        .navigationTitle("Receive Vendor Goods")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button { dismiss() } label: {
+                    AppToolbarGlyph(systemImage: "xmark", backgroundColor: .appAccent)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .overlay {
+            if showSuccess {
+                grnSuccessOverlay
+                    .transition(.opacity)
+            }
+        }
+        .onAppear {
+            quantityReceived = "\(orderedQuantity)"
+        }
+        .sheet(isPresented: $showSMSComposer) {
+            MessageComposerView(
+                recipients: [extractPhone(from: vendorOrder.vendor?.contactInfo, defaultPhone: "1234567890")],
+                body: smsBody
+            ) { result in
+                onGRNCreated(generatedGRN)
+                dismiss()
+            }
+        }
+    }
+
+    private func detailRow(label: String, value: String, valueColor: Color = .appPrimaryText) -> some View {
+        HStack {
+            Text(label)
+                .font(.subheadline)
+                .foregroundColor(.appSecondaryText)
+            Spacer()
+            Text(value)
+                .font(.subheadline.bold())
+                .foregroundColor(valueColor)
+        }
+        .padding(.vertical, 12)
+    }
+    
+    private func detailDivider() -> some View {
+        Divider().overlay(Color.black.opacity(0.08))
     }
 
     // MARK: - Sub-views
