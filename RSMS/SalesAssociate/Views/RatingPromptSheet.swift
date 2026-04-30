@@ -40,18 +40,39 @@ struct RatingPromptSheet: View {
 
                         if submitted {
                             // Success state
-                            VStack(spacing: 16) {
+                            VStack(spacing: 24) {
                                 Image(systemName: "checkmark.seal.fill")
-                                    .font(.system(size: 52))
+                                    .font(.system(size: 64))
                                     .foregroundStyle(Color(hex: "#4A7C59"))
-                                Text("Rating Submitted!")
-                                    .font(.system(size: 20, weight: .semibold, design: .serif))
-                                    .foregroundStyle(Color.luxuryPrimaryText)
-                                Text("Thank you for the feedback.")
-                                    .font(BrandFont.body(14))
-                                    .foregroundStyle(Color.luxurySecondaryText)
+                                
+                                VStack(spacing: 8) {
+                                    Text("Rating Submitted!")
+                                        .font(.system(size: 20, weight: .semibold, design: .serif))
+                                        .foregroundStyle(Color.luxuryPrimaryText)
+                                    Text("Thank you for the feedback.")
+                                        .font(BrandFont.body(14))
+                                        .foregroundStyle(Color.luxurySecondaryText)
+                                }
+                                
+                                Button {
+                                    vm.resetOrderContext()
+                                    dismiss()
+                                } label: {
+                                    HStack {
+                                        Image(systemName: "plus.circle.fill")
+                                        Text("Start New Sale")
+                                            .font(BrandFont.body(15, weight: .semibold))
+                                    }
+                                    .foregroundStyle(Color.white)
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 52)
+                                    .background(Color.luxuryDeepAccent)
+                                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                                }
+                                .padding(.top, 16)
                             }
-                            .padding(.vertical, 24)
+                            .padding(.vertical, 32)
+                            .padding(.horizontal, 24)
                         } else {
                             // Star selector
                             VStack(spacing: 20) {
@@ -182,9 +203,6 @@ struct RatingPromptSheet: View {
         await vm.submitRating(rating: Double(selectedRating), feedback: feedback)
         if vm.errorMessage == nil {
             withAnimation { submitted = true }
-            // Auto-dismiss after 1.5s
-            try? await Task.sleep(nanoseconds: 1_500_000_000)
-            dismiss()
         }
     }
 }

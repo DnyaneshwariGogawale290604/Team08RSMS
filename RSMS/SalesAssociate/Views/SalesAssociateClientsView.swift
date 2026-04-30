@@ -164,9 +164,6 @@ struct SalesAssociateClientsView: View {
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    SalesAssociateProfileButton(sessionViewModel: sessionViewModel)
-                }
-                ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         customerVM.errorMessage = nil
                         showCreateCustomer = true
@@ -179,6 +176,9 @@ struct SalesAssociateClientsView: View {
                             .clipShape(Circle())
                             .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
                     }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    SalesAssociateProfileButton(sessionViewModel: sessionViewModel)
                 }
             }
             .sheet(isPresented: $showCreateCustomer, onDismiss: {
@@ -516,7 +516,7 @@ struct SalesAssociateClientsView: View {
                 // 1. Fetch your store's active catalog
                 let catalog: [Product] = try await SupabaseManager.shared.client
                     .from("products")
-                    .select()
+                    .select("*, product_variants(*)")
                     .eq("brand_id", value: customer.brandId?.uuidString ?? "")
                     .eq("is_active", value: true)
                     .execute()
@@ -562,11 +562,19 @@ struct SalesAssociateClientsView: View {
                     cartItems: [clientContextProduct],
                     availableCatalog: catalog
                 )
-                self.recommendedProducts = result.products
-                self.recommendationDiagnosticMessage = result.diagnosticMessage
+                
+                if result.products.isEmpty {
+                    // Fallback: Random 2 products from catalog if catalog not empty
+                    self.recommendedProducts = Array(catalog.shuffled().prefix(2))
+                    self.recommendationDiagnosticMessage = "Curated picks from our latest collection."
+                } else {
+                    self.recommendedProducts = result.products
+                    self.recommendationDiagnosticMessage = result.diagnosticMessage
+                }
             } catch {
                 print("Failed to fetch AI recommendations for profile: \(error)")
-                recommendationDiagnosticMessage = "Unable to load AI recommendations right now."
+                // Try to fallback if possible
+                recommendationDiagnosticMessage = "Discover these store favorites."
             }
         }
     }
@@ -577,21 +585,36 @@ struct SalesAssociateClientsView: View {
         
         var body: some View {
             VStack(alignment: .leading, spacing: 8) {
-                // Placeholder for product image
-                Rectangle()
-                    .fill(Color.luxurySurface)
-                    .frame(width: 140, height: 140)
-                    .overlay(
+                // Product image
+                ZStack {
+                    Color.luxurySurface
+                    
+                    if let imageUrl = product.displayImageUrl, let url = URL(string: imageUrl) {
+                        AsyncImage(url: url) { phase in
+                            switch phase {
+                            case .success(let image):
+                                image.resizable()
+                                    .aspectRatio(contentMode: .fill)
+                            default:
+                                Image(systemName: "photo")
+                                    .foregroundStyle(Color.luxuryMutedText.opacity(0.5))
+                            }
+                        }
+                    } else {
                         Image(systemName: "photo")
                             .foregroundStyle(Color.luxuryMutedText.opacity(0.5))
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    }
+                }
+                .frame(width: 140, height: 140)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
                 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(product.name)
                         .font(BrandFont.body(13, weight: .semibold))
                         .foregroundStyle(Color.luxuryPrimaryText)
-                        .lineLimit(1)
+                        .lineLimit(3)
+                        .multilineTextAlignment(.leading)
+                        .frame(height: 52, alignment: .topLeading)
                     
                     Text(product.category)
                         .font(BrandFont.body(11))
@@ -603,7 +626,7 @@ struct SalesAssociateClientsView: View {
                         .padding(.top, 2)
                 }
             }
-            .frame(width: 140)
+            .frame(width: 140, height: 260)
             .padding(10)
             .background(Color.white)
             .clipShape(RoundedRectangle(cornerRadius: 16))

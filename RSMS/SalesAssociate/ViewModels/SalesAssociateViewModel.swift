@@ -190,7 +190,7 @@ final class SalesAssociateViewModel: ObservableObject {
             let userId = try await resolveUserId()
             let brandId = try await resolveBrandId(userId: userId)
             var query = client.from("products")
-                .select("product_id,name,brand_id,category,price,sku,making_price,image_url,is_active")
+                .select("product_id,name,brand_id,category,price,sku,making_price,image_url,is_active,product_variants(*)")
                 .eq("brand_id", value: brandId)
             
             if !search.isEmpty {

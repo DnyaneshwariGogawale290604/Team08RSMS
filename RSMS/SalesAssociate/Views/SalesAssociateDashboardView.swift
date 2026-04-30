@@ -81,66 +81,48 @@ struct SalesAssociateDashboardView: View {
         VStack(alignment: .leading, spacing: 18) {
             quietSectionLabel("Overview")
 
-            VStack(alignment: .leading, spacing: 18) {
-                HStack(alignment: .top, spacing: 12) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        AnimatedNumberText(
-                            value: animatedRevenue,
-                            format: { currency($0) },
-                            font: .system(size: 40, weight: .bold)
-                        )
-                        .foregroundStyle(BoutiqueTheme.deepAccent)
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    AnimatedNumberText(
+                        value: animatedRevenue,
+                        format: { currency($0) },
+                        font: .system(size: 34, weight: .bold)
+                    )
+                    .foregroundStyle(BoutiqueTheme.deepAccent)
 
-                        Text("Revenue")
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(BoutiqueTheme.secondaryText)
-                    }
-
-                    Spacer()
-
-                    VStack(alignment: .trailing, spacing: 6) {
-                        AnimatedNumberText(
-                            value: animatedOrders,
-                            format: { "\(Int($0.rounded()))" },
-                            font: .system(size: 20, weight: .semibold)
-                        )
-                        .foregroundStyle(BoutiqueTheme.primaryText)
-
-                        Text("Orders")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(BoutiqueTheme.secondaryText)
-                    }
+                    Text("Revenue")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(BoutiqueTheme.secondaryText)
                 }
+
+                Spacer()
+
+                VStack(alignment: .trailing, spacing: 4) {
+                    AnimatedNumberText(
+                        value: animatedOrders,
+                        format: { "\(Int($0.rounded()))" },
+                        font: .system(size: 34, weight: .bold)
+                    )
+                    .foregroundStyle(BoutiqueTheme.primaryText)
+
+                    Text("Total Orders")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(BoutiqueTheme.secondaryText)
+                }
+            }
 
                 SparklineView(values: sevenDayRevenue, progress: sparklineProgress)
                     .frame(height: 56)
 
-                HStack(alignment: .top, spacing: 10) {
-                    VStack(alignment: .leading, spacing: 0) {
-                        Text(shortCurrency(sparklineMaxValue))
+                HStack {
+                    ForEach(sevenDayLabels, id: \.self) { label in
+                        Text(label)
                             .font(.system(size: 11, weight: .medium))
                             .foregroundStyle(BoutiqueTheme.mutedText)
-
-                        Spacer()
-
-                        Text(shortCurrency(sparklineMinValue))
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(BoutiqueTheme.mutedText)
+                            .frame(maxWidth: .infinity)
                     }
-                    .frame(height: 56, alignment: .leading)
-
-                    VStack(spacing: 8) {
-                        HStack {
-                            ForEach(sevenDayLabels, id: \.self) { label in
-                                Text(label)
-                                    .font(.system(size: 11, weight: .medium))
-                                    .foregroundStyle(BoutiqueTheme.mutedText)
-                                    .frame(maxWidth: .infinity)
-                            }
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
                 }
+                .frame(maxWidth: .infinity)
             }
             .padding(20)
             .background(
@@ -156,7 +138,6 @@ struct SalesAssociateDashboardView: View {
             )
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
-    }
 
     private var ratingSection: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -188,15 +169,6 @@ struct SalesAssociateDashboardView: View {
                         .background(BoutiqueTheme.primary)
                         .clipShape(Capsule())
                 }
-
-                HStack {
-                    Spacer()
-
-                    Button("View review ->") { }
-                        .buttonStyle(.plain)
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(BoutiqueTheme.primary.opacity(0.75))
-                }
             }
             .padding(20)
             .background(Color.white)
@@ -221,7 +193,7 @@ struct SalesAssociateDashboardView: View {
                             TrendingCompactCard(trend: trend, rank: index + 1)
                         }
                     }
-                    .padding(.vertical, 2)
+                    .padding(.vertical, 16)
                 }
             }
         }
@@ -343,10 +315,9 @@ struct SalesAssociateDashboardView: View {
     }
 
     private func quietSectionLabel(_ text: String) -> some View {
-        Text(text.uppercased())
-            .font(.system(size: 12, weight: .semibold))
-            .tracking(0.96)
-            .foregroundStyle(BoutiqueTheme.mutedText)
+        Text(text)
+            .font(.system(size: 18, weight: .bold, design: .serif))
+            .foregroundColor(CatalogTheme.primaryText)
     }
 
     private func emptyStateCard(icon: String, text: String) -> some View {
@@ -490,88 +461,92 @@ private struct TrendingCompactCard: View {
 
     var body: some View {
         PressableCard {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(alignment: .top, spacing: 12) {
-                    thumbnail
-
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(trend.name)
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundStyle(BoutiqueTheme.primaryText)
-                            .lineLimit(2)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .frame(height: 36, alignment: .topLeading)
-
-                        Text(trend.category.isEmpty ? "Product" : trend.category)
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(BoutiqueTheme.secondaryText)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(BoutiqueTheme.surface.opacity(0.8))
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(alignment: .top, spacing: 14) {
+                    // Small Thumbnail
+                    ZStack {
+                        BoutiqueTheme.surface
                             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        
+                        if let imageUrl = trend.imageUrl, let url = URL(string: imageUrl) {
+                            AsyncImage(url: url) { phase in
+                                switch phase {
+                                case .success(let image):
+                                    image
+                                        .resizable()
+                                        .aspectRatio(contentMode: .fill)
+                                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                default:
+                                    Image(systemName: "photo")
+                                        .font(.system(size: 16))
+                                        .foregroundStyle(BoutiqueTheme.divider)
+                                }
+                            }
+                        } else {
+                            Image(systemName: "bag.fill")
+                                .font(.system(size: 18))
+                                .foregroundStyle(BoutiqueTheme.primary.opacity(0.3))
+                        }
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(width: 52, height: 52)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .clipped()
+                    
+                    // Product Info
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(rank == 2 ? trend.name.replacingOccurrences(of: " Men", with: "\nMen") : trend.name)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(BoutiqueTheme.primaryText)
+                            .lineLimit(3)
+                            .multilineTextAlignment(.leading)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .multilineTextAlignment(.leading)
+                        
+                        Text(rank == 2 ? trend.category.replacingOccurrences(of: " Men", with: "\nMen") : (trend.category.isEmpty ? "Product" : trend.category))
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(BoutiqueTheme.secondaryText)
+                            .textCase(.uppercase)
+                            .kerning(1)
+                    }
                 }
-
+                
+                // Bottom row: Stats and Price
                 HStack(alignment: .center) {
-                    Text("\(trend.soldCount) sold")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(BoutiqueTheme.primaryText)
-
+                    HStack(spacing: 4) {
+                        Image(systemName: "flame.fill")
+                            .font(.system(size: 9))
+                        Text("\(trend.soldCount) sold")
+                            .font(.system(size: 11, weight: .bold))
+                    }
+                    .foregroundStyle(BoutiqueTheme.primary)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(BoutiqueTheme.primary.opacity(0.1))
+                    .clipShape(Capsule())
+                    
                     Spacer()
-
+                    
                     Text("₹\(Int(trend.price))")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.system(size: 15, weight: .bold, design: .serif))
                         .foregroundStyle(BoutiqueTheme.deepAccent)
                 }
             }
-            .padding(14)
-            .frame(width: 168, height: 148, alignment: .topLeading)
+            .padding(16)
+            .frame(width: 230, height: 180)
             .background(Color.white)
-            .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(BoutiqueTheme.divider, lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 4)
             .overlay(alignment: .topTrailing) {
                 Text("#\(rank)")
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.system(size: 9, weight: .black))
                     .foregroundStyle(.white)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
                     .background(BoutiqueTheme.primary)
                     .clipShape(Capsule())
                     .padding(12)
             }
         }
-    }
-
-    private var thumbnail: some View {
-        ZStack {
-            BoutiqueTheme.surface
-
-            if let imageUrl = trend.imageUrl, let url = URL(string: imageUrl) {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .scaledToFill()
-                    default:
-                        Image(systemName: "bag")
-                            .font(.system(size: 18, weight: .medium))
-                            .foregroundStyle(BoutiqueTheme.primary)
-                    }
-                }
-            } else {
-                Image(systemName: "bag")
-                    .font(.system(size: 18, weight: .medium))
-                    .foregroundStyle(BoutiqueTheme.primary)
-            }
-        }
-        .frame(width: 48, height: 48)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .clipped()
     }
 }
 
@@ -584,7 +559,7 @@ struct AssociateProductCard: View {
             ZStack {
                 BoutiqueTheme.surface
 
-                if let imageUrl = product.imageUrl, let url = URL(string: imageUrl) {
+                if let imageUrl = product.displayImageUrl, let url = URL(string: imageUrl) {
                     AsyncImage(url: url) { phase in
                         switch phase {
                         case .success(let image):
@@ -611,8 +586,9 @@ struct AssociateProductCard: View {
                 Text(product.name)
                     .font(.system(size: 14, weight: .medium))
                     .foregroundStyle(BoutiqueTheme.primaryText)
-                    .lineLimit(2)
-                    .frame(height: 36, alignment: .topLeading)
+                    .lineLimit(3)
+                    .multilineTextAlignment(.leading)
+                    .frame(height: 58, alignment: .topLeading)
 
                 Text("₹\(Int(product.price))")
                     .font(.system(size: 14, weight: .semibold))
@@ -621,6 +597,7 @@ struct AssociateProductCard: View {
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .frame(height: 220)
         .background(Color.white)
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)

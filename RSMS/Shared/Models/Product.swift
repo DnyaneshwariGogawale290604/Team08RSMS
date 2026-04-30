@@ -32,6 +32,7 @@ public struct Product: Identifiable, Codable, Hashable, Sendable {
         case tax
         case totalPrice = "total_price"
         case sizeOptions = "size_options"
+        case variants = "product_variants"
         case createdAt = "created_at"
     }
 
@@ -84,7 +85,11 @@ public struct Product: Identifiable, Codable, Hashable, Sendable {
         reorderPoint = 5
         reorderQuantity = 20
         stockQuantity = nil
-        variants = nil
+        if let v = try? c.decodeIfPresent([ProductVariant].self, forKey: .variants) {
+            variants = v
+        } else {
+            variants = nil
+        }
         
         if let date = try? c.decodeIfPresent(Date.self, forKey: .createdAt) {
             createdAt = date
@@ -107,6 +112,7 @@ public struct Product: Identifiable, Codable, Hashable, Sendable {
         try c.encodeIfPresent(tax, forKey: .tax)
         try c.encodeIfPresent(totalPrice, forKey: .totalPrice)
         try c.encodeIfPresent(sizeOptions, forKey: .sizeOptions)
+        try c.encodeIfPresent(variants, forKey: .variants)
         try c.encodeIfPresent(createdAt, forKey: .createdAt)
     }
 

@@ -21,7 +21,7 @@ public extension Color {
     static let luxuryDeepAccent = Color(hex: "#4A2E32")
     static let luxuryBackground = Color(hex: "#F5EFEF")
     static let luxurySurface = Color(hex: "#E6DADA")
-    static let luxuryPrimaryText = Color(hex: "#1A1A1A")
+    static let luxuryPrimaryText = Color(hex: "#462F32")
     static let luxurySecondaryText = Color(hex: "#6B5B5B")
     static let luxuryMutedText = Color(hex: "#9A8A8A")
     static let luxurySelection = Color(hex: "#462F32")
