@@ -81,12 +81,14 @@ public struct StaffDetailView: View {
                         
                         // Keep the existing appointments/reviews tabs below if needed
                         VStack(alignment: .leading, spacing: 14) {
-                            Picker("Tab", selection: $selectedTab) {
-                                Text("Appointments").tag(0)
-                                Text("Reviews").tag(1)
-                            }
-                            .pickerStyle(SegmentedPickerStyle())
-                            .padding(.horizontal, 20)
+                        AppSegmentedControl(
+                            options: [
+                                AppSegmentedOption(id: 0, title: "Appointments", badge: appointments.count > 0 ? "\(appointments.count)" : nil),
+                                AppSegmentedOption(id: 1, title: "Reviews", badge: ratings.count > 0 ? "\(ratings.count)" : nil)
+                            ],
+                            selection: $selectedTab
+                        )
+                        .padding(.horizontal, 20)
 
                             if isLoading {
                                 HStack { Spacer(); ProgressView(); Spacer() }

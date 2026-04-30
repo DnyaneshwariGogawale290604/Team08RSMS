@@ -14,57 +14,49 @@ public struct AdminStoreListView: View {
     }
 
     public var body: some View {
-        ZStack {
-            CatalogTheme.background.ignoresSafeArea()
-            
+        VStack(spacing: 0) {
             if viewModel.isLoading && viewModel.stores.isEmpty {
                 LoadingView(message: "Loading Stores...")
             } else {
-                VStack(spacing: 0) {
-                    
-                    if viewModel.stores.isEmpty {
-                        EmptyStateView(
-                            icon: "storefront",
-                            title: "No Stores",
-                            message: "Your stores will appear here."
-                        )
-                    } else {
-                        ScrollView(showsIndicators: false) {
-                            LazyVStack(spacing: 24) {
-                                // Active/Filtered Section
-                                ForEach(filteredStores) { store in
+                if viewModel.stores.isEmpty {
+                    EmptyStateView(
+                        icon: "storefront",
+                        title: "No Stores",
+                        message: "Your stores will appear here."
+                    )
+                } else {
+                    LazyVStack(spacing: 24) {
+                        // Active/Filtered Section
+                        ForEach(filteredStores) { store in
+                            AdminStoreCard(
+                                viewModel: viewModel,
+                                store: store,
+                                onArchive: { storePendingArchive = store }
+                            )
+                        }
+
+                        // Archived Section
+                        if !archivedStores.isEmpty {
+                            VStack(alignment: .leading, spacing: 16) {
+                                Text("Temporarily Unavailable Stores")
+                                    .font(.system(size: 18, weight: .bold, design: .serif))
+                                    .foregroundColor(CatalogTheme.secondaryText)
+                                    .padding(.horizontal, 4)
+                                
+                                ForEach(archivedStores) { store in
                                     AdminStoreCard(
                                         viewModel: viewModel,
                                         store: store,
                                         onArchive: { storePendingArchive = store }
                                     )
                                 }
-
-                                // Archived Section
-                                if !archivedStores.isEmpty {
-                                    VStack(alignment: .leading, spacing: 16) {
-                                        Text("Temporarily Unavailable Stores")
-                                            .font(.system(size: 18, weight: .bold, design: .serif))
-                                            .foregroundColor(CatalogTheme.secondaryText)
-                                            .padding(.horizontal, 4)
-                                        
-                                        ForEach(archivedStores) { store in
-                                            AdminStoreCard(
-                                                viewModel: viewModel,
-                                                store: store,
-                                                onArchive: { storePendingArchive = store }
-                                            )
-                                        }
-                                    }
-                                    .padding(.top, 10)
-                                }
                             }
-                            .padding(.horizontal, 20)
-                            .padding(.top, 12)
-                            .padding(.bottom, 100)
+                            .padding(.top, 10)
                         }
-                        .refreshable { await viewModel.fetchStores() }
                     }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 12)
+                    .padding(.bottom, 100)
                 }
             }
         }

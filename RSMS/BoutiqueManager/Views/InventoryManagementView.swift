@@ -34,12 +34,14 @@ public struct InventoryManagementView: View {
                 BoutiqueTheme.background.ignoresSafeArea()
                 
                 VStack(spacing: 0) {
-                    // Segmented picker — Stock Levels | Low Stock
-                    Picker("Inventory Tab", selection: $selectedTab) {
-                        Text("Stock Levels").tag(0)
-                        Text("Low Stock").tag(1)
-                    }
-                    .pickerStyle(SegmentedPickerStyle())
+                    // Segmented control — Stock Levels | Low Stock
+                    AppSegmentedControl(
+                        options: [
+                            AppSegmentedOption(id: 0, title: "Stock Levels"),
+                            AppSegmentedOption(id: 1, title: "Low Stock", badge: alertCount > 0 ? "\(alertCount)" : nil)
+                        ],
+                        selection: $selectedTab
+                    )
                     .padding(.horizontal, 16)
                     .padding(.top, 8)
                     .padding(.bottom, 12)

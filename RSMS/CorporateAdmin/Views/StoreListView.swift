@@ -23,36 +23,37 @@ public struct StoreListView: View {
             ZStack {
                 CatalogTheme.background.ignoresSafeArea()
                 
-                VStack(spacing: 0) {
-                    headerSection
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 0) {
+                        AppSegmentedControl(
+                            options: [
+                                AppSegmentedOption(id: LocationTab.stores, title: "Stores"),
+                                AppSegmentedOption(id: LocationTab.warehouses, title: "Warehouses")
+                            ],
+                            selection: $selectedTab
+                        )
                         .padding(.horizontal, 16)
                         .padding(.top, 16)
-                    
-                    AppSegmentedControl(
-                        options: [
-                            AppSegmentedOption(id: LocationTab.stores, title: "Stores"),
-                            AppSegmentedOption(id: LocationTab.warehouses, title: "Warehouses")
-                        ],
-                        selection: $selectedTab
-                    )
-                    .padding(.horizontal, 16)
-                    .padding(.top, 16)
-                    .padding(.bottom, 20)
+                        .padding(.bottom, 20)
 
+                        if selectedTab == .stores {
+                            AdminStoreListView(viewModel: storeViewModel, showingAddStore: $showingAddStore)
+                        } else {
+                            AdminWarehouseListView(viewModel: warehouseViewModel, showingAddWarehouse: $showingAddWarehouse)
+                        }
+                    }
+                }
+                .refreshable {
                     if selectedTab == .stores {
-                        AdminStoreListView(viewModel: storeViewModel, showingAddStore: $showingAddStore)
+                        await storeViewModel.fetchStores()
                     } else {
-                        AdminWarehouseListView(viewModel: warehouseViewModel, showingAddWarehouse: $showingAddWarehouse)
+                        await warehouseViewModel.fetchWarehouses()
                     }
                 }
             }
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationTitle("Infrastructure")
+            .navigationBarTitleDisplayMode(.large)
             .toolbar {
-                ToolbarItem(placement: .principal) {
-                    Text("Infrastructure")
-                        .font(.system(size: 18, weight: .bold, design: .serif))
-                        .foregroundColor(CatalogTheme.primaryText)
-                }
                 ToolbarItemGroup(placement: .navigationBarTrailing) {
                     Button {
                         if selectedTab == .stores {
@@ -85,18 +86,5 @@ public struct StoreListView: View {
                 WarehouseFormView(viewModel: warehouseViewModel)
             }
         }
-    }
-
-    private var headerSection: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Infrastructure")
-                .font(.system(size: 28, weight: .bold, design: .serif))
-                .foregroundColor(CatalogTheme.primaryText)
-
-            Text("Manage and oversee your brand's physical locations")
-                .font(.system(size: 14, weight: .medium, design: .serif))
-                .foregroundColor(CatalogTheme.secondaryText)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

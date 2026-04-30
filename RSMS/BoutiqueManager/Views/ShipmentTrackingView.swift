@@ -33,15 +33,18 @@ public struct ShipmentTrackingView: View {
                 BoutiqueTheme.background.ignoresSafeArea()
 
                 VStack(spacing: 0) {
-                    // Native Segmented Control
-                    Picker("Shipment Segment", selection: $selectedSegment) {
-                        ForEach(0..<segments.count, id: \.self) { index in
-                            Text(segments[index]).tag(index)
-                        }
-                    }
-                    .pickerStyle(SegmentedPickerStyle())
+                    // Custom Segmented Control
+                    AppSegmentedControl(
+                        options: [
+                            AppSegmentedOption(id: 0, title: "Approved"),
+                            AppSegmentedOption(id: 1, title: "Rejected"),
+                            AppSegmentedOption(id: 2, title: "Order")
+                        ],
+                        selection: $selectedSegment
+                    )
                     .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
+                    .padding(.top, 8)
+                    .padding(.bottom, 12)
 
                     if viewModel.isLoading && viewModel.allRequests.isEmpty {
                         Spacer()

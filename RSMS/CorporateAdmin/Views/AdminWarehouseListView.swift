@@ -14,14 +14,10 @@ public struct AdminWarehouseListView: View {
     }
 
     public var body: some View {
-        ZStack {
-            CatalogTheme.background.ignoresSafeArea()
-            
             if viewModel.isLoading && viewModel.warehouses.isEmpty {
                 LoadingView(message: "Loading Warehouses...")
             } else {
                 VStack(spacing: 0) {
-                    
                     if viewModel.warehouses.isEmpty {
                         EmptyStateView(
                             icon: "building.2.fill",
@@ -29,36 +25,32 @@ public struct AdminWarehouseListView: View {
                             message: "Your warehouses will appear here."
                         )
                     } else {
-                        ScrollView(showsIndicators: false) {
-                            LazyVStack(spacing: 24) {
-                                ForEach(filteredWarehouses) { warehouse in
-                                    AdminWarehouseCard(warehouse: warehouse, viewModel: viewModel)
-                                }
-
-                                if !archivedWarehouses.isEmpty {
-                                    VStack(alignment: .leading, spacing: 16) {
-                                        Text("Archived Warehouses")
-                                            .font(.system(size: 18, weight: .bold, design: .serif))
-                                            .foregroundColor(CatalogTheme.secondaryText)
-                                            .padding(.horizontal, 4)
-                                        
-                                        ForEach(archivedWarehouses) { warehouse in
-                                            AdminWarehouseCard(warehouse: warehouse, viewModel: viewModel)
-                                                .opacity(0.7)
-                                        }
-                                    }
-                                    .padding(.top, 10)
-                                }
+                        LazyVStack(spacing: 24) {
+                            ForEach(filteredWarehouses) { warehouse in
+                                AdminWarehouseCard(warehouse: warehouse, viewModel: viewModel)
                             }
-                            .padding(.horizontal, 20)
-                            .padding(.top, 12)
-                            .padding(.bottom, 100)
+
+                            if !archivedWarehouses.isEmpty {
+                                VStack(alignment: .leading, spacing: 16) {
+                                    Text("Archived Warehouses")
+                                        .font(.system(size: 18, weight: .bold, design: .serif))
+                                        .foregroundColor(CatalogTheme.secondaryText)
+                                        .padding(.horizontal, 4)
+                                    
+                                    ForEach(archivedWarehouses) { warehouse in
+                                        AdminWarehouseCard(warehouse: warehouse, viewModel: viewModel)
+                                            .opacity(0.7)
+                                    }
+                                }
+                                .padding(.top, 10)
+                            }
                         }
-                        .refreshable { await viewModel.fetchWarehouses() }
+                        .padding(.horizontal, 20)
+                        .padding(.top, 12)
+                        .padding(.bottom, 100)
                     }
                 }
             }
-        }
     }
 
 }
