@@ -5,8 +5,8 @@ struct SAOrder: Identifiable, Decodable, Sendable {
     let totalAmount: Double
     let amountPaid: Double       // amount already collected
     let paymentStatus: String?   // "paid", "partially_paid", "unpaid"
-    let status: String?
-    let shippingStatus: String?  // from shipping_status column
+    var status: String?
+    var shippingStatus: String?  // from shipping_status column
     let createdAt: String?
     let customerName: String?    // joined from customers table
 

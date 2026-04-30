@@ -98,37 +98,63 @@ final class SalesAssociateViewModel: ObservableObject {
                 orders    = try await ordersTask
                 ratings   = try await ratingsTask
                 customers = try await customersTask
-            } catch is CancellationError {
-                return  // silently abort
-            }
-
-            var fetchedCatalog: [Product] = []
-            do {
-                fetchedCatalog = try await catalogTask
-            } catch is CancellationError {
-                return
+                self.catalog = try await catalogTask
             } catch {
-                print("Failed to fetch catalog on refresh: \(error)")
+                print("[SalesAssociateViewModel] Data fetch failed: \(error)")
+                return
             }
 
-            recentOrders = orders
+            // --- BATCH FETCH LIVE STATUS FROM PROJECT B ---
+            var liveOrders = orders
+            let orderIds = orders.map { $0.id.uuidString.lowercased() }
+            
+            if !orderIds.isEmpty {
+                do {
+                    struct SimulatedStatus: Decodable {
+                        let order_id: UUID
+                        let current_status: String
+                    }
+                    
+                    // Use the courierClient to get all live statuses for these orders
+                    let liveData: [SimulatedStatus] = try await SupabaseManager.shared.courierClient
+                        .from("simulated_shipments")
+                        .select("order_id, current_status")
+                        .in("order_id", values: orderIds)
+                        .execute()
+                        .value
+                    
+                    // Merge Project B status into our local SAOrder list
+                    liveOrders = orders.map { order in
+                        var updatedOrder = order
+                        if let live = liveData.first(where: { $0.order_id == order.id }) {
+                            updatedOrder.shippingStatus = live.current_status
+                        }
+                        return updatedOrder
+                    }
+                } catch {
+                    print("[SalesAssociateViewModel] Live status sync failed: \(error)")
+                }
+            }
+            
+            // Calculate rating stats for seeding the cache
+            let ratingValues = ratings.compactMap { $0.ratingValue }.map { Double($0) }
+            let avgRating = ratingValues.isEmpty ? 0 : ratingValues.reduce(0, +) / Double(ratingValues.count)
+            
+            // Seed the rating cache ONLY if not already seeded
+            if !ratingCacheSeeded {
+                RatingCache.shared.seed(average: avgRating, count: ratingValues.count)
+                self.ratingCacheSeeded = true
+            }
+            
+            self.recentOrders = liveOrders
             self.customers = customers
             customersCount = customers.count
-            self.catalog = fetchedCatalog
-
+            // self.catalog was already updated from catalogTask above
+            
             let monthPrefix = Self.monthPrefix()
             let monthOrders = orders.filter { ($0.createdAt ?? "").hasPrefix(monthPrefix) }
             todayOrderCount = monthOrders.count
             todaySalesAmount = monthOrders.map(\.totalAmount).reduce(0, +)
-
-            // Seed RatingCache only on first load — after that the cache is
-            // maintained locally via incremental averaging on each new submission.
-            if !ratingCacheSeeded {
-                let values = ratings.compactMap { $0.ratingValue }.map { Double($0) }
-                let avg = values.isEmpty ? 0 : values.reduce(0, +) / Double(values.count)
-                RatingCache.shared.seed(average: avg, count: values.count)
-                ratingCacheSeeded = true
-            }
 
             errorMessage = nil
 

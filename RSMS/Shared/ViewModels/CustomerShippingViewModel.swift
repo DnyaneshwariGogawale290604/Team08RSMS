@@ -117,17 +117,20 @@ public class CustomerShippingViewModel: ObservableObject {
             
             // 2. Try to fetch LIVE status from Project B (Simulator)
             do {
-                struct simulatedShipment: Decodable {
+                struct SimulatedShipment: Decodable {
                     let current_status: String
                 }
-                let live: [simulatedShipment] = try await SupabaseManager.shared.courierClient
+                
+                // Use the dedicated courierClient for Project B (Simulator)
+                let live: [SimulatedShipment] = try await SupabaseManager.shared.courierClient
                     .from("simulated_shipments")
                     .select("current_status")
-                    .eq("order_id", value: orderId.uuidString)
+                    .eq("awb_number", value: localShipment.awbNumber)
                     .execute()
                     .value
                 
                 if let liveStatus = live.first?.current_status {
+                    print("[fetchShipment] Live status recovered from Project B: \(liveStatus)")
                     // Overlay live status onto local shipment data
                     localShipment = OrderShipment(
                         id: localShipment.id,
@@ -138,9 +141,11 @@ public class CustomerShippingViewModel: ObservableObject {
                         estimatedDelivery: localShipment.estimatedDelivery,
                         createdAt: localShipment.createdAt
                     )
+                } else {
+                    print("[fetchShipment] No live record found in Project B for AWB: \(localShipment.awbNumber)")
                 }
             } catch {
-                print("[fetchShipment] Live fetch failed (falling back to local): \(error)")
+                print("[fetchShipment] Live fetch from Project B failed: \(error)")
             }
             
             self.shipment = localShipment
@@ -315,8 +320,7 @@ public class CustomerShippingViewModel: ObservableObject {
             try await isolatedServiceRoleClient
                 .from("sales_orders")
                 .update([
-                    "shipping_status": "accepted",
-                    "status": "confirmed" 
+                    "shipping_status": "accepted"
                 ])
                 .eq("order_id", value: orderId)
                 .execute()

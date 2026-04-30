@@ -6,7 +6,8 @@ import PostgREST
 struct SalesAssociateOrdersView: View {
     @ObservedObject private var sessionViewModel: SessionViewModel
     private enum OrderStatusFilter: String, CaseIterable {
-        case active = "Active"
+        case confirmed = "Confirmed"
+        case inTransit = "In Transit"
         case completed = "Completed"
         case cancelled = "Cancelled"
     }
@@ -16,7 +17,7 @@ struct SalesAssociateOrdersView: View {
     @State private var selectedOrder: PlacedOrder? = nil
     @State private var selectedRemoteOrder: SAOrder? = nil
     @State private var searchText = ""
-    @State private var selectedStatusFilter: OrderStatusFilter = .active
+    @State private var selectedStatusFilter: OrderStatusFilter = .confirmed
     @State private var billingOrderId: UUID? = nil
     @State private var orderToCancel: SAOrder? = nil
     @State private var showNewOrder = false
@@ -30,14 +31,16 @@ struct SalesAssociateOrdersView: View {
         if raw.isEmpty { return "pending" }
 
         switch raw {
-        case "complete", "completed":
+        case "complete", "completed", "paid", "delivered":
             return "completed"
         case "cancelled", "canceled":
             return "cancelled"
-        case "pending":
-            return "pending"
-        case "confirmed":
+        case "returned", "refunded":
+            return "returned"
+        case "pending", "open", "confirmed":
             return "confirmed"
+        case "in_transit", "shipped", "picked_up", "accepted":
+            return "in_transit"
         default:
             return raw
         }
@@ -65,10 +68,22 @@ struct SalesAssociateOrdersView: View {
         }
     }
 
-    private func filterMatchesStatus(_ normalizedStatus: String, filter: OrderStatusFilter) -> Bool {
+    private func filterMatchesStatus(_ normalizedStatus: String, shippingStatus: String?, filter: OrderStatusFilter) -> Bool {
+        let shipStatus = (shippingStatus ?? "").lowercased()
+        
+        // Handle explicit overrides (e.g. if shipping is delivered, it's completed)
+        if shipStatus == "delivered" {
+            return filter == .completed
+        }
+        if shipStatus == "returned" || normalizedStatus == "returned" {
+            return filter == .cancelled
+        }
+
         switch filter {
-        case .active:
-            return ["open", "pending", "confirmed", "returned"].contains(normalizedStatus)
+        case .confirmed:
+            return normalizedStatus == "confirmed" && (shipStatus == "pending_fulfillment" || shipStatus.isEmpty)
+        case .inTransit:
+            return normalizedStatus == "in_transit" || (shipStatus != "pending_fulfillment" && !shipStatus.isEmpty && normalizedStatus != "completed" && normalizedStatus != "cancelled" && normalizedStatus != "returned")
         case .completed:
             return normalizedStatus == "completed"
         case .cancelled:
@@ -84,7 +99,7 @@ struct SalesAssociateOrdersView: View {
             .filter { !remoteIds.contains($0.id.uuidString.lowercased()) }
             .filter { placed in
                 let normalizedStatus = Self.normalizeStatus(placed.status)
-                let statusMatches = filterMatchesStatus(normalizedStatus, filter: selectedStatusFilter)
+                let statusMatches = filterMatchesStatus(normalizedStatus, shippingStatus: placed.shippingStatus, filter: selectedStatusFilter)
 
                 let matchesSearch: Bool
                 if query.isEmpty {
@@ -105,7 +120,7 @@ struct SalesAssociateOrdersView: View {
         return viewModel.recentOrders
             .filter { order in
                 let normalizedStatus = Self.normalizeStatus(order.status)
-                let statusMatches = filterMatchesStatus(normalizedStatus, filter: selectedStatusFilter)
+                let statusMatches = filterMatchesStatus(normalizedStatus, shippingStatus: order.shippingStatus, filter: selectedStatusFilter)
 
                 let matchesSearch: Bool
                 if query.isEmpty {
@@ -934,8 +949,43 @@ struct SAOrderDetailSheet: View {
 
                         // ── FULFILLMENT SECTION ──
                         let shipStatus = (currentOrder.shippingStatus ?? "").lowercased()
-                        if normalizedStatus == "confirmed" {
-                            if shipStatus == "pending_fulfillment" || shipStatus.isEmpty {
+                        if normalizedStatus == "confirmed" || normalizedStatus == "in_transit" {
+                            // If it's already in_transit, we skip the booking UI and show tracking
+                            if normalizedStatus == "in_transit" || (shipStatus != "pending_fulfillment" && !shipStatus.isEmpty) {
+                                VStack(spacing: 12) {
+                                    if shippingVM.bookingSuccess {
+                                        HStack(spacing: 8) {
+                                            Image(systemName: "checkmark.circle.fill")
+                                                .foregroundStyle(Color.green)
+                                            Text("Shipment booked — AWB: \(shippingVM.lastAWB ?? "")")
+                                                .font(BrandFont.body(14, weight: .semibold))
+                                                .foregroundStyle(Color.green)
+                                        }
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 16)
+                                        .background(Color.green.opacity(0.1))
+                                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                                    }
+
+                                    Button {
+                                        showTracking = true
+                                    } label: {
+                                        HStack(spacing: 8) {
+                                            Image(systemName: "location.fill")
+                                            Text(shipStatus == "delivered" || normalizedStatus == "completed" ? "View Delivery Details" : "Track Shipment")
+                                        }
+                                        .font(BrandFont.body(14, weight: .bold))
+                                        .padding(.vertical, 14)
+                                        .frame(maxWidth: .infinity)
+                                        .background(Color.white)
+                                        .foregroundStyle(BoutiqueTheme.deepAccent)
+                                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                                        .overlay(RoundedRectangle(cornerRadius: 16).stroke(BoutiqueTheme.deepAccent, lineWidth: 1))
+                                    }
+                                    .buttonStyle(LuxuryPressStyle())
+                                }
+                                .padding(.horizontal, 16)
+                            } else if shipStatus == "pending_fulfillment" || shipStatus.isEmpty {
                                 VStack(alignment: .leading, spacing: 12) {
                                     Text("FULFILLMENT")
                                         .font(.system(size: 11, weight: .semibold))
