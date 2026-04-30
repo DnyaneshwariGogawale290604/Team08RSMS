@@ -175,12 +175,10 @@ public struct AppToolbarGlyph: View {
 
     public var body: some View {
         Image(systemName: systemImage)
-            .font(.system(size: 13, weight: .bold))
+            .font(.system(size: 16, weight: .semibold))
             .foregroundColor(.white)
             .frame(width: 34, height: 34)
-            .background(enabled ? backgroundColor : CatalogTheme.inactiveBadge)
-            .clipShape(Circle())
-            .opacity(enabled ? 1 : 0.7)
+            .opacity(enabled ? 1 : 0.5)
     }
 }
 

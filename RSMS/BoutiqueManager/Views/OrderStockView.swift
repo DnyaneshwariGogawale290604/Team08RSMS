@@ -54,7 +54,7 @@ public struct OrderStockView: View {
                         presentationMode.wrappedValue.dismiss()
                     }) {
                         Image(systemName: "xmark")
-                            .foregroundColor(BoutiqueTheme.textPrimary)
+                            .foregroundColor(.white)
                     }
                 }
             }

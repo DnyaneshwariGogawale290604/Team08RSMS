@@ -14,7 +14,7 @@ public struct BoutiqueManagerProfileButton: View {
         } label: {
             Image(systemName: "person.crop.circle")
                 .font(.title2)
-                .foregroundColor(BoutiqueTheme.textPrimary)
+                .foregroundColor(.white)
                 .accessibilityLabel("Account")
         }
         .sheet(isPresented: $showingAccountSheet) {
@@ -96,7 +96,7 @@ public struct BoutiqueManagerAccountSheet: View {
                     } label: {
                         Image(systemName: "xmark")
                     }
-                    .foregroundStyle(Color.luxuryPrimaryText)
+                    .foregroundStyle(.white)
                 }
             }
         }

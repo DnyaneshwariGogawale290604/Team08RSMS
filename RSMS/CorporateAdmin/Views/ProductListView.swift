@@ -70,7 +70,9 @@ public struct ProductListView: View {
                 await viewModel.fetchProducts()
             }
             .sheet(isPresented: $showingAddProduct) {
-                AddEditProductView(viewModel: viewModel)
+                NavigationView {
+                    AddEditProductView(viewModel: viewModel)
+                }
             }
             .sheet(item: $selectedDetailProduct) { product in
                 BoutiqueProductDetailSheet(product: product)

@@ -224,6 +224,15 @@ public struct AddEditProductView: View {
         .navigationTitle(editingProduct == nil ? "Add Product" : "Edit Product")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") {
+                    hideKeyboard()
+                }
+                .fontWeight(.bold)
+                .foregroundColor(.luxuryDeepAccent)
+            }
+
             ToolbarItem(placement: .topBarLeading) {
                 Button { dismiss() } label: {
                     AppToolbarGlyph(systemImage: "xmark", backgroundColor: .luxuryDeepAccent)

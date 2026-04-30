@@ -84,7 +84,7 @@ struct InventoryManagerAccountSheet: View {
                     } label: {
                         Image(systemName: "xmark")
                     }
-                    .foregroundStyle(Color.luxuryPrimaryText)
+                    .foregroundStyle(.white)
                 }
             }
         }
