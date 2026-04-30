@@ -386,14 +386,6 @@ struct StaffPerformanceCard: View {
                 .foregroundColor(accentColor)
 
             HStack(spacing: 4) {
-                Image(systemName: "star.fill")
-                    .font(.system(size: 9))
-                    .foregroundColor(.orange)
-                Text(staff.avgRating > 0 ? String(format: "%.1f", staff.avgRating) : "—")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(BoutiqueTheme.textSecondary)
-                Text("·")
-                    .foregroundColor(BoutiqueTheme.textSecondary)
                 Text("\(staff.orderCount) orders")
                     .font(.system(size: 11))
                     .foregroundColor(BoutiqueTheme.textSecondary)

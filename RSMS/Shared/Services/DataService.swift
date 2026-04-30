@@ -364,27 +364,27 @@ public actor DataService {
     // MARK: - Staff Ratings
     public func fetchStaffRatings(salesAssociateId: UUID) async throws -> [AssociateRating] {
         struct RatingRow: Decodable {
-            let order_id: UUID
+            let order_id: UUID?
             let sales_associate_id: UUID?
-            let rating_value: Int?
-            let rating_feedback: String?
+            let rating: Int?
+            let feedback: String?
             let created_at: String?
         }
         let rows: [RatingRow] = try await client
-            .from("sales_orders")
-            .select("order_id,sales_associate_id,rating_value,rating_feedback,created_at")
+            .from("order_feedback")
+            .select("order_id,sales_associate_id,rating,feedback,created_at")
             .eq("sales_associate_id", value: salesAssociateId)
-            .gte("rating_value", value: 1)
+            .gte("rating", value: 1)
             .order("created_at", ascending: false)
             .execute()
             .value
         return rows.compactMap { row in
-            guard let ratingVal = row.rating_value else { return nil }
+            guard let ratingVal = row.rating else { return nil }
             return AssociateRating(
-                id: row.order_id,
+                id: row.order_id ?? UUID(),
                 salesAssociateId: row.sales_associate_id ?? salesAssociateId,
                 ratingValue: Double(ratingVal),
-                feedbackText: row.rating_feedback,
+                feedbackText: row.feedback,
                 createdAt: row.created_at
             )
         }
