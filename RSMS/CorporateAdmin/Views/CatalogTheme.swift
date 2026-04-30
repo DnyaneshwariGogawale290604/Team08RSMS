@@ -12,7 +12,7 @@ public enum CatalogTheme {
     public static let divider = Color.black.opacity(0.08)
 
     public static let error = deepAccent
-    public static let card = Color.white
+    public static let card = surface
     public static let chipInactiveText = deepAccent
     public static let inactiveBadge = Color(hex: "#D8C6C6")
     public static let inactiveBadgeText = secondaryText

@@ -25,33 +25,8 @@ public struct ItemsTabView: View {
     public enum RepairFilter: String, CaseIterable {
         case all = "All"
         case available = "Available"
-        case reserved = "Reserved"
-        case inTransit = "In Transit"
         case underRepair = "Under Repair"
         case missingScan = "Missing Scan"
-        case recent = "Recent"
-        case sold = "Sold"
-
-        var systemImage: String {
-            switch self {
-            case .all:
-                return "shippingbox"
-            case .available:
-                return "checkmark.circle"
-            case .reserved:
-                return "bookmark"
-            case .inTransit:
-                return "arrow.left.arrow.right.circle"
-            case .underRepair:
-                return "wrench.and.screwdriver"
-            case .missingScan:
-                return "clock.badge.exclamationmark"
-            case .recent:
-                return "clock.arrow.circlepath"
-            case .sold:
-                return "bag"
-            }
-        }
     }
 
     public init(categoryFilterMagic: Binding<String?>, repairFilter: Binding<RepairFilter>) {
@@ -156,12 +131,6 @@ public struct ItemsTabView: View {
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItemGroup(placement: .navigationBarTrailing) {
-                    Button {
-                        Task { await reloadItems() }
-                    } label: {
-                        AppToolbarGlyph(systemImage: "arrow.clockwise")
-                    }
-                    .buttonStyle(.plain)
 
                     InventoryManagerProfileButton()
                 }
@@ -244,8 +213,6 @@ public struct ItemsTabView: View {
                             }
                         } label: {
                             HStack(spacing: 5) {
-                                Image(systemName: filter.systemImage)
-                                    .font(.system(size: 11, weight: .bold))
                                 Text(filter.rawValue)
                                     .font(.system(size: 13, weight: .semibold))
                             }
@@ -272,9 +239,6 @@ public struct ItemsTabView: View {
             // ── Active category chip + clear ──────────────────
             if let cat = categoryFilterMagic {
                 HStack(spacing: 8) {
-                    Image(systemName: "folder.fill")
-                        .font(.caption2.bold())
-                        .foregroundColor(.appAccent)
                     Text(cat)
                         .font(.system(size: 12, weight: .medium))
                         .foregroundColor(.appPrimaryText)
@@ -417,14 +381,6 @@ public struct ItemsListFilteredView: View {
                 .buttonStyle(.plain)
             }
 
-            ToolbarItem(placement: .navigationBarTrailing) {
-                Button {
-                    Task { await viewModel.loadDashboardData() }
-                } label: {
-                    AppToolbarGlyph(systemImage: "arrow.clockwise", backgroundColor: .appAccent)
-                }
-                .buttonStyle(.plain)
-            }
         }
     }
 
@@ -653,164 +609,252 @@ public struct ItemDetailSupabaseView: View {
     @Environment(\.presentationMode) var presentationMode
 
     public var body: some View {
-        Form {
-            // ── 1. Item Details ──────────────────────────────────────
-            Section(header: Text("Item Details").headingStyle()) {
-                LabeledContent("Name", value: item.productName)
-                LabeledContent("Category", value: item.category)
-                LabeledContent("RFID Tag", value: item.id)
-                LabeledContent("Serial", value: item.serialId)
-                LabeledContent("Location", value: item.location)
-                HStack {
-                    Text("Status")
-                    Spacer()
-                    ItemStatusBadge(status: item.status)
-                }
-
-                if let tag = item.assetTag {
-                    LabeledContent("Asset Tag", value: tag)
-                }
-            }
-
-            // ── 1.5. Certification Info ──────────────────────────────
-            certificationInfoSection
-
-            // ── 2. Scan & Audit Info ─────────────────────────────────
-            Section(header: Text("Scan & Audit Info").headingStyle()) {
-                if let last = item.lastScannedAt {
-                    LabeledContent(
-                        "Last Scanned",
-                        value: last.formatted(date: .abbreviated, time: .standard))
-                } else {
-                    HStack {
-                        Text("Last Scanned")
-                        Spacer()
-                        Text("Never")
-                            .foregroundColor(.red)
-                    }
-                }
-
-                if let due = item.nextScanDueAt {
-                    HStack {
-                        Text("Next Scan Due")
-                        Spacer()
-                        Text(due.formatted(date: .abbreviated, time: .shortened))
-                            .foregroundColor(Date() > due ? .red : .primary)
-                    }
-                } else {
-                    LabeledContent("Next Scan Due", value: "—")
-                }
-
-                HStack {
-                    Text("Scan Status")
-                    Spacer()
-                    ScanStatusBadge(status: item.scanStatus)
-                }
-
-                LabeledContent("Total Scans", value: "\(item.scanCount)")
-
-                // Scan Now CTA — hidden for repair/scrapped/sold
-                if item.status != .underRepair && item.status != .scrapped && item.status != .sold {
-                    Button(action: performScan) {
-                        HStack {
-                            if isScanning {
-                                ProgressView()
-                                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                    .frame(width: 16, height: 16)
-                            } else {
-                                Image(systemName: "barcode.viewfinder")
-                            }
-                            Text(isScanning ? "Scanning…" : "Scan Now")
-                                .font(.headline)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(item.scanStatus == .overdue ? Color.appBrown : Color.appAccent)
-                        .foregroundColor(.white)
-                        .cornerRadius(12)
-                    }
-                    .disabled(isScanning)
-                }
-            }
-
-            // ── 3. Repair Information ────────────────────────────────
-            if let ticket = item.activeTicket {
-                Section(header: Text("Repair Information").headingStyle()) {
-                    LabeledContent("Issue", value: ticket.issueType)
-                    LabeledContent("Ticket Status", value: ticket.status.rawValue)
-                    if let assigned = ticket.assignedTo {
-                        LabeledContent("Assigned To", value: assigned)
-                    }
-                    if let eta = ticket.eta {
-                        HStack {
-                            LabeledContent(
-                                "ETA", value: eta.formatted(date: .abbreviated, time: .omitted))
-                            if eta < Date() && ticket.status != .completed
-                                && ticket.status != .scrapped
-                            {
-                                Text("OVERDUE")
-                                    .font(.caption2.bold())
-                                    .foregroundColor(.white)
-                                    .padding(.horizontal, 4)
-                                    .padding(.vertical, 2)
-                                    .background(Color.appBrown)
-                                    .cornerRadius(4)
-                            }
-                        }
-                    }
-                }
-            }
-
-            // ── 4. Actions ───────────────────────────────────────────
-            Section {
-                if item.status == .available {
-                    Button(action: { showingRepairSheet = true }) {
-                        Label("Raise Repair Ticket", systemImage: "wrench.and.screwdriver")
-                            .foregroundColor(.appBrown)
-                    }
-                } else if item.status == .underRepair {
-                    NavigationLink(
-                        destination: RepairTicketDetailView(item: $item, viewModel: viewModel)
-                    ) {
-                        Label("View Repair Ticket", systemImage: "doc.text.viewfinder")
-                            .foregroundColor(.appAccent)
-                    }
-                } else if item.status == .sold {
-                    Button(action: { showingReturnSheet = true }) {
-                        Label("Raise Return", systemImage: "arrow.uturn.backward.circle")
-                            .foregroundColor(.appAccent)
-                    }
-                }
-            }
-
-            // ── 5. Activity History ──────────────────────────────────
-            if !auditLogs.isEmpty {
-                Section(header: Text("Activity History").headingStyle()) {
-                    ForEach(auditLogs) { log in
-                        HStack(alignment: .top, spacing: 12) {
-                            Image(systemName: iconName(for: log.action))
-                                .foregroundColor(iconColor(for: log.action))
-                                .frame(width: 20)
-
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(log.action.rawValue)
-                                    .font(.subheadline)
-                                    .foregroundColor(.appPrimaryText)
-                                if let meta = log.metadata, !meta.isEmpty {
-                                    Text(meta)
-                                        .font(.caption2)
+        ZStack {
+            Color.appBackground.ignoresSafeArea()
+            
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 24) {
+                    // ── 1. Item Details ──────────────────────────────────────
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text("Item Details").headingStyle()
+                            .padding(.horizontal, 4)
+                        
+                        ReusableCardView {
+                            VStack(spacing: 0) {
+                                detailRow(label: "Name", value: item.productName)
+                                detailDivider()
+                                detailRow(label: "Category", value: item.category)
+                                detailDivider()
+                                detailRow(label: "RFID Tag", value: item.id)
+                                detailDivider()
+                                detailRow(label: "Serial", value: item.serialId)
+                                detailDivider()
+                                detailRow(label: "Location", value: item.location)
+                                detailDivider()
+                                
+                                HStack {
+                                    Text("Status")
+                                        .font(.subheadline)
                                         .foregroundColor(.appSecondaryText)
+                                    Spacer()
+                                    ItemStatusBadge(status: item.status)
                                 }
-                                Text(log.timestamp.formatted(date: .abbreviated, time: .shortened))
-                                    .font(.caption2)
-                                    .foregroundColor(.appSecondaryText)
+                                .padding(.vertical, 12)
+                                
+                                if let tag = item.assetTag {
+                                    detailDivider()
+                                    detailRow(label: "Asset Tag", value: tag)
+                                }
                             }
                         }
-                        .padding(.vertical, 2)
+                    }
+                    .padding(.horizontal, 20)
+
+                    // ── 1.5. Certification Info ──────────────────────────────
+                    certificationInfoSection
+                        .padding(.horizontal, 20)
+
+                    // ── 2. Scan & Audit Info ─────────────────────────────────
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text("Scan & Audit Info").headingStyle()
+                            .padding(.horizontal, 4)
+                        
+                        ReusableCardView {
+                            VStack(spacing: 0) {
+                                if let last = item.lastScannedAt {
+                                    detailRow(label: "Last Scanned", value: last.formatted(date: .abbreviated, time: .standard))
+                                } else {
+                                    HStack {
+                                        Text("Last Scanned")
+                                            .font(.subheadline)
+                                            .foregroundColor(.appSecondaryText)
+                                        Spacer()
+                                        Text("Never")
+                                            .font(.subheadline.bold())
+                                            .foregroundColor(.red)
+                                    }
+                                    .padding(.vertical, 12)
+                                }
+                                
+                                detailDivider()
+
+                                if let due = item.nextScanDueAt {
+                                    HStack {
+                                        Text("Next Scan Due")
+                                            .font(.subheadline)
+                                            .foregroundColor(.appSecondaryText)
+                                        Spacer()
+                                        Text(due.formatted(date: .abbreviated, time: .shortened))
+                                            .font(.subheadline.bold())
+                                            .foregroundColor(Date() > due ? .red : .appPrimaryText)
+                                    }
+                                    .padding(.vertical, 12)
+                                } else {
+                                    detailRow(label: "Next Scan Due", value: "—")
+                                }
+                                
+                                detailDivider()
+
+                                HStack {
+                                    Text("Scan Status")
+                                        .font(.subheadline)
+                                        .foregroundColor(.appSecondaryText)
+                                    Spacer()
+                                    ScanStatusBadge(status: item.scanStatus)
+                                }
+                                .padding(.vertical, 12)
+                                
+                                detailDivider()
+
+                                detailRow(label: "Total Scans", value: "\(item.scanCount)")
+
+                                // Scan Now CTA
+                                if item.status != .underRepair && item.status != .scrapped && item.status != .sold {
+                                    Button(action: performScan) {
+                                        HStack {
+                                            if isScanning {
+                                                ProgressView()
+                                                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                                    .frame(width: 16, height: 16)
+                                            } else {
+                                                Image(systemName: "barcode.viewfinder")
+                                            }
+                                            Text(isScanning ? "Scanning…" : "Scan Now")
+                                                .font(.headline)
+                                        }
+                                        .frame(maxWidth: .infinity)
+                                        .padding()
+                                        .background(item.scanStatus == .overdue ? Color.appBrown : Color.appAccent)
+                                        .foregroundColor(.white)
+                                        .cornerRadius(12)
+                                    }
+                                    .padding(.top, 16)
+                                    .disabled(isScanning)
+                                }
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 20)
+
+                    // ── 3. Repair Information ────────────────────────────────
+                    if let ticket = item.activeTicket {
+                        VStack(alignment: .leading, spacing: 16) {
+                            Text("Repair Information").headingStyle()
+                                .padding(.horizontal, 4)
+                            
+                            ReusableCardView {
+                                VStack(spacing: 0) {
+                                    detailRow(label: "Issue", value: ticket.issueType)
+                                    detailDivider()
+                                    detailRow(label: "Ticket Status", value: ticket.status.rawValue)
+                                    
+                                    if let assigned = ticket.assignedTo {
+                                        detailDivider()
+                                        detailRow(label: "Assigned To", value: assigned)
+                                    }
+                                    
+                                    if let eta = ticket.eta {
+                                        detailDivider()
+                                        HStack {
+                                            Text("ETA")
+                                                .font(.subheadline)
+                                                .foregroundColor(.appSecondaryText)
+                                            Spacer()
+                                            HStack(spacing: 6) {
+                                                Text(eta.formatted(date: .abbreviated, time: .omitted))
+                                                    .font(.subheadline.bold())
+                                                
+                                                if eta < Date() && ticket.status != .completed && ticket.status != .scrapped {
+                                                    Text("OVERDUE")
+                                                        .font(.system(size: 8, weight: .bold))
+                                                        .foregroundColor(.white)
+                                                        .padding(.horizontal, 4)
+                                                        .padding(.vertical, 2)
+                                                        .background(Color.appBrown)
+                                                        .cornerRadius(4)
+                                                }
+                                            }
+                                        }
+                                        .padding(.vertical, 12)
+                                    }
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 20)
+                    }
+
+                    // ── 4. Actions ───────────────────────────────────────────
+                    VStack(spacing: 12) {
+                        if item.status == .available {
+                            actionButton(label: "Raise Repair Ticket", icon: "wrench.and.screwdriver", color: .appBrown) {
+                                showingRepairSheet = true
+                            }
+                        } else if item.status == .underRepair {
+                            NavigationLink(destination: RepairTicketDetailView(item: $item, viewModel: viewModel)) {
+                                HStack {
+                                    Label("View Repair Ticket", systemImage: "doc.text.viewfinder")
+                                        .font(.headline)
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                }
+                                .padding()
+                                .background(Color.appAccent)
+                                .foregroundColor(.white)
+                                .cornerRadius(12)
+                            }
+                        } else if item.status == .sold {
+                            actionButton(label: "Raise Return", icon: "arrow.uturn.backward.circle", color: .appAccent) {
+                                showingReturnSheet = true
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 20)
+
+                    // ── 5. Activity History ──────────────────────────────────
+                    if !auditLogs.isEmpty {
+                        VStack(alignment: .leading, spacing: 16) {
+                            Text("Activity History").headingStyle()
+                                .padding(.horizontal, 4)
+                            
+                            ReusableCardView {
+                                VStack(spacing: 16) {
+                                    ForEach(auditLogs) { log in
+                                        HStack(alignment: .top, spacing: 12) {
+                                            Image(systemName: iconName(for: log.action))
+                                                .foregroundColor(iconColor(for: log.action))
+                                                .frame(width: 20)
+                                            
+                                            VStack(alignment: .leading, spacing: 2) {
+                                                Text(log.action.rawValue)
+                                                    .font(.subheadline.bold())
+                                                    .foregroundColor(.appPrimaryText)
+                                                if let meta = log.metadata, !meta.isEmpty {
+                                                    Text(meta)
+                                                        .font(.caption)
+                                                        .foregroundColor(.appSecondaryText)
+                                                }
+                                                Text(log.timestamp.formatted(date: .abbreviated, time: .shortened))
+                                                    .font(.caption2)
+                                                    .foregroundColor(.appSecondaryText)
+                                            }
+                                            Spacer()
+                                        }
+                                        
+                                        if log.id != auditLogs.last?.id {
+                                            detailDivider()
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 20)
                     }
                 }
+                .padding(.vertical, 24)
             }
         }
+        .navigationTitle("Item Details")
+        .navigationBarTitleDisplayMode(.inline)
         .navigationTitle("Item Details")
         .sheet(isPresented: $showingRepairSheet) {
             RepairInputView(item: $item, viewModel: viewModel)
@@ -836,60 +880,112 @@ public struct ItemDetailSupabaseView: View {
         }
     }
 
-    private var certificationInfoSection: some View {
-        Section(header: Text("Certification Info").headingStyle()) {
+    private func detailRow(label: String, value: String) -> some View {
+        HStack {
+            Text(label)
+                .font(.subheadline)
+                .foregroundColor(.appSecondaryText)
+            Spacer()
+            Text(value)
+                .font(.subheadline.bold())
+                .foregroundColor(.appPrimaryText)
+        }
+        .padding(.vertical, 12)
+    }
+    
+    private func detailDivider() -> some View {
+        Divider()
+            .overlay(Color.black.opacity(0.08))
+    }
+    
+    private func actionButton(label: String, icon: String, color: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
             HStack {
-                Text("Authenticity")
+                Label(label, systemImage: icon)
+                    .font(.headline)
                 Spacer()
-                AuthenticityBadge(status: item.authenticityStatus)
+                Image(systemName: "chevron.right")
             }
+            .padding()
+            .background(color.opacity(0.12))
+            .foregroundColor(color)
+            .cornerRadius(12)
+        }
+    }
 
-            if certifications.isEmpty {
-                Text("No certifications attached.")
-                    .font(.caption)
-                    .foregroundColor(.appSecondaryText)
-                    .padding(.vertical, 4)
-            } else {
-                ForEach(certifications) { cert in
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack {
-                            Text(cert.type)
-                                .font(.subheadline.bold())
-                            Spacer()
-                            Text(cert.status.rawValue)
-                                .font(.caption2.bold())
-                                .foregroundColor(cert.status == .valid ? .appAccent : .red)
-                        }
-
-                        Text("No: \(cert.certificateNumber)")
+    private var certificationInfoSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Certification Info").headingStyle()
+                .padding(.horizontal, 4)
+            
+            ReusableCardView {
+                VStack(spacing: 0) {
+                    HStack {
+                        Text("Authenticity")
+                            .font(.subheadline)
+                            .foregroundColor(.appSecondaryText)
+                        Spacer()
+                        AuthenticityBadge(status: item.authenticityStatus)
+                    }
+                    .padding(.vertical, 12)
+                    
+                    if certifications.isEmpty {
+                        detailDivider()
+                        Text("No certifications attached.")
                             .font(.caption)
                             .foregroundColor(.appSecondaryText)
-
-                        if let expiry = cert.expiryDate {
-                            Text("Expires: \(expiry.formatted(date: .abbreviated, time: .omitted))")
-                                .font(.caption2)
-                                .foregroundColor(expiry < Date() ? .red : .appSecondaryText)
-                        }
-
-                        if let url = cert.documentURL, let link = URL(string: url) {
-                            Link(destination: link) {
-                                Label("View Document", systemImage: "doc.text.fill")
-                                    .font(.caption.bold())
-                                    .foregroundColor(.appAccent)
+                            .padding(.vertical, 12)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    } else {
+                        ForEach(certifications) { cert in
+                            detailDivider()
+                            VStack(alignment: .leading, spacing: 6) {
+                                HStack {
+                                    Text(cert.type)
+                                        .font(.subheadline.bold())
+                                        .foregroundColor(.appPrimaryText)
+                                    Spacer()
+                                    Text(cert.status.rawValue)
+                                        .font(.caption2.bold())
+                                        .foregroundColor(cert.status == .valid ? .appAccent : .red)
+                                }
+                                
+                                Text("No: \(cert.certificateNumber)")
+                                    .font(.caption)
+                                    .foregroundColor(.appSecondaryText)
+                                
+                                if let expiry = cert.expiryDate {
+                                    Text("Expires: \(expiry.formatted(date: .abbreviated, time: .omitted))")
+                                        .font(.caption2)
+                                        .foregroundColor(expiry < Date() ? .red : .appSecondaryText)
+                                }
+                                
+                                if let url = cert.documentURL, let link = URL(string: url) {
+                                    Link(destination: link) {
+                                        Label("View Document", systemImage: "doc.text.fill")
+                                            .font(.caption.bold())
+                                            .foregroundColor(.appAccent)
+                                    }
+                                    .padding(.top, 4)
+                                }
                             }
-                            .padding(.top, 4)
+                            .padding(.vertical, 12)
                         }
                     }
-                    .padding(.vertical, 4)
+                    
+                    detailDivider()
+                    
+                    Button(action: { showingAddCertificationSheet = true }) {
+                        HStack {
+                            Image(systemName: "plus.circle.fill")
+                            Text("Add Certification")
+                                .font(.subheadline.bold())
+                        }
+                        .foregroundColor(.appAccent)
+                        .padding(.vertical, 12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
                 }
-            }
-
-            Button(action: { showingAddCertificationSheet = true }) {
-                HStack {
-                    Image(systemName: "plus.circle.fill")
-                    Text("Add Certification")
-                }
-                .foregroundColor(.appAccent)
             }
         }
     }
@@ -1026,66 +1122,110 @@ public struct RepairInputView: View {
     ]
 
     public var body: some View {
-        NavigationView {
-            Form {
-                Section(header: Text("Repair Details").headingStyle()) {
-                    Picker("Issue Type", selection: $issueType) {
-                        Text("Select Issue").tag("")
-                        ForEach(issueTypes, id: \.self) { type in
-                            Text(type).tag(type)
+        ZStack {
+            Color.appBackground.ignoresSafeArea()
+            
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 24) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Repair Details").headingStyle()
+                            .padding(.horizontal, 4)
+                        
+                        ReusableCardView {
+                            VStack(spacing: 0) {
+                                HStack {
+                                    Text("Issue Type")
+                                        .font(.subheadline)
+                                        .foregroundColor(.appSecondaryText)
+                                    Spacer()
+                                    Picker("Issue Type", selection: $issueType) {
+                                        Text("Select Issue").tag("")
+                                        ForEach(issueTypes, id: \.self) { type in
+                                            Text(type).tag(type)
+                                        }
+                                    }
+                                    .pickerStyle(MenuPickerStyle())
+                                }
+                                .padding(.vertical, 8)
+                                
+                                Divider().overlay(Color.black.opacity(0.08))
+                                
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Repair Notes")
+                                        .font(.caption.bold())
+                                        .foregroundColor(.appSecondaryText)
+                                    TextEditor(text: $notes)
+                                        .frame(minHeight: 100)
+                                        .scrollContentBackground(.hidden)
+                                        .background(Color.appBackground)
+                                        .cornerRadius(10)
+                                        .padding(4)
+                                }
+                                .padding(.vertical, 12)
+                            }
                         }
                     }
+                    .padding(.horizontal, 20)
 
-                    TextEditor(text: $notes)
-                        .frame(height: 100)
-                        .overlay(
-                            Group {
-                                if notes.isEmpty {
-                                    Text("Add repair notes...")
-                                        .foregroundColor(.gray)
-                                        .padding(.leading, 4)
-                                        .padding(.top, 8)
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Assignment & Timeline").headingStyle()
+                            .padding(.horizontal, 4)
+                        
+                        ReusableCardView {
+                            VStack(spacing: 16) {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Assign To (Optional)")
+                                        .font(.caption.bold())
+                                        .foregroundColor(.appSecondaryText)
+                                    TextField("e.g. Master Goldsmith", text: $assignedTo)
+                                        .textFieldStyle(PlainTextFieldStyle())
+                                        .padding(12)
+                                        .background(Color.appBackground)
+                                        .cornerRadius(10)
                                 }
-                            },
-                            alignment: .topLeading
-                        )
-                }
-
-                Section(header: Text("Assignment & Timeline").headingStyle()) {
-                    TextField("Assign To (Optional)", text: $assignedTo)
-
-                    Toggle("Set ETA", isOn: $useETA)
-
-                    if useETA {
-                        DatePicker(
-                            "Target Date", selection: $eta, in: Date()...,
-                            displayedComponents: .date)
+                                
+                                Divider().overlay(Color.black.opacity(0.08))
+                                
+                                Toggle("Set ETA", isOn: $useETA)
+                                    .font(.subheadline)
+                                    .foregroundColor(.appSecondaryText)
+                                
+                                if useETA {
+                                    DatePicker("Target Date", selection: $eta, in: Date()..., displayedComponents: .date)
+                                        .font(.subheadline)
+                                        .foregroundColor(.appSecondaryText)
+                                }
+                            }
+                        }
                     }
-                }
-
-                Section {
+                    .padding(.horizontal, 20)
+                    
                     Button(action: submitRepair) {
-                        Text("Submit for Repair")
-                            .font(.headline)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(canSubmit ? Color.appAccent : Color.gray)
-                            .foregroundColor(.white)
-                            .cornerRadius(12)
+                        HStack {
+                            Spacer()
+                            Text("Submit for Repair")
+                                .font(.headline)
+                            Spacer()
+                        }
+                        .padding()
+                        .background(canSubmit ? Color.appAccent : CatalogTheme.inactiveBadge)
+                        .foregroundColor(.white)
+                        .cornerRadius(12)
                     }
                     .disabled(!canSubmit)
+                    .padding(.horizontal, 20)
                 }
+                .padding(.vertical, 24)
             }
-            .navigationTitle("Mark for Repair")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        presentationMode.wrappedValue.dismiss()
-                    } label: {
-                        AppToolbarGlyph(systemImage: "xmark", backgroundColor: .appAccent)
-                    }
-                    .buttonStyle(.plain)
+        }
+        .navigationTitle("Mark for Repair")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button { presentationMode.wrappedValue.dismiss() } label: {
+                    AppToolbarGlyph(systemImage: "xmark", backgroundColor: .appAccent)
                 }
+                .buttonStyle(.plain)
             }
         }
     }
@@ -1167,68 +1307,149 @@ public struct RepairTicketDetailView: View {
     }
 
     public var body: some View {
-        Form {
-            if let ticket = item.activeTicket {
-                Section(header: Text("Ticket Info").headingStyle()) {
-                    LabeledContent("Item Name", value: item.productName)
-                    LabeledContent("Issue Type", value: ticket.issueType)
-                    LabeledContent("Description", value: ticket.description)
-                    LabeledContent("Status", value: ticket.status.rawValue)
-                    if let assigned = ticket.assignedTo {
-                        LabeledContent("Assigned To", value: assigned)
-                    }
-                    if let eta = ticket.eta {
-                        LabeledContent(
-                            "ETA", value: eta.formatted(date: .abbreviated, time: .omitted))
-                    }
-                }
-
-                if !availableTransitions.isEmpty {
-                    Section(header: Text("Update Status").headingStyle()) {
-                        ForEach(availableTransitions, id: \.self) { nextStatus in
-                            Button(action: {
-                                updateStatus(to: nextStatus)
-                            }) {
-                                HStack {
-                                    Text("Move to \(nextStatus.rawValue)")
-                                    Spacer()
-                                    Image(systemName: "arrow.right.circle.fill")
+        ZStack {
+            Color.appBackground.ignoresSafeArea()
+            
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 24) {
+                    if let ticket = item.activeTicket {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Ticket Info").headingStyle()
+                                .padding(.horizontal, 4)
+                            
+                            ReusableCardView {
+                                VStack(spacing: 0) {
+                                    detailRow(label: "Item Name", value: item.productName)
+                                    detailDivider()
+                                    detailRow(label: "Issue Type", value: ticket.issueType)
+                                    detailDivider()
+                                    detailRow(label: "Description", value: ticket.description)
+                                    detailDivider()
+                                    detailRow(label: "Status", value: ticket.status.rawValue, valueColor: statusColor(for: ticket.status))
+                                    
+                                    if let assigned = ticket.assignedTo {
+                                        detailDivider()
+                                        detailRow(label: "Assigned To", value: assigned)
+                                    }
+                                    
+                                    if let eta = ticket.eta {
+                                        detailDivider()
+                                        detailRow(label: "ETA", value: eta.formatted(date: .abbreviated, time: .omitted))
+                                    }
                                 }
-                                .foregroundColor(color(for: nextStatus))
                             }
                         }
-                    }
-                }
+                        .padding(.horizontal, 20)
 
-                if !revertTransitions.isEmpty {
-                    Section(header: Text("Revert Status").headingStyle()) {
-                        ForEach(revertTransitions, id: \.self) { prevStatus in
-                            Button(action: {
-                                updateStatus(to: prevStatus)
-                            }) {
-                                HStack {
-                                    Image(systemName: "arrow.uturn.backward.circle.fill")
-                                    Text("Revert to \(prevStatus.rawValue)")
-                                    Spacer()
+                        if !availableTransitions.isEmpty {
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("Update Status").headingStyle()
+                                    .padding(.horizontal, 4)
+                                
+                                ReusableCardView {
+                                    VStack(spacing: 0) {
+                                        ForEach(availableTransitions.indices, id: \.self) { idx in
+                                            let nextStatus = availableTransitions[idx]
+                                            Button(action: { updateStatus(to: nextStatus) }) {
+                                                HStack {
+                                                    Text("Move to \(nextStatus.rawValue)")
+                                                        .font(.subheadline.bold())
+                                                    Spacer()
+                                                    Image(systemName: "arrow.right.circle.fill")
+                                                }
+                                                .foregroundColor(color(for: nextStatus))
+                                                .padding(.vertical, 12)
+                                            }
+                                            
+                                            if idx < availableTransitions.count - 1 {
+                                                detailDivider()
+                                            }
+                                        }
+                                    }
                                 }
-                                .foregroundColor(.orange)
                             }
+                            .padding(.horizontal, 20)
                         }
-                    }
-                }
 
-                if currentStatus == .completed || currentStatus == .scrapped {
-                    Section {
-                        Text("This repair ticket is closed.")
-                            .foregroundColor(.gray)
-                            .italic()
+                        if !revertTransitions.isEmpty {
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("Revert Status").headingStyle()
+                                    .padding(.horizontal, 4)
+                                
+                                ReusableCardView {
+                                    VStack(spacing: 0) {
+                                        ForEach(revertTransitions.indices, id: \.self) { idx in
+                                            let prevStatus = revertTransitions[idx]
+                                            Button(action: { updateStatus(to: prevStatus) }) {
+                                                HStack {
+                                                    Text("Back to \(prevStatus.rawValue)")
+                                                        .font(.subheadline)
+                                                    Spacer()
+                                                    Image(systemName: "arrow.uturn.backward.circle.fill")
+                                                }
+                                                .foregroundColor(.orange)
+                                                .padding(.vertical, 12)
+                                            }
+                                            
+                                            if idx < revertTransitions.count - 1 {
+                                                detailDivider()
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            .padding(.horizontal, 20)
+                        }
+
+                        if currentStatus == .completed || currentStatus == .scrapped {
+                            HStack {
+                                Image(systemName: "lock.fill")
+                                Text("This repair ticket is closed.")
+                                    .font(.subheadline.italic())
+                            }
+                            .foregroundColor(.appSecondaryText)
+                            .padding()
+                            .frame(maxWidth: .infinity)
+                            .background(Color.black.opacity(0.05))
+                            .cornerRadius(12)
+                            .padding(.horizontal, 20)
+                        }
+                    } else {
+                        Text("No active repair ticket found.")
+                            .font(.headline)
+                            .foregroundColor(.appSecondaryText)
+                            .padding()
                     }
                 }
-            } else {
-                Text("No active repair ticket found.")
+                .padding(.vertical, 24)
             }
         }
         .navigationTitle("Repair Ticket")
+    }
+
+    private func detailRow(label: String, value: String, valueColor: Color = .appPrimaryText) -> some View {
+        HStack {
+            Text(label)
+                .font(.subheadline)
+                .foregroundColor(.appSecondaryText)
+            Spacer()
+            Text(value)
+                .font(.subheadline.bold())
+                .foregroundColor(valueColor)
+        }
+        .padding(.vertical, 12)
+    }
+    
+    private func detailDivider() -> some View {
+        Divider().overlay(Color.black.opacity(0.08))
+    }
+
+    private func statusColor(for status: RepairStatus) -> Color {
+        switch status {
+        case .completed: return .green
+        case .failed, .scrapped: return .red
+        default: return .appAccent
+        }
     }
 
     private func updateStatus(to newStatus: RepairStatus) {
@@ -1336,52 +1557,86 @@ public struct RaiseReturnRequestView: View {
     ]
 
     public var body: some View {
-        NavigationView {
-            Form {
-                Section(header: Text("Return Details").headingStyle()) {
-                    Picker("Reason", selection: $selectedReason) {
-                        ForEach(returnReasons, id: \.self) { reason in
-                            Text(reason).tag(reason)
+        ZStack {
+            Color.appBackground.ignoresSafeArea()
+            
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 24) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Return Details").headingStyle()
+                            .padding(.horizontal, 4)
+                        
+                        ReusableCardView {
+                            VStack(spacing: 0) {
+                                HStack {
+                                    Text("Reason")
+                                        .font(.subheadline)
+                                        .foregroundColor(.appSecondaryText)
+                                    Spacer()
+                                    Picker("Reason", selection: $selectedReason) {
+                                        ForEach(returnReasons, id: \.self) { reason in
+                                            Text(reason).tag(reason)
+                                        }
+                                    }
+                                    .pickerStyle(MenuPickerStyle())
+                                }
+                                .padding(.vertical, 8)
+                                
+                                Divider().overlay(Color.black.opacity(0.08))
+                                
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Notes (Optional)")
+                                        .font(.caption.bold())
+                                        .foregroundColor(.appSecondaryText)
+                                    TextField("Additional details...", text: $additionalNotes, axis: .vertical)
+                                        .textFieldStyle(PlainTextFieldStyle())
+                                        .padding(12)
+                                        .background(Color.appBackground)
+                                        .cornerRadius(10)
+                                        .lineLimit(3...5)
+                                }
+                                .padding(.vertical, 12)
+                            }
                         }
                     }
-
-                    TextField("Notes (Optional)", text: $additionalNotes, axis: .vertical)
-                        .lineLimit(2...4)
-                }
-
-                if let errorText {
-                    Section {
-                        Text(errorText)
-                            .font(.caption)
-                            .foregroundColor(.red)
+                    .padding(.horizontal, 20)
+                    
+                    if let errorText {
+                        HStack {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                            Text(errorText)
+                                .font(.caption.bold())
+                        }
+                        .foregroundColor(.red)
+                        .padding()
+                        .frame(maxWidth: .infinity)
+                        .background(Color.red.opacity(0.1))
+                        .cornerRadius(12)
+                        .padding(.horizontal, 20)
                     }
                 }
+                .padding(.vertical, 24)
             }
-            .navigationTitle("Raise Return")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button {
-                        presentationMode.wrappedValue.dismiss()
-                    } label: {
-                        AppToolbarGlyph(systemImage: "xmark", backgroundColor: .appAccent)
-                    }
-                    .buttonStyle(.plain)
+        }
+        .navigationTitle("Raise Return")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button { presentationMode.wrappedValue.dismiss() } label: {
+                    AppToolbarGlyph(systemImage: "xmark", backgroundColor: .appAccent)
                 }
-
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        submitReturn()
-                    } label: {
-                        AppToolbarGlyph(
-                            systemImage: isSubmitting ? "hourglass" : "checkmark",
-                            enabled: !isSubmitting,
-                            backgroundColor: .appAccent
-                        )
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(isSubmitting)
+                .buttonStyle(.plain)
+            }
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button { submitReturn() } label: {
+                    AppToolbarGlyph(
+                        systemImage: isSubmitting ? "hourglass" : "checkmark",
+                        enabled: !isSubmitting,
+                        backgroundColor: .appAccent
+                    )
                 }
+                .buttonStyle(.plain)
+                .disabled(isSubmitting)
             }
         }
     }
@@ -1451,26 +1706,80 @@ public struct ItemDetailView: View {
     let item: InventoryItem
 
     public var body: some View {
-        Form {
-            Section(header: Text("Details").headingStyle()) {
-                LabeledContent("Name", value: item.productName)
-                LabeledContent("Batch", value: item.batchNo)
-                LabeledContent("Serial", value: item.serialId)
-                LabeledContent("RFID Tag", value: item.id)
-                LabeledContent("Location", value: item.location)
-                LabeledContent("Status", value: item.status.rawValue)
-            }
+        ZStack {
+            Color.appBackground.ignoresSafeArea()
+            
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 24) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Details").headingStyle()
+                            .padding(.horizontal, 4)
+                        
+                        ReusableCardView {
+                            VStack(spacing: 0) {
+                                detailRow(label: "Name", value: item.productName)
+                                detailDivider()
+                                detailRow(label: "Batch", value: item.batchNo)
+                                detailDivider()
+                                detailRow(label: "Serial", value: item.serialId)
+                                detailDivider()
+                                detailRow(label: "RFID Tag", value: item.id, valueColor: .appAccent)
+                                detailDivider()
+                                detailRow(label: "Location", value: item.location)
+                                detailDivider()
+                                detailRow(label: "Status", value: item.status.rawValue, valueColor: .appAccent)
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 20)
 
-            Section(header: Text("Scan History").headingStyle()) {
-                HStack {
-                    Image(systemName: "arrow.down.right.circle.fill").foregroundColor(.green)
-                    Text("Ingested via Warehouse Scan")
-                    Spacer()
-                    Text("Today").font(.caption).foregroundColor(.gray)
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Scan History").headingStyle()
+                            .padding(.horizontal, 4)
+                        
+                        ReusableCardView {
+                            HStack(spacing: 12) {
+                                Image(systemName: "arrow.down.right.circle.fill")
+                                    .foregroundColor(.green)
+                                    .font(.title3)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Ingested via Warehouse Scan")
+                                        .font(.subheadline.bold())
+                                        .foregroundColor(.appPrimaryText)
+                                    Text("Initial registration into RSMS")
+                                        .font(.caption)
+                                        .foregroundColor(.appSecondaryText)
+                                }
+                                Spacer()
+                                Text("Today")
+                                    .font(.caption)
+                                    .foregroundColor(.appSecondaryText)
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 20)
                 }
+                .padding(.vertical, 24)
             }
         }
         .navigationTitle("Item Details")
+    }
+
+    private func detailRow(label: String, value: String, valueColor: Color = .appPrimaryText) -> some View {
+        HStack {
+            Text(label)
+                .font(.subheadline)
+                .foregroundColor(.appSecondaryText)
+            Spacer()
+            Text(value)
+                .font(.subheadline.bold())
+                .foregroundColor(valueColor)
+        }
+        .padding(.vertical, 12)
+    }
+    
+    private func detailDivider() -> some View {
+        Divider().overlay(Color.black.opacity(0.08))
     }
 }
 
@@ -1496,62 +1805,139 @@ public struct AddItemManualView: View {
     ]
 
     public var body: some View {
-        NavigationView {
-            Form {
-                Section(header: Text("Product Details").headingStyle()) {
-                    Picker("Select Product", selection: $selectedProduct) {
-                        Text("Choose a product...").tag(nil as Product?)
-                        ForEach(viewModel.products, id: \.id) { product in
-                            Text(product.name).tag(product as Product?)
+        ZStack {
+            Color.appBackground.ignoresSafeArea()
+            
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 24) {
+                    // 1. Product Selection
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Product Details").headingStyle()
+                            .padding(.horizontal, 4)
+                        
+                        ReusableCardView {
+                            VStack(spacing: 0) {
+                                HStack {
+                                    Text("Select Product")
+                                        .font(.subheadline)
+                                        .foregroundColor(.appSecondaryText)
+                                    Spacer()
+                                    Picker("Product", selection: $selectedProduct) {
+                                        Text("Choose...").tag(nil as Product?)
+                                        ForEach(viewModel.products, id: \.id) { product in
+                                            Text(product.name).tag(product as Product?)
+                                        }
+                                    }
+                                    .pickerStyle(MenuPickerStyle())
+                                }
+                                .padding(.vertical, 8)
+                                
+                                if let product = selectedProduct {
+                                    Divider().overlay(Color.black.opacity(0.08))
+                                    HStack {
+                                        Text("Category")
+                                            .font(.subheadline)
+                                            .foregroundColor(.appSecondaryText)
+                                        Spacer()
+                                        Text(product.category.isEmpty ? "General" : product.category)
+                                            .font(.subheadline.bold())
+                                            .foregroundColor(.appPrimaryText)
+                                    }
+                                    .padding(.vertical, 12)
+                                }
+                            }
                         }
                     }
-
-                    if let product = selectedProduct {
-                        LabeledContent(
-                            "Category",
-                            value: product.category.isEmpty ? "General" : product.category
-                        )
-                        .foregroundColor(.appSecondaryText)
-                    }
-                }
-
-                Section(header: Text("Identification").headingStyle()) {
-                    HStack {
-                        Text("RFID Tag")
-                            .foregroundColor(.appSecondaryText)
-                        Spacer()
-                        Text(rfid)
-                            .font(.system(.body, design: .monospaced))
-                            .foregroundColor(.appAccent)
-                    }
-
-                    TextField("Batch Number", text: $batchNo)
-                    TextField("Asset Tag (e.g. RSMS-2024-001)", text: $assetTag)
-                }
-
-                Section(header: Text("Location").headingStyle()) {
-                    Picker("Storage Location", selection: $location) {
-                        ForEach(viewModel.locations, id: \.self) { loc in
-                            Text(loc).tag(loc)
+                    .padding(.horizontal, 20)
+                    
+                    // 2. Identification
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Identification").headingStyle()
+                            .padding(.horizontal, 4)
+                        
+                        ReusableCardView {
+                            VStack(spacing: 16) {
+                                HStack {
+                                    Text("RFID Tag")
+                                        .font(.subheadline)
+                                        .foregroundColor(.appSecondaryText)
+                                    Spacer()
+                                    Text(rfid)
+                                        .font(.system(.body, design: .monospaced).bold())
+                                        .foregroundColor(.appAccent)
+                                }
+                                
+                                Divider().overlay(Color.black.opacity(0.08))
+                                
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Batch Number")
+                                        .font(.caption.bold())
+                                        .foregroundColor(.appSecondaryText)
+                                    TextField("e.g. B-MANUAL", text: $batchNo)
+                                        .textFieldStyle(PlainTextFieldStyle())
+                                        .padding(12)
+                                        .background(Color.appBackground)
+                                        .cornerRadius(10)
+                                }
+                                
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Asset Tag")
+                                        .font(.caption.bold())
+                                        .foregroundColor(.appSecondaryText)
+                                    TextField("e.g. RSMS-2024-001", text: $assetTag)
+                                        .textFieldStyle(PlainTextFieldStyle())
+                                        .padding(12)
+                                        .background(Color.appBackground)
+                                        .cornerRadius(10)
+                                }
+                            }
                         }
                     }
-                }
-
-                if let err = errorText {
-                    Section {
+                    .padding(.horizontal, 20)
+                    
+                    // 3. Location
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Location").headingStyle()
+                            .padding(.horizontal, 4)
+                        
+                        ReusableCardView {
+                            HStack {
+                                Text("Storage Location")
+                                    .font(.subheadline)
+                                    .foregroundColor(.appSecondaryText)
+                                Spacer()
+                                Picker("Location", selection: $location) {
+                                    ForEach(viewModel.locations, id: \.self) { loc in
+                                        Text(loc).tag(loc)
+                                    }
+                                }
+                                .pickerStyle(MenuPickerStyle())
+                            }
+                            .padding(.vertical, 8)
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    
+                    if let err = errorText {
                         HStack {
                             Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundColor(.red)
                             Text(err)
-                                .foregroundColor(.red)
-                                .font(.caption)
+                                .font(.caption.bold())
                         }
+                        .foregroundColor(.red)
+                        .padding()
+                        .frame(maxWidth: .infinity)
+                        .background(Color.red.opacity(0.1))
+                        .cornerRadius(12)
+                        .padding(.horizontal, 20)
                     }
                 }
+                .padding(.vertical, 24)
             }
-            .navigationTitle("Add Manual Item")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
+        }
+        .navigationTitle("Add Manual Item")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button {
                         presentationMode.wrappedValue.dismiss()
@@ -1647,126 +2033,195 @@ public struct AddCertificationView: View {
     let certificationTypes = ["Authenticity", "Warranty", "Appraisal", "Export License", "Other"]
 
     public var body: some View {
-        NavigationView {
-            Form {
-                Section(header: Text("Certification Details").headingStyle()) {
-                    Picker("Type", selection: $selectedType) {
-                        ForEach(certificationTypes, id: \.self) { type in
-                            Text(type).tag(type)
+        ZStack {
+            Color.appBackground.ignoresSafeArea()
+            
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 24) {
+                    // 1. Details
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Certification Details").headingStyle()
+                            .padding(.horizontal, 4)
+                        
+                        ReusableCardView {
+                            VStack(spacing: 0) {
+                                HStack {
+                                    Text("Type")
+                                        .font(.subheadline)
+                                        .foregroundColor(.appSecondaryText)
+                                    Spacer()
+                                    Picker("Type", selection: $selectedType) {
+                                        ForEach(certificationTypes, id: \.self) { type in
+                                            Text(type).tag(type)
+                                        }
+                                    }
+                                    .pickerStyle(MenuPickerStyle())
+                                }
+                                .padding(.vertical, 8)
+                                
+                                Divider().overlay(Color.black.opacity(0.08))
+                                
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Certificate Number")
+                                        .font(.caption.bold())
+                                        .foregroundColor(.appSecondaryText)
+                                    TextField(referenceCertificateNumber, text: $certificateNumber)
+                                        .textFieldStyle(PlainTextFieldStyle())
+                                        .padding(12)
+                                        .background(Color.appBackground)
+                                        .cornerRadius(10)
+                                }
+                                .padding(.vertical, 12)
+                                
+                                Divider().overlay(Color.black.opacity(0.08))
+                                
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Issued By")
+                                        .font(.caption.bold())
+                                        .foregroundColor(.appSecondaryText)
+                                    TextField("e.g. RSMS Authority", text: $issuedBy)
+                                        .textFieldStyle(PlainTextFieldStyle())
+                                        .padding(12)
+                                        .background(Color.appBackground)
+                                        .cornerRadius(10)
+                                }
+                                .padding(.vertical, 12)
+                            }
                         }
                     }
-
-                    TextField(referenceCertificateNumber, text: $certificateNumber)
-                    TextField("RSMS Certification Authority", text: $issuedBy)
-                }
-
-                Section(header: Text("Timeline").headingStyle()) {
-                    DatePicker("Issued Date", selection: $issuedDate, displayedComponents: .date)
-
-                    Toggle("Has Expiry Date", isOn: $hasExpiry)
-                    if hasExpiry {
-                        DatePicker(
-                            "Expiry Date", selection: $expiryDate, displayedComponents: .date)
+                    .padding(.horizontal, 20)
+                    
+                    // 2. Timeline
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Timeline").headingStyle()
+                            .padding(.horizontal, 4)
+                        
+                        ReusableCardView {
+                            VStack(spacing: 0) {
+                                DatePicker("Issued Date", selection: $issuedDate, displayedComponents: .date)
+                                    .font(.subheadline)
+                                    .foregroundColor(.appSecondaryText)
+                                    .padding(.vertical, 8)
+                                
+                                Divider().overlay(Color.black.opacity(0.08))
+                                
+                                Toggle("Has Expiry Date", isOn: $hasExpiry)
+                                    .font(.subheadline)
+                                    .foregroundColor(.appSecondaryText)
+                                    .padding(.vertical, 8)
+                                
+                                if hasExpiry {
+                                    Divider().overlay(Color.black.opacity(0.08))
+                                    DatePicker("Expiry Date", selection: $expiryDate, displayedComponents: .date)
+                                        .font(.subheadline)
+                                        .foregroundColor(.appSecondaryText)
+                                        .padding(.vertical, 8)
+                                }
+                            }
+                        }
                     }
-                }
-
-                Section(header: Text("Document").headingStyle()) {
-                    Toggle("Attach Supporting Document", isOn: $attachDocument)
-
-                    if let url = selectedFileURL, attachDocument {
+                    .padding(.horizontal, 20)
+                    
+                    // 3. Document
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Document").headingStyle()
+                            .padding(.horizontal, 4)
+                        
+                        ReusableCardView {
+                            VStack(spacing: 16) {
+                                Toggle("Attach Supporting Document", isOn: $attachDocument)
+                                    .font(.subheadline)
+                                    .foregroundColor(.appSecondaryText)
+                                
+                                if attachDocument {
+                                    Divider().overlay(Color.black.opacity(0.08))
+                                    
+                                    Button(action: { showingFileImporter = true }) {
+                                        HStack {
+                                            Image(systemName: selectedFileURL != nil ? "doc.fill" : "doc.badge.plus")
+                                            Text(selectedFileURL?.lastPathComponent ?? "Select Certificate File")
+                                                .lineLimit(1)
+                                        }
+                                        .font(.subheadline.bold())
+                                        .frame(maxWidth: .infinity)
+                                        .padding()
+                                        .background(Color.appAccent.opacity(0.12))
+                                        .foregroundColor(.appAccent)
+                                        .cornerRadius(10)
+                                    }
+                                    
+                                    if let url = selectedFileURL {
+                                        HStack {
+                                            Image(systemName: "checkmark.circle.fill")
+                                                .foregroundColor(.green)
+                                            Text("File attached: \(url.lastPathComponent)")
+                                                .font(.caption)
+                                                .foregroundColor(.appSecondaryText)
+                                            Spacer()
+                                            Button(action: { selectedFileURL = nil }) {
+                                                Image(systemName: "trash")
+                                                    .foregroundColor(.red)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    
+                    if let err = errorText {
                         HStack {
-                            Image(systemName: "doc.text.fill")
-                                .foregroundColor(.appAccent)
-                            Text(url.lastPathComponent)
-                                .font(.subheadline)
-                                .lineLimit(1)
-                                .truncationMode(.middle)
-                            Spacer()
-                            Button(action: { selectedFileURL = nil }) {
-                                Image(systemName: "xmark.circle.fill")
-                                    .foregroundColor(.gray)
-                            }
+                            Image(systemName: "exclamationmark.triangle.fill")
+                            Text(err)
+                                .font(.caption.bold())
                         }
-                    } else {
-                        Button(action: { showingFileImporter = true }) {
-                            HStack {
-                                Image(systemName: "paperclip")
-                                Text("Select Document (PDF/Image)")
-                            }
-                            .foregroundColor(attachDocument ? .appAccent : .appSecondaryText)
-                        }
-                        .disabled(!attachDocument)
-                    }
-
-                    Text(
-                        attachDocument
-                            ? "Attach a certificate file now or save and upload supporting proof later."
-                            : "A certification record can be saved without attaching a document."
-                    )
-                    .font(.caption)
-                    .foregroundColor(.appSecondaryText)
-                    .padding(.vertical, 4)
-                }
-
-                if let error = errorText {
-                    Section {
-                        Text(error)
-                            .foregroundColor(.red)
-                            .font(.caption)
-                    }
-                }
-
-                Section {
-                    Button(action: saveCertification) {
-                        HStack {
-                            Spacer()
-                            if isUploading {
-                                ProgressView().tint(.white)
-                            } else {
-                                Text("Save Certification")
-                                    .font(.headline)
-                            }
-                            Spacer()
-                        }
+                        .foregroundColor(.red)
                         .padding()
-                        .background(canSave ? Color.appAccent : Color.gray)
-                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .background(Color.red.opacity(0.1))
                         .cornerRadius(12)
+                        .padding(.horizontal, 20)
                     }
-                    .disabled(!canSave || isUploading)
-                    .listRowBackground(Color.clear)
-                    .listRowInsets(EdgeInsets())
                 }
+                .padding(.vertical, 24)
             }
-            .navigationTitle("Add Certification")
-            .navigationBarTitleDisplayMode(.inline)
-            .onAppear(perform: seedReferenceValuesIfNeeded)
-            .onChange(of: attachDocument) { _, newValue in
-                if !newValue {
-                    selectedFileURL = nil
+        }
+        .navigationTitle("Add Certification")
+        .navigationBarTitleDisplayMode(.inline)
+        .onAppear(perform: seedReferenceValuesIfNeeded)
+        .onChange(of: attachDocument) { newValue in
+            if !newValue { selectedFileURL = nil }
+        }
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button { presentationMode.wrappedValue.dismiss() } label: {
+                    AppToolbarGlyph(systemImage: "xmark", backgroundColor: .appAccent)
                 }
+                .buttonStyle(.plain)
             }
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button {
-                        presentationMode.wrappedValue.dismiss()
-                    } label: {
-                        AppToolbarGlyph(systemImage: "xmark", backgroundColor: .appAccent)
-                    }
-                    .buttonStyle(.plain)
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button { saveCertification() } label: {
+                    AppToolbarGlyph(
+                        systemImage: isUploading ? "hourglass" : "checkmark",
+                        enabled: !isUploading && canSave,
+                        backgroundColor: .appAccent
+                    )
                 }
+                .buttonStyle(.plain)
+                .disabled(isUploading || !canSave)
             }
-            .fileImporter(
-                isPresented: $showingFileImporter,
-                allowedContentTypes: [.pdf, .image],
-                allowsMultipleSelection: false
-            ) { result in
-                switch result {
-                case .success(let urls):
-                    selectedFileURL = urls.first
-                case .failure(let error):
-                    errorText = error.localizedDescription
-                }
+        }
+        .fileImporter(
+            isPresented: $showingFileImporter,
+            allowedContentTypes: [.pdf, .image],
+            allowsMultipleSelection: false
+        ) { result in
+            switch result {
+            case .success(let urls):
+                selectedFileURL = urls.first
+            case .failure(let error):
+                errorText = error.localizedDescription
             }
         }
     }

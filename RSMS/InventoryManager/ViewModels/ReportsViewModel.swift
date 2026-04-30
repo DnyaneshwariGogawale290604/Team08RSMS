@@ -11,17 +11,34 @@ public class ReportsViewModel: ObservableObject {
 
     private var cancellables = Set<AnyCancellable>()
 
+    private var syncTimer: Timer?
+    
     public init() {
         // Refresh whenever an exception is resolved OR any inventory data changes (scans, GRN, transfers)
         let exceptionResolved = NotificationCenter.default.publisher(for: NSNotification.Name("ExceptionResolved"))
         let dataChanged = NotificationCenter.default.publisher(for: .inventoryManagerDataDidChange)
-
+        
         Publishers.Merge(exceptionResolved, dataChanged)
             .debounce(for: .milliseconds(500), scheduler: RunLoop.main)
             .sink { [weak self] _ in
                 Task { await self?.fetchData() }
             }
             .store(in: &cancellables)
+            
+        startAutoSync()
+    }
+    
+    deinit {
+        syncTimer?.invalidate()
+    }
+    
+    private func startAutoSync() {
+        // Automatically refresh every 45 seconds (reports are less time-critical than items)
+        syncTimer = Timer.scheduledTimer(withTimeInterval: 45.0, repeats: true) { _ in
+            Task { @MainActor [weak self] in
+                await self?.fetchData()
+            }
+        }
     }
 
     public func fetchData() async {

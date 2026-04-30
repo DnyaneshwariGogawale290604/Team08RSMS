@@ -31,12 +31,6 @@ public struct ReportsTabView: View {
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItemGroup(placement: .navigationBarTrailing) {
-                    Button {
-                        Task { await vm.fetchData() }
-                    } label: {
-                        AppToolbarGlyph(systemImage: "arrow.clockwise")
-                    }
-                    .buttonStyle(.plain)
 
                     Button {
                         exportPDF()

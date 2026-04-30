@@ -14,7 +14,24 @@ public final class InventoryDashboardViewModel: ObservableObject {
     @Published public var vendorOrders: [VendorOrder] = []
     @Published public var isLoading = false
     
-    public init() {}
+    private var syncTimer: Timer?
+    
+    public init() {
+        startAutoSync()
+    }
+    
+    deinit {
+        syncTimer?.invalidate()
+    }
+    
+    private func startAutoSync() {
+        // Automatically refresh every 30 seconds
+        syncTimer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: true) { _ in
+            Task { @MainActor [weak self] in
+                await self?.loadDashboardData()
+            }
+        }
+    }
     
     @Published public var storeInventory: [StoreInventory] = []
     @Published public var sales: [SalesOrder] = []
@@ -189,11 +206,6 @@ public final class InventoryDashboardViewModel: ObservableObject {
         return activeOrders.reduce(0) { $0 + ($1.quantity ?? 0) }
     }
 
-    public func isRecent(_ item: InventoryItem) -> Bool {
-        let recentCutoff = Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date()
-        let referenceDate = item.lastScannedAt ?? item.timestamp
-        return referenceDate >= recentCutoff
-    }
 
     public func matches(_ item: InventoryItem, filter: ItemsTabView.RepairFilter) -> Bool {
         guard item.status != .scrapped else { return false }
@@ -203,18 +215,10 @@ public final class InventoryDashboardViewModel: ObservableObject {
             return true
         case .available:
             return item.status == .available
-        case .reserved:
-            return item.status == .reserved
-        case .inTransit:
-            return item.status == .inTransit
         case .underRepair:
             return item.status == .underRepair
         case .missingScan:
             return item.scanStatus == .overdue
-        case .recent:
-            return isRecent(item)
-        case .sold:
-            return item.status == .sold
         }
     }
     
