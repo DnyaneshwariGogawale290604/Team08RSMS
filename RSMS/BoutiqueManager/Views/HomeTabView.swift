@@ -435,15 +435,6 @@ struct LowStockDropdownCard: View {
                             .tracking(1)
                     }
                     Spacer()
-                    if alertCount > 0 {
-                        Text("\(alertCount) item\(alertCount == 1 ? "" : "s")")
-                            .font(.caption)
-                            .fontWeight(.bold)
-                            .foregroundColor(BoutiqueTheme.error)
-                            .padding(.horizontal, 8).padding(.vertical, 3)
-                            .background(BoutiqueTheme.error.opacity(0.1))
-                            .cornerRadius(8)
-                    }
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundColor(BoutiqueTheme.textSecondary)

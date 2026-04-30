@@ -38,7 +38,7 @@ public struct InventoryManagementView: View {
                     AppSegmentedControl(
                         options: [
                             AppSegmentedOption(id: 0, title: "Stock Levels"),
-                            AppSegmentedOption(id: 1, title: "Low Stock", badge: alertCount > 0 ? "\(alertCount)" : nil)
+                            AppSegmentedOption(id: 1, title: "Low Stock", badge: nil)
                         ],
                         selection: $selectedTab
                     )

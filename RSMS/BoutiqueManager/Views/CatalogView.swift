@@ -168,20 +168,6 @@ struct BoutiqueProductCardView: View {
                         .foregroundColor(CatalogTheme.deepAccent)
 
                     Spacer()
-
-                    HStack(spacing: 4) {
-                        Image(systemName: product.stockStatus == .urgent ? "exclamationmark.triangle.fill" : "shippingbox.fill")
-                            .font(.system(size: 10))
-                        Text("\(product.stockQuantity ?? 0)")
-                            .font(.system(size: 12, weight: .bold))
-                    }
-                    .foregroundColor(stockBadgeForeground)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(stockBadgeBackground)
-                    )
                 }
             }
             .padding(.horizontal, 12)
