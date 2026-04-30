@@ -71,7 +71,7 @@ struct AdminDashboardView: View {
                     .padding(20)
                 }
             }
-            .navigationTitle("Overview")
+            .navigationTitle("Dashboard")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -180,7 +180,7 @@ struct AdminDashboardView: View {
                 Text(value)
                     .font(.system(size: 16, weight: .bold))
                     .foregroundColor(CatalogTheme.primaryText)
-                Text(label)
+                Text(LocalizedStringKey(label))
                     .font(.system(size: 10, weight: .bold))
                     .foregroundColor(CatalogTheme.secondaryText)
                     .textCase(.uppercase)
@@ -258,7 +258,7 @@ struct AdminDashboardView: View {
                                     .fill(categoryColor(at: index))
                                     .frame(width: 8, height: 8)
                                 
-                                Text(item.category)
+                                Text(LocalizedStringKey(item.category))
                                     .font(.system(size: 13, weight: .medium))
                                     .foregroundColor(CatalogTheme.primaryText)
                                 

@@ -1321,7 +1321,7 @@ private struct VendorDetailSheet: View {
                 .frame(width: 28)
             
             VStack(alignment: .leading, spacing: 4) {
-                Text(label)
+                Text(LocalizedStringKey(label))
                     .font(.system(size: 13, weight: .medium, design: .serif))
                     .foregroundColor(CatalogTheme.secondaryText)
                 
@@ -1330,7 +1330,7 @@ private struct VendorDetailSheet: View {
                         .font(.system(size: 15, design: .serif))
                         .foregroundColor(CatalogTheme.primaryText)
                 } else {
-                    Text(value)
+                    Text(LocalizedStringKey(value))
                         .font(.system(size: 15, design: .serif))
                         .foregroundColor(CatalogTheme.primaryText)
                 }

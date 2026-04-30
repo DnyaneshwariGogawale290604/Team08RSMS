@@ -125,7 +125,7 @@ public struct StoreOverviewTab: View {
 
     private func infoRow(title: String, value: String) -> some View {
         HStack(alignment: .top, spacing: 16) {
-            Text(title)
+            Text(LocalizedStringKey(title))
                 .font(.system(size: 14, design: .serif))
                 .foregroundColor(CatalogTheme.secondaryText)
             Spacer()
@@ -160,11 +160,11 @@ public struct StoreOverviewTab: View {
                 .clipShape(Circle())
             
             VStack(alignment: .leading, spacing: 0) {
-                Text(value)
+                Text(LocalizedStringKey(value))
                     .font(.system(size: 20, weight: .bold, design: .serif))
                     .foregroundColor(CatalogTheme.primaryText)
                 
-                Text(title)
+                Text(LocalizedStringKey(title))
                     .font(.system(size: 12, weight: .medium, design: .serif))
                     .foregroundColor(CatalogTheme.secondaryText)
             }

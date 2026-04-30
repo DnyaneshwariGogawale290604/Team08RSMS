@@ -37,7 +37,7 @@ public struct AppSegmentedControl<Selection: Hashable>: View {
                     }
                 } label: {
                     HStack(spacing: 6) {
-                        Text(option.title)
+                        Text(LocalizedStringKey(option.title))
                             .font(.system(size: 13, weight: isSelected ? .semibold : .medium))
                             .lineLimit(1)
                             .minimumScaleFactor(0.8)

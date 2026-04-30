@@ -39,7 +39,7 @@ public struct StoreListView: View {
                         AdminWarehouseListView(viewModel: warehouseViewModel, showingAddWarehouse: $showingAddWarehouse)
                     }
                 }
-                .navigationTitle("Infrastructure")
+                .navigationTitle("Stores")
             }
             .background(CatalogTheme.background)
             .refreshable {
