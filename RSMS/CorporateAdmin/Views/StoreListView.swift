@@ -57,6 +57,8 @@ public struct StoreListView: View {
                             .font(.system(size: 15, weight: .semibold))
                             .foregroundColor(CatalogTheme.primaryText)
                     }
+
+                    CorporateAdminProfileButton(sessionViewModel: sessionViewModel)
                 }
             }
             .onAppear {

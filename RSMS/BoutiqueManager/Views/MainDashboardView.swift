@@ -15,7 +15,6 @@ public struct MainDashboardView: View {
         TabView {
             HomeTabView()
                 .environmentObject(dashboardVM)
-                .environmentObject(sessionViewModel)
                 .tabItem {
                     Label("Dashboard", systemImage: "square.grid.2x2")
                 }
@@ -46,6 +45,7 @@ public struct MainDashboardView: View {
         .preferredColorScheme(.light)
         .toolbarBackground(.visible, for: .tabBar)
         .toolbarBackground(BoutiqueTheme.card, for: .tabBar)
+        .environmentObject(sessionViewModel)
         .onAppear {
             configureTabBarAppearance()
             configureNavigationBarAppearance()

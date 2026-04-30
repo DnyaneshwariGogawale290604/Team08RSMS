@@ -261,13 +261,14 @@ final class SalesAssociateViewModel: ObservableObject {
                     let price: Double
                     let category: String?
                     let brand_id: String?
+                    let image_url: String?
                 }
             }
 
             // Fetch ALL historical order_items joined with products (no artificial cap)
             let rows: [OrderItemRow] = try await client
                 .from("order_items")
-                .select("product_id, quantity, products(name, price, category, brand_id)")
+                .select("product_id, quantity, products(name, price, category, brand_id, image_url)")
                 .limit(2000)
                 .execute()
                 .value
@@ -275,7 +276,7 @@ final class SalesAssociateViewModel: ObservableObject {
             print("[fetchTrendingProducts] fetched \(rows.count) rows, brand=\(brandIdLower)")
 
             // Filter to this brand using case-insensitive comparison and aggregate
-            var totals: [UUID: (name: String, category: String, price: Double, count: Int)] = [:]
+            var totals: [UUID: (name: String, category: String, price: Double, count: Int, imageUrl: String?)] = [:]
             for row in rows {
                 guard let info = row.products,
                       (info.brand_id ?? "").lowercased() == brandIdLower else { continue }
@@ -284,14 +285,16 @@ final class SalesAssociateViewModel: ObservableObject {
                         existing.name,
                         existing.category,
                         existing.price,
-                        existing.count + row.quantity
+                        existing.count + row.quantity,
+                        existing.imageUrl ?? info.image_url
                     )
                 } else {
                     totals[row.product_id] = (
                         info.name,
                         info.category ?? "",
                         info.price,
-                        row.quantity
+                        row.quantity,
+                        info.image_url
                     )
                 }
             }
@@ -314,7 +317,8 @@ final class SalesAssociateViewModel: ObservableObject {
                     category: info.category,
                     price: info.price,
                     soldCount: info.count,
-                    trendScore: score
+                    trendScore: score,
+                    imageUrl: info.imageUrl
                 )
             }
             print("[fetchTrendingProducts] result: \(trendingProducts.map { "\($0.name): \($0.soldCount)" })")

@@ -12,11 +12,9 @@ public struct CorporateAdminProfileButton: View {
         Button {
             showingAccountSheet = true
         } label: {
-            Image(systemName: "person.crop.circle.fill")
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundColor(CatalogTheme.primaryText)
-                .accessibilityLabel("Account")
+            AppProfileToolbarButton()
         }
+        .buttonStyle(.plain)
         .sheet(isPresented: $showingAccountSheet) {
             CorporateAdminAccountSheet(sessionViewModel: sessionViewModel)
         }

@@ -46,12 +46,14 @@ public struct TransfersTabView: View {
 
             VStack(spacing: 0) {
                 // Section picker
-                Picker("Section", selection: $selectedSection) {
-                    Text("Purchase Orders").tag(0)
-                    Text("Pick Lists").tag(1)
-                    Text("Shipments Out").tag(2)
-                }
-                .pickerStyle(SegmentedPickerStyle())
+                AppSegmentedControl(
+                    options: [
+                        AppSegmentedOption(id: 0, title: "Purchase Orders", badge: "\(viewModel.vendorOrders.count)"),
+                        AppSegmentedOption(id: 1, title: "Pick Lists", badge: "\(viewModel.pickLists.count)"),
+                        AppSegmentedOption(id: 2, title: "Shipments Out", badge: "\(viewModel.shipmentsOut.count)")
+                    ],
+                    selection: $selectedSection
+                )
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
 
@@ -127,8 +129,9 @@ public struct TransfersTabView: View {
         }
         .searchable(text: $searchText, prompt: "Search by ID, product, or vendor...")
         .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
+            ToolbarItemGroup(placement: .navigationBarTrailing) {
                 filterMenu
+                InventoryManagerProfileButton()
             }
         }
         .alert("Error", isPresented: $showMainErrorAlert) {

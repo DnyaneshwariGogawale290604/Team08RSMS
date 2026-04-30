@@ -95,7 +95,7 @@ public struct InventoryManagementView: View {
             .toolbarColorScheme(.light, for: .navigationBar)
             
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItemGroup(placement: .navigationBarTrailing) {
                     Button(action: {
                         preselectedProductId = nil
                         showOrderStock = true
@@ -103,6 +103,8 @@ public struct InventoryManagementView: View {
                         Image(systemName: "plus")
                             .foregroundColor(BoutiqueTheme.textPrimary)
                     }
+
+                    BoutiqueProfileButton()
                 }
             }
             .sheet(isPresented: $showOrderStock) {
@@ -128,26 +130,12 @@ struct InventorySegmentedControl: View {
     }
     
     var body: some View {
-        HStack(spacing: 0) {
-            ForEach(Array(tabs.enumerated()), id: \.offset) { index, tab in
-                Button(action: { withAnimation(.easeInOut(duration: 0.2)) { selected = index } }) {
-                    Text(tab.0)
-                        .font(.system(size: 13, weight: selected == index ? .semibold : .regular))
-                        .foregroundColor(selected == index ? .white : BoutiqueTheme.secondaryText)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(
-                            selected == index
-                                ? BoutiqueTheme.primary
-                                : Color.clear
-                        )
-                        .clipShape(Capsule())
-                }
-            }
-        }
-        .padding(4)
-        .background(BoutiqueTheme.card)
-        .clipShape(Capsule())
+        AppSegmentedControl(
+            options: tabs.enumerated().map { index, tab in
+                AppSegmentedOption(id: index, title: tab.0)
+            },
+            selection: $selected
+        )
     }
 }
 

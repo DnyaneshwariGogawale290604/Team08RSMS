@@ -162,6 +162,8 @@ public struct ItemsTabView: View {
                         AppToolbarGlyph(systemImage: "arrow.clockwise")
                     }
                     .buttonStyle(.plain)
+
+                    InventoryManagerProfileButton()
                 }
             }
             .task {

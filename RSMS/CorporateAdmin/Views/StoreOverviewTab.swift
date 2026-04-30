@@ -61,18 +61,17 @@ public struct StoreOverviewTab: View {
                 Text("Sales Performance")
                     .font(.system(size: 16, weight: .bold, design: .serif))
                     .foregroundColor(CatalogTheme.primaryText)
-                
-                Spacer()
-                
-                Picker("Time Range", selection: $viewModel.selectedTimeRange) {
-                    Text("Monthly").tag("monthly")
-                    Text("Yearly").tag("yearly")
-                }
-                .pickerStyle(.segmented)
-                .frame(width: 150)
-                .onChange(of: viewModel.selectedTimeRange) { _ in
-                    Task { await refreshStore() }
-                }
+            }
+
+            AppSegmentedControl(
+                options: [
+                    AppSegmentedOption(id: "monthly", title: "Monthly"),
+                    AppSegmentedOption(id: "yearly", title: "Yearly")
+                ],
+                selection: $viewModel.selectedTimeRange
+            )
+            .onChange(of: viewModel.selectedTimeRange) { _ in
+                Task { await refreshStore() }
             }
 
             VStack(alignment: .leading, spacing: 20) {
@@ -171,4 +170,3 @@ public struct StoreOverviewTab: View {
             }
         }
     }
-

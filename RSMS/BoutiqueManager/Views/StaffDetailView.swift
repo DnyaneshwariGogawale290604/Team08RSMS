@@ -99,11 +99,13 @@ public struct StaffDetailView: View {
                         
                         // Keep the existing appointments/reviews tabs below if needed
                         VStack(alignment: .leading, spacing: 14) {
-                            Picker("Tab", selection: $selectedTab) {
-                                Text("Appointments").tag(0)
-                                Text("Reviews").tag(1)
-                            }
-                            .pickerStyle(SegmentedPickerStyle())
+                            AppSegmentedControl(
+                                options: [
+                                    AppSegmentedOption(id: 0, title: "Appointments", badge: "\(appointments.count)"),
+                                    AppSegmentedOption(id: 1, title: "Reviews", badge: "\(ratings.count)")
+                                ],
+                                selection: $selectedTab
+                            )
                             .padding(.horizontal, 20)
 
                             if isLoading {

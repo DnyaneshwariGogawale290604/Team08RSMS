@@ -154,14 +154,16 @@ public final class InventoryDashboardViewModel: ObservableObject {
         return 0 // Warehouses don't track under repair items directly in RSMS
     }
 
+    public var inTransitShipmentCount: Int {
+        recentActivity.filter { $0.status.lowercased() == "in_transit" }.count
+    }
+
+    public var inTransitOrderCount: Int {
+        vendorOrders.filter { ($0.status ?? "").lowercased() == "in_transit" }.count
+    }
+
     public var inTransitCount: Int {
-        var count = 0
-        for item in inventoryItems {
-            if item.status == .inTransit {
-                count += 1
-            }
-        }
-        return count
+        inTransitShipmentCount + inTransitOrderCount
     }
 
     public var activePurchaseOrderCount: Int {

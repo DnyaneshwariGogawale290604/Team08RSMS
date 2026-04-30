@@ -5,7 +5,6 @@ public struct ProductListView: View {
     @StateObject private var viewModel = ProductViewModel()
     @State private var showingAddProduct = false
     @State private var selectedDetailProduct: Product?
-    @State private var selectedEditProduct: Product?
     @State private var searchText = ""
     @State private var selectedFilter: String = "All"
 
@@ -45,18 +44,9 @@ public struct ProductListView: View {
                         } else {
                             LazyVGrid(columns: gridColumns, spacing: 16) {
                                 ForEach(filteredProducts) { product in
-                                    ProductCardView(
-                                        product: product,
-                                        onTap: {
-                                            selectedDetailProduct = product
-                                        },
-                                        onView: {
-                                            selectedDetailProduct = product
-                                        },
-                                        onEdit: {
-                                            selectedEditProduct = product
-                                        }
-                                    )
+                                    BoutiqueProductCardView(product: product) {
+                                        selectedDetailProduct = product
+                                    }
                                 }
                             }
                             .animation(.easeInOut(duration: 0.22), value: filteredProducts.map(\.id))
@@ -100,6 +90,8 @@ public struct ProductListView: View {
                         AppToolbarGlyph(systemImage: "plus", backgroundColor: CatalogTheme.deepAccent)
                     }
                     .buttonStyle(.plain)
+
+                    CorporateAdminProfileButton(sessionViewModel: sessionViewModel)
                 }
             }
             .task {
@@ -109,13 +101,7 @@ public struct ProductListView: View {
                 AddEditProductView(viewModel: viewModel)
             }
             .sheet(item: $selectedDetailProduct) { product in
-                CorporateProductDetailSheet(product: product) {
-                    selectedDetailProduct = nil
-                    selectedEditProduct = product
-                }
-            }
-            .sheet(item: $selectedEditProduct) { product in
-                AddEditProductView(viewModel: viewModel, editingProduct: product)
+                BoutiqueProductDetailSheet(product: product)
             }
             .alert(
                 "Product Error",

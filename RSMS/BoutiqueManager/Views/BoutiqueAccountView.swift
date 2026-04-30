@@ -1,7 +1,7 @@
 import SwiftUI
 
-struct SalesAssociateProfileButton: View {
-    @ObservedObject var sessionViewModel: SessionViewModel
+struct BoutiqueProfileButton: View {
+    @EnvironmentObject private var sessionViewModel: SessionViewModel
     @State private var showingAccountSheet = false
 
     var body: some View {
@@ -12,13 +12,14 @@ struct SalesAssociateProfileButton: View {
         }
         .buttonStyle(.plain)
         .sheet(isPresented: $showingAccountSheet) {
-            SalesAssociateAccountSheet(sessionViewModel: sessionViewModel)
+            BoutiqueAccountView()
+                .environmentObject(sessionViewModel)
         }
     }
 }
 
-struct SalesAssociateAccountSheet: View {
-    @ObservedObject var sessionViewModel: SessionViewModel
+struct BoutiqueAccountView: View {
+    @EnvironmentObject private var sessionViewModel: SessionViewModel
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -30,15 +31,15 @@ struct SalesAssociateAccountSheet: View {
                     Spacer()
 
                     VStack(spacing: 14) {
-                        Image(systemName: "person.crop.circle.badge.checkmark")
+                        Image(systemName: "storefront.fill")
                             .font(.system(size: 68))
                             .foregroundStyle(Color.luxurySecondaryText)
 
-                        Text("Sales Associate")
+                        Text("Boutique Manager")
                             .font(BrandFont.display(24, weight: .bold))
                             .foregroundStyle(Color.luxuryPrimaryText)
 
-                        Text("Clienteling, appointments, orders, and billing in one place.")
+                        Text("Store operations, inventory visibility, and team coordination in one place.")
                             .font(BrandFont.body(14))
                             .foregroundStyle(Color.luxurySecondaryText)
                             .multilineTextAlignment(.center)
@@ -46,18 +47,16 @@ struct SalesAssociateAccountSheet: View {
                     .padding(.horizontal, 28)
 
                     VStack(spacing: 14) {
-                        HStack(spacing: 12) {
+                        NavigationLink {
+                            StoreProfileView()
+                        } label: {
                             accountInfoCard(
-                                title: "Client Book",
-                                subtitle: "Profiles and preferences",
-                                icon: "person.2.fill"
-                            )
-                            accountInfoCard(
-                                title: "Checkout",
-                                subtitle: "Orders and billing",
-                                icon: "bag.fill"
+                                title: "Boutique Details",
+                                subtitle: "Targets, location, and store configuration",
+                                icon: "building.2.fill"
                             )
                         }
+                        .buttonStyle(.plain)
 
                         Button {
                             Task { await sessionViewModel.signOut() }
@@ -91,21 +90,30 @@ struct SalesAssociateAccountSheet: View {
     }
 
     private func accountInfoCard(title: String, subtitle: String, icon: String) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        HStack(spacing: 14) {
             Image(systemName: icon)
                 .font(.system(size: 18, weight: .semibold))
                 .foregroundStyle(Color.luxuryPrimary)
+                .frame(width: 28)
 
-            Text(title)
-                .font(BrandFont.body(15, weight: .semibold))
-                .foregroundStyle(Color.luxuryPrimaryText)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(BrandFont.body(15, weight: .semibold))
+                    .foregroundStyle(Color.luxuryPrimaryText)
 
-            Text(subtitle)
-                .font(BrandFont.body(12))
+                Text(subtitle)
+                    .font(BrandFont.body(12))
+                    .foregroundStyle(Color.luxurySecondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer()
+
+            Image(systemName: "chevron.right")
+                .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(Color.luxurySecondaryText)
-                .fixedSize(horizontal: false, vertical: true)
         }
-        .frame(maxWidth: .infinity, minHeight: 112, alignment: .topLeading)
+        .frame(maxWidth: .infinity, minHeight: 88, alignment: .leading)
         .padding(16)
         .background(Color.white)
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))

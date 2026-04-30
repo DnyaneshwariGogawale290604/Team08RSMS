@@ -90,6 +90,11 @@ struct CatalogView: View {
             .navigationTitle("Catalog")
             .navigationBarTitleDisplayMode(.large)
             .toolbarColorScheme(.light, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    BoutiqueProfileButton()
+                }
+            }
             
             .onAppear {
                 catalogVM.fetchProducts()
@@ -274,7 +279,7 @@ struct BoutiqueProductCardView: View {
     }
 }
 
-private struct BoutiqueProductDetailSheet: View {
+struct BoutiqueProductDetailSheet: View {
     @Environment(\.dismiss) private var dismiss
     let product: Product
     @State private var selectedVariantId: UUID?

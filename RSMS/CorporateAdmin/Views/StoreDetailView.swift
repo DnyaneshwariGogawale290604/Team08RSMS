@@ -130,13 +130,15 @@ public struct StoreDetailView: View {
     }
 
     private var pickerView: some View {
-        Picker("Details", selection: $selectedTab) {
-            Text("Overview").tag(0)
-            Text("Inventory").tag(1)
-            Text("Assignments").tag(2)
-            Text("Staff").tag(3)
-        }
-        .pickerStyle(.segmented)
+        AppSegmentedControl(
+            options: [
+                AppSegmentedOption(id: 0, title: "Overview"),
+                AppSegmentedOption(id: 1, title: "Inventory"),
+                AppSegmentedOption(id: 2, title: "Assignments"),
+                AppSegmentedOption(id: 3, title: "Staff")
+            ],
+            selection: $selectedTab
+        )
     }
 
     @ViewBuilder
@@ -205,4 +207,3 @@ public struct StoreDetailView: View {
         .buttonStyle(.plain)
     }
 }
-

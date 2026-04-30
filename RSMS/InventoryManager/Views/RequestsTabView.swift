@@ -2,12 +2,9 @@ import SwiftUI
 
 public struct RequestsTabView: View {
     @StateObject private var viewModel = TransfersViewModel()
-    @State private var selectedSection: Int = 0  // 0: Incoming (Boutique), 1: Outgoing (Vendor)
+    @State private var selectedSection: Int = 0
 
-    // State for 2-step flow
     @State private var requestPendingShipment: ProductRequest? = nil
-    @State private var showShipmentSheet = false
-    @State private var stockCheckResults: [UUID: Bool] = [:]   // requestId → canShip
     @State private var rejectTargetRequest: ProductRequest? = nil
     @State private var showRejectAlert = false
     @State private var rejectReason: String = ""
@@ -15,8 +12,10 @@ public struct RequestsTabView: View {
     @State private var showASNBanner = false
     @State private var showErrorAlert = false
     @State private var selectedVendorOrder: VendorOrder? = nil
-    @State private var incomingStatusFilter: String? = nil   // nil = All
-    @State private var outgoingStatusFilter: String? = nil   // nil = All
+    @State private var incomingStatusFilter: String? = nil
+    @State private var outgoingStatusFilter: String? = nil
+    @State private var incomingSearchText = ""
+    @State private var outgoingSearchText = ""
 
     @Binding var selectedTab: Int
     @Binding var prefilledSKUMagic: String?
@@ -28,35 +27,54 @@ public struct RequestsTabView: View {
 
     public var body: some View {
         NavigationView {
-            ZStack {
-                Color.appBackground.ignoresSafeArea()
+            ZStack(alignment: .top) {
+                LinearGradient(
+                    colors: [
+                        Color.appBackground,
+                        Color.luxurySurface.opacity(0.42),
+                        Color.appBackground
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .ignoresSafeArea()
 
                 VStack(spacing: 0) {
-                    Picker("Requests", selection: $selectedSection) {
-                        Text("Incoming (Boutique)").tag(0)
-                        Text("Outgoing (Vendor)").tag(1)
-                    }
-                    .pickerStyle(SegmentedPickerStyle())
-                    .padding()
+                    AppSegmentedControl(
+                        options: [
+                            AppSegmentedOption(id: 0, title: "Incoming", badge: "\(viewModel.pendingRequests.count)"),
+                            AppSegmentedOption(id: 1, title: "Outgoing", badge: "\(viewModel.vendorOrders.count)")
+                        ],
+                        selection: $selectedSection
+                    )
+                    .padding(.horizontal, 16)
+                    .padding(.top, 12)
+                    .padding(.bottom, 10)
 
                     if viewModel.isLoading {
                         Spacer()
-                        ProgressView().progressViewStyle(CircularProgressViewStyle(tint: .appAccent))
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .appAccent))
                         Spacer()
                     } else if selectedSection == 0 {
-                        incomingRequestsSection()
+                        incomingRequestsSection
                     } else {
-                        outgoingRequestsSection()
+                        outgoingRequestsSection
                     }
                 }
 
-                // ASN Banner overlay
                 if showASNBanner, let asn = lastASN {
                     asnToastBanner(asn: asn)
+                        .padding(.top, 8)
                 }
             }
             .navigationTitle("Requests")
             .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    InventoryManagerProfileButton()
+                }
+            }
             .task { await viewModel.loadData() }
             .refreshable { await viewModel.loadData() }
             .onReceive(NotificationCenter.default.publisher(for: .inventoryManagerDataDidChange)) { _ in
@@ -113,8 +131,6 @@ public struct RequestsTabView: View {
         }
     }
 
-    // MARK: - Incoming Requests Section
-
     private let incomingStatuses: [(label: String, value: String?)] = [
         ("All", nil),
         ("Pending", "pending"),
@@ -130,6 +146,217 @@ public struct RequestsTabView: View {
         ("Delivered", "delivered")
     ]
 
+    private var filteredIncomingRequests: [ProductRequest] {
+        viewModel.pendingRequests.filter { request in
+            let matchesStatus = incomingStatusFilter == nil || request.status == incomingStatusFilter
+            let query = incomingSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
+            let haystacks = [
+                request.product?.name ?? "",
+                request.store?.name ?? "",
+                request.id.uuidString,
+                request.status
+            ]
+            let matchesSearch = query.isEmpty || haystacks.contains { $0.localizedCaseInsensitiveContains(query) }
+            return matchesStatus && matchesSearch
+        }
+    }
+
+    private var filteredOutgoingOrders: [VendorOrder] {
+        viewModel.vendorOrders.filter { order in
+            let status = (order.status ?? "").lowercased()
+            let matchesStatus = outgoingStatusFilter == nil || status == outgoingStatusFilter
+            let query = outgoingSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
+            let haystacks = [
+                order.product?.name ?? "",
+                order.vendor?.name ?? "",
+                order.id.uuidString,
+                order.status ?? ""
+            ]
+            let matchesSearch = query.isEmpty || haystacks.contains { $0.localizedCaseInsensitiveContains(query) }
+            return matchesStatus && matchesSearch
+        }
+    }
+
+    private var pendingIncomingCount: Int {
+        viewModel.pendingRequests.filter { $0.status == "pending" }.count
+    }
+
+    private var approvedIncomingCount: Int {
+        viewModel.pendingRequests.filter { $0.status == "approved" }.count
+    }
+
+    private var incomingUnitsTotal: Int {
+        filteredIncomingRequests.reduce(0) { $0 + $1.requestedQuantity }
+    }
+
+    private var outgoingTransitCount: Int {
+        viewModel.vendorOrders.filter { ($0.status ?? "").lowercased() == "in_transit" }.count
+    }
+
+    private var outgoingDeliveredCount: Int {
+        viewModel.vendorOrders.filter { ($0.status ?? "").lowercased() == "delivered" }.count
+    }
+
+    private var outgoingUnitsTotal: Int {
+        filteredOutgoingOrders.reduce(0) { $0 + ($1.quantity ?? 0) }
+    }
+
+    private var incomingRequestsSection: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                queueOverviewCard(
+                    metrics: [
+                        QueueMetric(value: "\(pendingIncomingCount)", label: "pending"),
+                        QueueMetric(value: "\(approvedIncomingCount)", label: "approved"),
+                        QueueMetric(value: "\(incomingUnitsTotal)", label: "units shown")
+                    ]
+                )
+
+                searchField(
+                    text: $incomingSearchText,
+                    prompt: "Search request, product, or boutique"
+                )
+
+                filterChipsRow(statuses: incomingStatuses, selected: $incomingStatusFilter)
+
+                sectionHeader(
+                    title: "Requests",
+                    subtitle: "\(filteredIncomingRequests.count) visible"
+                )
+
+                if filteredIncomingRequests.isEmpty {
+                    EmptyStateView(
+                        icon: "tray",
+                        title: "No Requests",
+                        message: "No incoming requests match your current search or status filter."
+                    )
+                    .padding(.top, 32)
+                } else {
+                    LazyVStack(spacing: 12) {
+                        ForEach(filteredIncomingRequests) { request in
+                            incomingRequestCard(request: request)
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 28)
+        }
+    }
+
+    private var outgoingRequestsSection: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                queueOverviewCard(
+                    metrics: [
+                        QueueMetric(value: "\(outgoingTransitCount)", label: "in transit"),
+                        QueueMetric(value: "\(outgoingDeliveredCount)", label: "delivered"),
+                        QueueMetric(value: "\(outgoingUnitsTotal)", label: "units shown")
+                    ]
+                )
+
+                searchField(
+                    text: $outgoingSearchText,
+                    prompt: "Search PO, product, or vendor"
+                )
+
+                filterChipsRow(statuses: outgoingStatuses, selected: $outgoingStatusFilter)
+
+                sectionHeader(
+                    title: "Purchase Orders",
+                    subtitle: "\(filteredOutgoingOrders.count) visible"
+                )
+
+                if filteredOutgoingOrders.isEmpty {
+                    EmptyStateView(
+                        icon: "shippingbox",
+                        title: "No Vendor Orders",
+                        message: "No outgoing orders match your current search or status filter."
+                    )
+                    .padding(.top, 32)
+                } else {
+                    LazyVStack(spacing: 12) {
+                        ForEach(filteredOutgoingOrders) { order in
+                            vendorOrderCard(for: order)
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 28)
+        }
+    }
+
+    @ViewBuilder
+    private func queueOverviewCard(metrics: [QueueMetric]) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 10) {
+                ForEach(metrics) { metric in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(metric.value)
+                            .font(.system(size: 20, weight: .bold, design: .serif))
+                            .foregroundColor(.white)
+                        Text(metric.label.uppercased())
+                            .font(.system(size: 10, weight: .semibold))
+                            .tracking(0.7)
+                            .foregroundColor(.white.opacity(0.7))
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 62, alignment: .leading)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 12)
+                    .background(Color.white.opacity(0.08))
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                }
+            }
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, minHeight: 102, alignment: .center)
+        .background(
+            LinearGradient(
+                colors: [Color.luxuryDeepAccent, Color.appAccent, Color(hex: "#8C6A70")],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(Color.white.opacity(0.12), lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(0.1), radius: 16, x: 0, y: 10)
+    }
+
+    @ViewBuilder
+    private func searchField(text: Binding<String>, prompt: String) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: "magnifyingglass")
+                .foregroundColor(.appSecondaryText)
+
+            TextField(prompt, text: text)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+
+            if !text.wrappedValue.isEmpty {
+                Button {
+                    text.wrappedValue = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundColor(.appSecondaryText.opacity(0.7))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(Color.appCard.opacity(0.96))
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(Color.appBorder, lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(0.03), radius: 8, x: 0, y: 4)
+    }
+
     @ViewBuilder
     private func filterChipsRow(
         statuses: [(label: String, value: String?)],
@@ -140,196 +367,254 @@ public struct RequestsTabView: View {
                 ForEach(statuses, id: \.label) { chip in
                     let isSelected = selected.wrappedValue == chip.value
                     Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
                             selected.wrappedValue = chip.value
                         }
                     } label: {
                         Text(chip.label)
                             .font(.system(size: 13, weight: .semibold))
                             .foregroundColor(isSelected ? .white : .appAccent)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 8)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 9)
                             .background(
                                 Capsule()
-                                    .fill(isSelected ? Color.appAccent : Color.white)
-                                    .shadow(color: Color.black.opacity(isSelected ? 0.12 : 0.04),
-                                            radius: isSelected ? 4 : 2, x: 0, y: 2)
+                                    .fill(isSelected ? Color.appAccent : Color.white.opacity(0.96))
                             )
+                            .overlay(
+                                Capsule()
+                                    .stroke(isSelected ? Color.clear : Color.appBorder, lineWidth: 1)
+                            )
+                            .shadow(color: Color.black.opacity(isSelected ? 0.08 : 0.03), radius: 6, x: 0, y: 3)
                     }
                     .buttonStyle(.plain)
-                    .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
+            .padding(.vertical, 2)
         }
     }
 
     @ViewBuilder
-    private func incomingRequestsSection() -> some View {
-        let all = viewModel.pendingRequests
-        let filtered = incomingStatusFilter == nil
-            ? all
-            : all.filter { $0.status == incomingStatusFilter }
+    private func sectionHeader(title: String, subtitle: String) -> some View {
+        HStack(alignment: .bottom) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.system(size: 19, weight: .bold, design: .serif))
+                    .foregroundColor(.appPrimaryText)
 
-        VStack(spacing: 0) {
-            filterChipsRow(statuses: incomingStatuses, selected: $incomingStatusFilter)
-            Divider().padding(.bottom, 4)
-
-            if filtered.isEmpty {
-                Spacer()
-                EmptyStateView(
-                    icon: "tray",
-                    title: "No Requests",
-                    message: "No requests match the selected status filter."
-                )
-                Spacer()
-            } else {
-                List {
-                    ForEach(filtered) { request in
-                        incomingRequestCard(request: request)
-                            .listRowInsets(EdgeInsets())
-                            .listRowBackground(Color.clear)
-                            .listRowSeparator(.hidden)
-                            .padding(.vertical, 6)
-                            .padding(.horizontal, 16)
-                    }
-                }
-                .listStyle(.plain)
+                Text(subtitle)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.appSecondaryText)
             }
+
+            Spacer()
         }
     }
 
     @ViewBuilder
     private func incomingRequestCard(request: ProductRequest) -> some View {
-        let canShip = stockCheckResults[request.id]
         let stockQty = request.productId.flatMap { viewModel.stockAvailability[$0] }
 
         VStack(alignment: .leading, spacing: 14) {
-            // Header: Status Badge + REQ ID
-            HStack {
-                Text("REQ-\(request.id.uuidString.prefix(5).uppercased())")
-                    .font(.system(size: 14, weight: .bold, design: .serif))
-                    .foregroundColor(CatalogTheme.primaryText)
-                Spacer()
-                statusBadge(for: request.status)
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(request.product?.name ?? "Unknown Product")
+                        .font(.system(size: 17, weight: .bold, design: .serif))
+                        .foregroundColor(.appPrimaryText)
+
+                    Text(request.store?.name ?? "Unknown Boutique")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.appSecondaryText)
+                }
+
+                Spacer(minLength: 8)
+
+                VStack(alignment: .trailing, spacing: 6) {
+                    statusBadge(for: request.status)
+                    Text(shortRequestID(request.id))
+                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+                        .foregroundColor(.appSecondaryText)
+                }
             }
 
-            // ASN badge (if shipped)
+            HStack(spacing: 10) {
+                compactInfoPill(title: "Quantity", value: "\(request.requestedQuantity)")
+                compactInfoPill(title: "Requested", value: shortDate(request.requestDate))
+                if let qty = stockQty {
+                    compactInfoPill(
+                        title: "Stock",
+                        value: "\(qty)",
+                        accent: qty >= request.requestedQuantity ? .green : .orange,
+                        highlighted: true
+                    )
+                }
+            }
+
             if request.status == "approved" {
-                HStack(spacing: 4) {
-                    Image(systemName: "shippingbox.fill")
-                        .font(.caption2)
-                    Text("Shipment In Transit")
-                        .font(.caption2.bold())
-                }
-                .foregroundColor(.white)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 4)
-                .background(Color.blue)
-                .clipShape(Capsule())
+                inlineBanner(
+                    icon: "shippingbox.fill",
+                    text: "Accepted and ready to dispatch from Workflows."
+                )
+            } else if request.status == "rejected" {
+                inlineBanner(
+                    icon: "xmark.circle.fill",
+                    text: request.rejectionReason ?? "Rejected by Inventory Manager",
+                    color: .red
+                )
+            } else if request.status == "shipped" {
+                inlineBanner(
+                    icon: "checkmark.seal.fill",
+                    text: "Shipment has already been sent to the boutique.",
+                    color: .green
+                )
             }
 
-            Divider()
-
-            // Details
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(alignment: .top) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Product")
-                            .font(.caption)
-                            .foregroundColor(Color(UIColor.secondaryLabel))
-                        Text(request.product?.name ?? "Unknown Product")
-                            .font(.system(size: 16, weight: .semibold, design: .serif))
-                            .foregroundColor(CatalogTheme.primaryText)
-                    }
-                    Spacer()
-                    VStack(alignment: .trailing, spacing: 4) {
-                        Text("Quantity")
-                            .font(.caption)
-                            .foregroundColor(Color(UIColor.secondaryLabel))
-                        Text("\(request.requestedQuantity)")
-                            .font(.title3.bold())
-                            .foregroundColor(.appAccent)
-                    }
-                }
-                
-                HStack {
-                    Label(request.store?.name ?? "Unknown Boutique", systemImage: "building.2")
-                        .font(.subheadline)
-                        .foregroundColor(Color(UIColor.secondaryLabel))
-                    Spacer()
-                    if let qty = stockQty {
-                        Text("\(qty) in stock")
-                            .font(.caption.bold())
-                            .foregroundColor(qty >= request.requestedQuantity ? .green : .orange)
-                    }
-                }
-            }
-
-            // Low stock warning
-            if let canShip = canShip, !canShip {
-                HStack(spacing: 6) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                    Text("Insufficient stock. Auto-PO will be created.")
-                }
-                .font(.caption.bold())
-                .foregroundColor(.orange)
-                .padding(10)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.orange.opacity(0.15))
-                .cornerRadius(8)
-            }
-
-            Divider()
-
-            // Action buttons based on status
-            actionButtons(for: request, canShip: canShip)
+            actionButtons(for: request)
         }
-        .padding(16)
-        .background(Color(UIColor.secondarySystemGroupedBackground))
-        .cornerRadius(AppTheme.cardCornerRadius)
-        .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 2)
+        .padding(18)
+        .background(Color.appCard.opacity(0.97))
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(Color.appBorder, lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 5)
     }
 
     @ViewBuilder
-    private func actionButtons(for request: ProductRequest, canShip: Bool?) -> some View {
+    private func vendorOrderCard(for order: VendorOrder) -> some View {
+        let rawStatus = (order.status ?? "").lowercased()
+        let statusText: String = {
+            if rawStatus == "in_transit" { return "In Transit" }
+            if rawStatus == "delivered" { return "Delivered" }
+            return order.status?.capitalized ?? "Unknown"
+        }()
+        let statusColor: Color = {
+            if rawStatus == "in_transit" { return .blue }
+            if rawStatus == "delivered" { return .green }
+            if rawStatus == "pending" { return .orange }
+            return .gray
+        }()
+
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(order.product?.name ?? "Unknown Product")
+                        .font(.system(size: 17, weight: .bold, design: .serif))
+                        .foregroundColor(.appPrimaryText)
+
+                    Text(order.vendor?.name ?? "Unknown Vendor")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.appSecondaryText)
+                }
+
+                Spacer(minLength: 8)
+
+                VStack(alignment: .trailing, spacing: 6) {
+                    stockBadge(text: statusText, color: statusColor)
+                    Text(shortPOID(order.id))
+                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+                        .foregroundColor(.appSecondaryText)
+                }
+            }
+
+            HStack(spacing: 10) {
+                compactInfoPill(title: "Units", value: "\(order.quantity ?? 0)")
+                compactInfoPill(title: "Created", value: shortDate(order.createdAt))
+                if rawStatus == "in_transit" {
+                    compactInfoPill(title: "Action", value: "Receive", accent: .blue, highlighted: true)
+                }
+            }
+
+            if rawStatus == "in_transit" {
+                Button {
+                    selectedVendorOrder = order
+                } label: {
+                    Label("Receive and Generate GRN", systemImage: "shippingbox.and.arrow.backward")
+                        .font(.system(size: 14, weight: .bold, design: .serif))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Color.appAccent)
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(18)
+        .background(Color.appCard.opacity(0.97))
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(Color.appBorder, lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 5)
+    }
+
+    @ViewBuilder
+    private func compactInfoPill(
+        title: String,
+        value: String,
+        accent: Color = .appAccent,
+        highlighted: Bool = false
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title.uppercased())
+                .font(.system(size: 10, weight: .semibold))
+                .tracking(0.6)
+                .foregroundColor(.appSecondaryText)
+            Text(value)
+                .font(.system(size: 14, weight: .bold, design: .serif))
+                .foregroundColor(highlighted ? accent : .appPrimaryText)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 11)
+        .background(Color.luxurySurface.opacity(0.42))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    @ViewBuilder
+    private func inlineBanner(icon: String, text: String, color: Color = .blue) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+            Text(text)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .font(.system(size: 12, weight: .semibold))
+        .foregroundColor(color)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(color.opacity(0.1))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    @ViewBuilder
+    private func actionButtons(for request: ProductRequest) -> some View {
         switch request.status {
         case "rejected":
-            HStack(spacing: 4) {
-                Image(systemName: "xmark.circle.fill").font(.caption)
-                Text("Rejected: \(request.rejectionReason ?? "No reason given")")
-                    .font(.caption)
-            }
-            .foregroundColor(.red)
+            EmptyView()
 
         case "approved":
             Button {
                 requestPendingShipment = request
             } label: {
-                Label("Ship Now", systemImage: "shippingbox.fill")
-                    .font(.subheadline.bold())
+                Label("Create Shipment", systemImage: "box.truck.fill")
+                    .font(.system(size: 14, weight: .bold, design: .serif))
+                    .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
-                    .background(CatalogTheme.primary)
-                    .foregroundColor(.white)
-                    .cornerRadius(10)
+                    .background(Color.appAccent)
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             }
             .buttonStyle(.plain)
 
         case "shipped":
-            HStack(spacing: 4) {
-                Image(systemName: "checkmark.seal.fill").font(.caption)
-                Text("Shipped")
-                    .font(.caption.bold())
-            }
-            .foregroundColor(.green)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            EmptyView()
 
-        default: // "pending"
-            VStack(spacing: 12) {
-                HStack(spacing: 12) {
-                    // Reject button
+        default:
+            VStack(spacing: 10) {
+                HStack(spacing: 10) {
                     Button {
                         rejectTargetRequest = request
                         showRejectAlert = true
@@ -340,139 +625,32 @@ public struct RequestsTabView: View {
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
                             .background(Color.red.opacity(0.1))
-                            .cornerRadius(10)
+                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                     }
                     .buttonStyle(.plain)
 
-                    // Accept always — stock check happens in Pick Lists
                     Button {
                         Task {
                             await viewModel.acceptRequest(request: request)
                         }
                     } label: {
-                        Text("Accept Order")
+                        Text("Accept")
                             .font(.system(size: 14, weight: .bold, design: .serif))
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
-                            .background(CatalogTheme.primary)
-                            .cornerRadius(10)
+                            .background(Color.appAccent)
+                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                     }
                     .buttonStyle(.plain)
                 }
 
-                Text("Accepted orders move to Workflows → Pick Lists for stock check & dispatch")
-                    .font(.caption2)
-                    .foregroundColor(Color(UIColor.tertiaryLabel))
-                    .multilineTextAlignment(.center)
+                Text("Accepted requests move to Workflows → Pick Lists for dispatch.")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.appSecondaryText)
             }
         }
     }
-
-    // MARK: - Outgoing Vendor Requests Section
-
-    @ViewBuilder
-    private func outgoingRequestsSection() -> some View {
-        let all = viewModel.vendorOrders
-        let filtered = outgoingStatusFilter == nil
-            ? all
-            : all.filter { ($0.status ?? "").lowercased() == outgoingStatusFilter }
-
-        VStack(spacing: 0) {
-            filterChipsRow(statuses: outgoingStatuses, selected: $outgoingStatusFilter)
-            Divider().padding(.bottom, 4)
-
-            if filtered.isEmpty {
-                Spacer()
-                EmptyStateView(
-                    icon: "shippingbox",
-                    title: "No Vendor Orders",
-                    message: "No orders match the selected status filter."
-                )
-                Spacer()
-            } else {
-                List {
-                    ForEach(filtered) { order in
-                        vendorOrderCard(for: order)
-                            .listRowInsets(EdgeInsets())
-                            .listRowBackground(Color.clear)
-                            .listRowSeparator(.hidden)
-                            .padding(.vertical, 6)
-                            .padding(.horizontal, 16)
-                    }
-                }
-                .listStyle(.plain)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func vendorOrderCard(for order: VendorOrder) -> some View {
-        let rawStatus = (order.status ?? "").lowercased()
-
-        let statusText: String = {
-            if rawStatus == "in_transit" { return "In Transit" }
-            if rawStatus == "delivered" { return "Delivered" }
-            return order.status?.capitalized ?? "Unknown"
-        }()
-
-        let statusColor: Color = {
-            if rawStatus == "in_transit" { return .blue }
-            if rawStatus == "delivered" { return .green }
-            return .gray
-        }()
-
-        ReusableCardView {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text("PO-\(order.id.uuidString.prefix(5).uppercased())")
-                        .font(.system(.subheadline, design: .serif).bold())
-                        .foregroundColor(CatalogTheme.primaryText)
-                    Spacer()
-                    Text(statusText)
-                        .font(.caption.bold())
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 4)
-                        .background(statusColor.opacity(0.15))
-                        .foregroundColor(statusColor)
-                        .clipShape(Capsule())
-                }
-                if let vendor = order.vendor {
-                    Label(vendor.name, systemImage: "building.2")
-                        .font(.subheadline)
-                        .foregroundColor(.appSecondaryText)
-                }
-                if let product = order.product {
-                    Label(product.name, systemImage: "tag")
-                        .font(.subheadline)
-                        .foregroundColor(.appSecondaryText)
-                }
-                HStack {
-                    Image(systemName: "number").font(.caption)
-                    Text("\(order.quantity ?? 0) units").font(.caption)
-                }
-                .foregroundColor(.appSecondaryText)
-
-                if order.status == "in_transit" {
-                    Button {
-                        selectedVendorOrder = order
-                    } label: {
-                        Text("Receive (Generate GRN)")
-                            .font(.system(size: 14, weight: .bold, design: .serif))
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 10)
-                            .background(CatalogTheme.primary)
-                            .cornerRadius(8)
-                    }
-                    .padding(.top, 4)
-                    .buttonStyle(.plain)
-                }
-            }
-        }
-    }
-
-    // MARK: - Helpers
 
     @ViewBuilder
     private func statusBadge(for status: String) -> some View {
@@ -486,12 +664,17 @@ public struct RequestsTabView: View {
             }
         }()
 
-        Text(label)
-            .font(.caption.bold())
-            .padding(.horizontal, 10)
-            .padding(.vertical, 4)
-            .background(color.opacity(0.15))
+        stockBadge(text: label, color: color)
+    }
+
+    @ViewBuilder
+    private func stockBadge(text: String, color: Color) -> some View {
+        Text(text)
+            .font(.system(size: 11, weight: .bold))
             .foregroundColor(color)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(color.opacity(0.12))
             .clipShape(Capsule())
     }
 
@@ -501,27 +684,60 @@ public struct RequestsTabView: View {
             HStack(spacing: 10) {
                 Image(systemName: "checkmark.seal.fill")
                     .foregroundColor(.green)
+
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("ASN Generated")
+                    Text("Reference Generated")
                         .font(.caption.bold())
                         .foregroundColor(.appPrimaryText)
                     Text(asn)
                         .font(.system(.caption, design: .monospaced).bold())
                         .foregroundColor(.appAccent)
                 }
+
                 Spacer()
-                Button { withAnimation { showASNBanner = false } } label: {
-                    Image(systemName: "xmark").font(.caption).foregroundColor(.appSecondaryText)
+
+                Button {
+                    withAnimation { showASNBanner = false }
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.caption)
+                        .foregroundColor(.appSecondaryText)
                 }
+                .buttonStyle(.plain)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
             .background(Color.appCard)
-            .cornerRadius(14)
-            .shadow(radius: 10)
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .shadow(color: Color.black.opacity(0.08), radius: 12, x: 0, y: 6)
             .padding(.horizontal, 16)
+
             Spacer()
         }
-        .padding(.top, 8)
     }
+
+    private func shortRequestID(_ id: UUID) -> String {
+        "REQ-\(id.uuidString.prefix(5).uppercased())"
+    }
+
+    private func shortPOID(_ id: UUID) -> String {
+        "PO-\(id.uuidString.prefix(5).uppercased())"
+    }
+
+    private func shortDate(_ date: Date?) -> String {
+        guard let date else { return "Unknown" }
+        return requestDateFormatter.string(from: date)
+    }
+
+    private var requestDateFormatter: DateFormatter {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "d MMM"
+        return formatter
+    }
+}
+
+private struct QueueMetric: Identifiable {
+    let id = UUID()
+    let value: String
+    let label: String
 }

@@ -21,7 +21,7 @@ public struct AdminManagementView: View {
 
                 VStack(spacing: 0) {
                     rolePicker
-                    
+                    summaryStrip
                     searchBar
 
                     if viewModel.isLoading && isCurrentListEmpty {
@@ -84,6 +84,8 @@ public struct AdminManagementView: View {
                             .font(.system(size: 15, weight: .semibold))
                             .foregroundColor(CatalogTheme.primaryText)
                     }
+
+                    CorporateAdminProfileButton(sessionViewModel: sessionViewModel)
                 }
             }
             .task {
@@ -133,18 +135,38 @@ public struct AdminManagementView: View {
     }
 
     private var rolePicker: some View {
-        Picker("Role", selection: $viewModel.selectedRole) {
-            ForEach(StaffRoleTab.allCases, id: \.self) { role in
-                Text(role.rawValue).tag(role)
-            }
-        }
-        .pickerStyle(.segmented)
+        AppSegmentedControl(
+            options: [
+                AppSegmentedOption(id: StaffRoleTab.boutiqueManager, title: "Boutique", badge: "\(viewModel.boutiqueManagers.count)"),
+                AppSegmentedOption(id: StaffRoleTab.inventoryManager, title: "Inventory", badge: "\(viewModel.inventoryManagers.count)"),
+                AppSegmentedOption(id: StaffRoleTab.vendor, title: "Vendor", badge: "\(viewModel.vendors.count)")
+            ],
+            selection: $viewModel.selectedRole
+        )
         .padding(.horizontal, 20)
         .padding(.top, 16)
-        .padding(.bottom, 20)
+        .padding(.bottom, 14)
         .onChange(of: viewModel.selectedRole) { newRole in
             Task { await viewModel.fetchStaff(for: newRole) }
         }
+    }
+
+    private var summaryStrip: some View {
+        HStack(spacing: 12) {
+            summaryCard(
+                title: viewModel.selectedRole == .vendor ? "Active Vendors" : "Visible Staff",
+                value: "\(activeCount)",
+                subtitle: viewModel.selectedRole == .vendor ? "Suppliers linked to this brand" : "People in the selected role"
+            )
+
+            summaryCard(
+                title: "Current Focus",
+                value: viewModel.selectedRole.rawValue,
+                subtitle: viewModel.selectedRole == .vendor ? "Manage linked products" : "Review assignments fast"
+            )
+        }
+        .padding(.horizontal, 20)
+        .padding(.bottom, 14)
     }
 
     private var searchBar: some View {
@@ -156,114 +178,237 @@ public struct AdminManagementView: View {
                 .foregroundColor(CatalogTheme.primaryText)
         }
         .padding(12)
-        .background(Color.white)
-        .cornerRadius(12)
+        .background(Color.white.opacity(0.92))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(CatalogTheme.divider, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .padding(.horizontal, 20)
         .padding(.bottom, 12)
     }
 
-    @Namespace private var tabNamespace
+    private var activeCount: Int {
+        viewModel.selectedRole == .vendor ? viewModel.visibleVendors.count : viewModel.visibleStaff.count
+    }
+
+    private func summaryCard(title: String, value: String, subtitle: String) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundColor(CatalogTheme.secondaryText)
+
+            Text(value)
+                .font(BrandFont.display(24, weight: .bold))
+                .foregroundColor(CatalogTheme.primaryText)
+
+            Text(subtitle)
+                .font(.caption)
+                .foregroundColor(CatalogTheme.secondaryText)
+                .lineLimit(2)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(
+            LinearGradient(
+                colors: [Color.white, CatalogTheme.surface.opacity(0.55)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(CatalogTheme.divider, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .shadow(color: Color.black.opacity(0.03), radius: 8, x: 0, y: 4)
+    }
 
 
     @ViewBuilder
     private func staffCard(for item: StaffListItem) -> some View {
         Button(action: { selectedStaff = item }) {
-            HStack(alignment: .center, spacing: 14) {
-                // Avatar
+            HStack(alignment: .top, spacing: 14) {
                 ZStack {
-                    Circle()
-                        .fill(CatalogTheme.surface)
-                        .frame(width: 46, height: 46)
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [CatalogTheme.surface, Color.white],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 52, height: 52)
                     Text(String(item.user.displayName.prefix(1)).uppercased())
                         .font(.system(size: 18, weight: .bold, design: .serif))
                         .foregroundColor(CatalogTheme.primary)
                 }
 
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 8) {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(alignment: .top, spacing: 8) {
                         Text(item.user.displayName)
                             .font(.system(size: 16, weight: .bold, design: .serif))
                             .foregroundColor(CatalogTheme.primaryText)
-                        
-                        Text(item.employeeId)
-                            .font(.system(size: 10, weight: .bold, design: .monospaced))
-                            .foregroundColor(CatalogTheme.deepAccent)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(CatalogTheme.surface)
-                            .clipShape(Capsule())
+
+                        Spacer(minLength: 6)
+
+                        tag(text: item.employeeId, color: CatalogTheme.deepAccent, fill: CatalogTheme.surface)
                     }
 
-                    Text("\(item.role.assignmentLabel): \(item.assignmentName)")
-                        .font(.system(size: 14, design: .serif))
+                    Text(item.role.rawValue)
+                        .font(.caption.weight(.bold))
+                        .foregroundColor(CatalogTheme.primary)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(CatalogTheme.primary.opacity(0.1))
+                        .clipShape(Capsule())
+
+                    Label(item.assignmentName, systemImage: "building.2")
+                        .font(.system(size: 14, weight: .semibold, design: .serif))
+                        .foregroundColor(CatalogTheme.primaryText)
+
+                    Text(item.assignmentDetail)
+                        .font(.system(size: 13, design: .serif))
                         .foregroundColor(CatalogTheme.secondaryText)
+
+                    HStack(spacing: 8) {
+                        if let email = item.user.email, !email.isEmpty {
+                            compactMeta(text: email, systemImage: "envelope")
+                        }
+
+                        if let phone = item.user.phone, !phone.isEmpty {
+                            compactMeta(text: phone, systemImage: "phone")
+                        }
+                    }
                 }
-                Spacer()
+
+                Spacer(minLength: 10)
+
                 Image(systemName: "chevron.right")
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(CatalogTheme.mutedText)
+                    .padding(.top, 6)
             }
-            .padding(16)
+            .padding(18)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(Color.white)
+                LinearGradient(
+                    colors: [Color.white, Color.white.opacity(0.94)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
             )
-            .shadow(color: Color.black.opacity(0.03), radius: 6, x: 0, y: 2)
+            .overlay(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .stroke(CatalogTheme.divider, lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 4)
         }
         .buttonStyle(.plain)
     }
 
     @ViewBuilder
     private func vendorCard(for vendor: Vendor) -> some View {
-        Button(action: { selectedVendor = vendor }) {
-            HStack(alignment: .center, spacing: 14) {
-                // Avatar
-                ZStack {
-                    Circle()
-                        .fill(CatalogTheme.surface)
-                        .frame(width: 46, height: 46)
-                    Text(String(vendor.name.prefix(1)).uppercased())
-                        .font(.system(size: 18, weight: .bold, design: .serif))
-                        .foregroundColor(CatalogTheme.primary)
-                }
+        HStack(alignment: .top, spacing: 14) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [CatalogTheme.surface, Color.white],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 52, height: 52)
+                Text(String(vendor.name.prefix(1)).uppercased())
+                    .font(.system(size: 18, weight: .bold, design: .serif))
+                    .foregroundColor(CatalogTheme.primary)
+            }
 
-                VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(alignment: .top) {
                     Text(vendor.name)
                         .font(.system(size: 16, weight: .bold, design: .serif))
                         .foregroundColor(CatalogTheme.primaryText)
 
+                    Spacer(minLength: 6)
+
                     let count = viewModel.vendorProductIdsByVendor[vendor.id]?.count ?? 0
-                    Text("\(count) products linked")
-                        .font(.system(size: 14, design: .serif))
-                        .foregroundColor(CatalogTheme.secondaryText)
+                    tag(text: "\(count) linked", color: CatalogTheme.primary, fill: CatalogTheme.primary.opacity(0.1))
                 }
 
-                Spacer()
+                Text("Vendor")
+                    .font(.caption.weight(.bold))
+                    .foregroundColor(CatalogTheme.deepAccent)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(CatalogTheme.deepAccent.opacity(0.1))
+                    .clipShape(Capsule())
 
-                Button("Manage") {
+                if let contact = vendor.contactInfo, !contact.isEmpty {
+                    compactMeta(text: contact, systemImage: "person.crop.square")
+                }
+
+                Button("Manage linked products") {
                     selectedVendorForProducts = vendor
                 }
+                .buttonStyle(.plain)
                 .font(.system(size: 12, weight: .semibold, design: .serif))
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
                 .background(CatalogTheme.surface)
                 .foregroundColor(CatalogTheme.deepAccent)
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(CatalogTheme.mutedText)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(Color.white)
-            )
-            .shadow(color: Color.black.opacity(0.03), radius: 6, x: 0, y: 2)
+
+            Spacer(minLength: 10)
+
+            Image(systemName: "chevron.right")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(CatalogTheme.mutedText)
+                .padding(.top, 6)
         }
-        .buttonStyle(.plain)
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            LinearGradient(
+                colors: [Color.white, Color.white.opacity(0.94)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(CatalogTheme.divider, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 4)
+        .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .onTapGesture {
+            selectedVendor = vendor
+        }
+    }
+
+    private func tag(text: String, color: Color, fill: Color) -> some View {
+        Text(text)
+            .font(.system(size: 10, weight: .bold, design: .monospaced))
+            .foregroundColor(color)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(fill)
+            .clipShape(Capsule())
+    }
+
+    private func compactMeta(text: String, systemImage: String) -> some View {
+        Label(text, systemImage: systemImage)
+            .font(.caption)
+            .foregroundColor(CatalogTheme.secondaryText)
+            .lineLimit(1)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .background(CatalogTheme.background.opacity(0.9))
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
 
@@ -1173,5 +1318,3 @@ private struct VendorDetailSheet: View {
         .padding(.horizontal, 20)
     }
 }
-
-

@@ -87,11 +87,13 @@ public struct StaffManagementView: View {
             .navigationTitle("Staff")
             
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItemGroup(placement: .navigationBarTrailing) {
                     Button(action: { showAddStaff = true }) {
                         Image(systemName: "plus")
                             .foregroundColor(BoutiqueTheme.textPrimary)
                     }
+
+                    BoutiqueProfileButton()
                 }
             }
             // Detail / ratings sheet (tap)

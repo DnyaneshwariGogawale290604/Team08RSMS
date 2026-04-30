@@ -87,6 +87,7 @@ struct TrendingProduct: Identifiable {
     let price: Double
     let soldCount: Int
     let trendScore: Double
+    let imageUrl: String?
 
     /// Flame intensity 1–3 based on normalised trend score (0–100 scale, top product = 100)
     var flameLevel: Int {

@@ -59,6 +59,11 @@ public struct ShipmentTrackingView: View {
             }
             .navigationTitle("Shipments")
             .toolbarColorScheme(.light, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    BoutiqueProfileButton()
+                }
+            }
             .task {
                 await viewModel.loadAll()
             }

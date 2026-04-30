@@ -48,6 +48,8 @@ public struct ReportsTabView: View {
                     }
                     .buttonStyle(.plain)
                     .disabled(isPreparingExport)
+
+                    InventoryManagerProfileButton()
                 }
             }
             .task { await vm.fetchData() }

@@ -1,7 +1,7 @@
 import SwiftUI
 
-struct SalesAssociateProfileButton: View {
-    @ObservedObject var sessionViewModel: SessionViewModel
+struct InventoryManagerProfileButton: View {
+    @EnvironmentObject private var sessionViewModel: SessionViewModel
     @State private var showingAccountSheet = false
 
     var body: some View {
@@ -12,12 +12,12 @@ struct SalesAssociateProfileButton: View {
         }
         .buttonStyle(.plain)
         .sheet(isPresented: $showingAccountSheet) {
-            SalesAssociateAccountSheet(sessionViewModel: sessionViewModel)
+            InventoryManagerAccountSheet(sessionViewModel: sessionViewModel)
         }
     }
 }
 
-struct SalesAssociateAccountSheet: View {
+struct InventoryManagerAccountSheet: View {
     @ObservedObject var sessionViewModel: SessionViewModel
     @Environment(\.dismiss) private var dismiss
 
@@ -30,15 +30,15 @@ struct SalesAssociateAccountSheet: View {
                     Spacer()
 
                     VStack(spacing: 14) {
-                        Image(systemName: "person.crop.circle.badge.checkmark")
+                        Image(systemName: "shippingbox.fill")
                             .font(.system(size: 68))
                             .foregroundStyle(Color.luxurySecondaryText)
 
-                        Text("Sales Associate")
+                        Text("Inventory Manager")
                             .font(BrandFont.display(24, weight: .bold))
                             .foregroundStyle(Color.luxuryPrimaryText)
 
-                        Text("Clienteling, appointments, orders, and billing in one place.")
+                        Text("Warehouse flows, stock movement, and reconciliation controls in one place.")
                             .font(BrandFont.body(14))
                             .foregroundStyle(Color.luxurySecondaryText)
                             .multilineTextAlignment(.center)
@@ -48,14 +48,14 @@ struct SalesAssociateAccountSheet: View {
                     VStack(spacing: 14) {
                         HStack(spacing: 12) {
                             accountInfoCard(
-                                title: "Client Book",
-                                subtitle: "Profiles and preferences",
-                                icon: "person.2.fill"
+                                title: "Workflows",
+                                subtitle: "Requests and dispatch",
+                                icon: "arrow.left.arrow.right"
                             )
                             accountInfoCard(
-                                title: "Checkout",
-                                subtitle: "Orders and billing",
-                                icon: "bag.fill"
+                                title: "Items",
+                                subtitle: "Tracking and audits",
+                                icon: "shippingbox.fill"
                             )
                         }
 

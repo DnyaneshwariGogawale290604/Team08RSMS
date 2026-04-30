@@ -63,16 +63,7 @@ public struct HomeTabView: View {
             .toolbarColorScheme(.light, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Menu {
-                        Button(role: .destructive, action: {
-                            Task { await sessionViewModel.signOut() }
-                        }) {
-                            Label("Logout", systemImage: "rectangle.portrait.and.arrow.right")
-                        }
-                    } label: {
-                        Image(systemName: "person.crop.circle")
-                            .font(.title2).foregroundColor(BoutiqueTheme.textPrimary)
-                    }
+                    BoutiqueProfileButton()
                 }
             }
             .onAppear {

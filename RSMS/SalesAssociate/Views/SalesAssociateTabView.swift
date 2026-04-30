@@ -12,17 +12,17 @@ struct SalesAssociateTabView: View {
         TabView {
             SalesAssociateDashboardView(sessionViewModel: sessionViewModel)
                 .tabItem {
-                    Label("Dashboard", systemImage: "chart.bar")
+                    Label("Dashboard", systemImage: "square.grid.2x2")
                 }
 
             SalesAssociateAppointmentsView(sessionViewModel: sessionViewModel)
                 .tabItem {
-                    Label("Appointments", systemImage: "calendar.badge.clock")
+                    Label("Appointments", systemImage: "calendar")
                 }
 
             SalesAssociateOrdersView(sessionViewModel: sessionViewModel)
                 .tabItem {
-                    Label("Orders", systemImage: "shippingbox")
+                    Label("Orders", systemImage: "cart")
                 }
 
             SalesAssociateClientsView(sessionViewModel: sessionViewModel)
