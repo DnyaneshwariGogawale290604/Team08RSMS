@@ -74,8 +74,8 @@ public class CustomerShippingViewModel: ObservableObject {
         public let success: Bool
         public let awb: String
         public let courier: String
-        public let paymentType: String
-        public let codAmount: Double
+        public let paymentType: String?
+        public let codAmount: Double?
         public let estimatedDelivery: String?
         public let message: String?
         
@@ -102,12 +102,55 @@ public class CustomerShippingViewModel: ObservableObject {
     public func fetchShipment(for orderId: UUID) async {
         isLoading = true; defer { isLoading = false }
         do {
-            let response: [OrderShipment] = try await SupabaseManager.shared.client.from("order_shipments").select().eq("order_id", value: orderId).execute().value
-            self.shipment = response.first
-        } catch { self.errorMessage = "Failed to fetch shipment: \(error.localizedDescription)" }
+            // 1. Fetch local shipment record from Project A
+            let response: [OrderShipment] = try await SupabaseManager.shared.client
+                .from("order_shipments")
+                .select()
+                .eq("order_id", value: orderId)
+                .execute()
+                .value
+            
+            guard var localShipment = response.first else {
+                self.shipment = nil
+                return
+            }
+            
+            // 2. Try to fetch LIVE status from Project B (Simulator)
+            do {
+                struct simulatedShipment: Decodable {
+                    let current_status: String
+                }
+                let live: [simulatedShipment] = try await SupabaseManager.shared.courierClient
+                    .from("simulated_shipments")
+                    .select("current_status")
+                    .eq("order_id", value: orderId.uuidString)
+                    .execute()
+                    .value
+                
+                if let liveStatus = live.first?.current_status {
+                    // Overlay live status onto local shipment data
+                    localShipment = OrderShipment(
+                        id: localShipment.id,
+                        orderId: localShipment.orderId,
+                        awbNumber: localShipment.awbNumber,
+                        courierName: localShipment.courierName,
+                        status: liveStatus,
+                        estimatedDelivery: localShipment.estimatedDelivery,
+                        createdAt: localShipment.createdAt
+                    )
+                }
+            } catch {
+                print("[fetchShipment] Live fetch failed (falling back to local): \(error)")
+            }
+            
+            self.shipment = localShipment
+        } catch {
+            self.errorMessage = "Failed to fetch shipment: \(error.localizedDescription)"
+        }
     }
     
     func fetchCodAmount(for orderId: UUID) async -> Double {
+        print("[fetchCodAmount] Fetching for order: \(orderId)")
         do {
             struct PaymentLeg: Decodable {
                 let total_amount: Double
@@ -123,7 +166,9 @@ public class CustomerShippingViewModel: ObservableObject {
                 .execute()
                 .value
             
-            return legs.reduce(0.0) { $0 + $1.total_amount }
+            let total = legs.reduce(0.0) { $0 + $1.total_amount }
+            print("[fetchCodAmount] Resolved: \(total)")
+            return total
         } catch {
             print("[fetchCodAmount] Error: \(error)")
             return 0.0
@@ -134,13 +179,16 @@ public class CustomerShippingViewModel: ObservableObject {
         isBooking = true
         bookingError = nil
         bookingSuccess = false
+        print("[bookShipment] Starting booking for order: \(orderId)")
         defer { isBooking = false }
         
         do {
             // Step 1 — Fetch COD amount
             let codAmount = await fetchCodAmount(for: orderId)
+            print("[bookShipment] Step 1: COD Amount resolved: \(codAmount)")
             
             // Step 2 — Fetch courier API key from shipping_configs + vault
+            print("[bookShipment] Step 2: Fetching shipping config for brand: \(brandId)")
             struct ShippingConfig: Decodable {
                 let api_key_vault_id: UUID
             }
@@ -153,8 +201,10 @@ public class CustomerShippingViewModel: ObservableObject {
                 .value
             
             guard let config = configs.first else {
+                print("[bookShipment] Error: No active shipping config found")
                 throw ShippingError.noShippingConfig
             }
+            print("[bookShipment] Found vault ID: \(config.api_key_vault_id)")
             
             let secrets: [VaultSecret] = try await SupabaseManager.shared.client
                 .rpc("get_vault_secrets", params: ["secret_ids": [config.api_key_vault_id.uuidString]])
@@ -167,58 +217,133 @@ public class CustomerShippingViewModel: ObservableObject {
             
             // Step 3 — Call Project B courier-simulator via URLSession
             let url = URL(string: "\(SupabaseConfiguration.courierSimulatorURL)/courier-simulator")!
+            print("[bookShipment] Calling: \(url)")
             var request = URLRequest(url: url)
             request.httpMethod = "POST"
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.setValue("Bearer \(SupabaseConfiguration.courierSimulatorAnonKey)", forHTTPHeaderField: "Authorization")
-            request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "X-Courier-Api-Key")
+            request.setValue(apiKey, forHTTPHeaderField: "X-Courier-Api-Key")
             
             let body: [String: Any] = [
+                "brand_id": brandId.uuidString,
                 "order_id": orderId.uuidString,
-                "cod_amount": codAmount
+                "cod_amount": codAmount,
+                "webhook_url": "https://ionszphvxhffqfwlohiv.supabase.co/functions/v1/courier-webhook"
             ]
             request.httpBody = try JSONSerialization.data(withJSONObject: body)
+            print("[bookShipment] Payload: \(body)")
             
-            let (data, _) = try await URLSession.shared.data(for: request)
-            let response = try JSONDecoder().decode(CourierBookingResponse.self, from: data)
-            
-            guard response.success else {
-                throw ShippingError.courierBookingFailed(response.message ?? "Unknown error")
+            let (data, response) = try await URLSession.shared.data(for: request)
+            if let httpResponse = response as? HTTPURLResponse {
+                print("[bookShipment] Status Code: \(httpResponse.statusCode)")
+                
+                if !(200...299).contains(httpResponse.statusCode) {
+                    let errorBody = String(data: data, encoding: .utf8) ?? "No Body"
+                    print("[bookShipment] Simulator Error Body: \(errorBody)")
+                    
+                    if httpResponse.statusCode == 409 {
+                        print("[bookShipment] Conflict detected. Parsing AWB from error body...")
+                        
+                        struct ConflictResponse: Decodable {
+                            let error: String
+                            let awb: String?
+                        }
+                        
+                        if let conflictInfo = try? JSONDecoder().decode(ConflictResponse.self, from: data),
+                           let recoveredAWB = conflictInfo.awb {
+                            print("[bookShipment] Recovery successful! Extracted AWB: \(recoveredAWB)")
+                            let recoveredData = "{\"success\": true, \"awb\": \"\(recoveredAWB)\", \"courier\": \"RSMS Simulator\"}".data(using: .utf8)!
+                            let bookingResponse = try JSONDecoder().decode(CourierBookingResponse.self, from: recoveredData)
+                            return try await finalizeBooking(bookingResponse, orderId: orderId, brandId: brandId)
+                        } else {
+                            print("[bookShipment] Recovery failed: Could not parse AWB from body: \(errorBody)")
+                            throw ShippingError.courierBookingFailed("Conflict (409) reported, and AWB recovery from body failed. Body: \(errorBody)")
+                        }
+                    }
+                    
+                    throw ShippingError.courierBookingFailed("Simulator returned \(httpResponse.statusCode): \(errorBody)")
+                }
             }
             
-            // Step 4 — Create order_shipments row in Project A
-            try await SupabaseManager.shared.client
-                .from("order_shipments")
-                .insert([
-                    "order_id": orderId.uuidString,
-                    "brand_id": brandId.uuidString,
-                    "awb_number": response.awb,
-                    "courier_name": response.courier,
-                    "courier_provider": "RSMS Simulator",
-                    "status": "accepted"
-                ])
-                .execute()
+            print("[bookShipment] Booking request accepted by simulator.")
             
-            // Step 5 — Update sales_orders shipping_status to "accepted"
-            try await SupabaseManager.shared.client
-                .from("sales_orders")
-                .update(["shipping_status": "accepted"])
-                .eq("order_id", value: orderId.uuidString)
-                .execute()
+            let bookingResponse = try JSONDecoder().decode(CourierBookingResponse.self, from: data)
             
-            // Step 6 — Start Realtime listener
-            subscribeToShipmentUpdates(for: orderId)
+            guard bookingResponse.success else {
+                print("[bookShipment] Error: Booking response success=false. Message: \(bookingResponse.message ?? "None")")
+                throw ShippingError.courierBookingFailed(bookingResponse.message ?? "Unknown error")
+            }
             
-            self.lastAWB = response.awb
-            self.bookingSuccess = true
+            try await finalizeBooking(bookingResponse, orderId: orderId, brandId: brandId)
             
         } catch let error as ShippingError {
-            self.bookingError = error.errorDescription
+            print("[bookShipment] Known Error: \(error)")
+            bookingError = error.localizedDescription
         } catch {
-            self.bookingError = error.localizedDescription
+            print("[bookShipment] Fatal Error: \(error)")
+            bookingError = error.localizedDescription
         }
     }
     
+    private func finalizeBooking(_ bookingResponse: CourierBookingResponse, orderId: UUID, brandId: UUID) async throws {
+        print("[finalizeBooking] Starting finalization for AWB: \(bookingResponse.awb)")
+        
+        // Create an isolated service role client to prevent any session interference
+        let isolatedServiceRoleClient = SupabaseClient(
+            supabaseURL: SupabaseConfiguration.projectURL,
+            supabaseKey: SupabaseConfiguration.serviceRoleKey
+        )
+        
+        // Step 4 — Create order_shipments row in Project A
+        print("[bookShipment] Step 4: Creating local shipment record")
+        let shipmentData: [String: String] = [
+            "order_id": orderId.uuidString,
+            "brand_id": brandId.uuidString,
+            "awb_number": bookingResponse.awb,
+            "courier_name": bookingResponse.courier,
+            "status": "accepted"
+        ]
+        
+        try await isolatedServiceRoleClient
+            .from("order_shipments")
+            .insert(shipmentData)
+            .execute()
+        
+        // Step 5 — Update sales_orders shipping_status to "accepted" and status to "in_transit"
+        print("[bookShipment] Step 5: Updating sales_orders status to in_transit")
+        try await isolatedServiceRoleClient
+            .from("sales_orders")
+            .update([
+                "shipping_status": "accepted",
+                "status": "in_transit"
+            ])
+            .eq("order_id", value: orderId.uuidString)
+            .execute()
+        
+        // Step 6 — Start Realtime listener
+        subscribeToShipmentUpdates(for: orderId)
+        
+        self.lastAWB = bookingResponse.awb
+        self.bookingSuccess = true
+        print("[finalizeBooking] Complete!")
+    }
+    
+    public func fetchReturnLog(for orderId: UUID) async -> ReturnLogEntry? {
+        do {
+            let logs: [ReturnLogEntry] = try await SupabaseManager.shared.client
+                .from("returns_log")
+                .select()
+                .eq("order_id", value: orderId.uuidString)
+                .eq("status", value: "pending_inspection")
+                .execute()
+                .value
+            return logs.first
+        } catch {
+            print("[fetchReturnLog] Error: \(error)")
+            return nil
+        }
+    }
+
     public func subscribeToShipmentUpdates(for orderId: UUID) {
         realtimeChannel?.unsubscribe()
         let channel = SupabaseManager.shared.client.realtime.channel("shipment-\(orderId)")
