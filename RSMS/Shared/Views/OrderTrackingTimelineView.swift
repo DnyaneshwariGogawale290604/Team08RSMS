@@ -60,13 +60,13 @@ struct TimelineRow: View {
         HStack(alignment: .top, spacing: 15) {
             VStack(spacing: 0) {
                 ZStack {
-                    Circle().fill(isCompleted ? BoutiqueTheme.primary : Color.luxuryBackground).frame(width: 24, height: 24)
+                    Circle().fill(isCompleted ? BoutiqueTheme.primary : Color.luxuryBackground).frame(width: 18, height: 18)
                     if isCurrent {
-                        Circle().stroke(BoutiqueTheme.primary, lineWidth: 2).frame(width: 32, height: 32).scaleEffect(pulse ? 1.2 : 1.0).opacity(pulse ? 0 : 1).onAppear {
+                        Circle().stroke(BoutiqueTheme.primary, lineWidth: 2).frame(width: 26, height: 26).scaleEffect(pulse ? 1.2 : 1.0).opacity(pulse ? 0 : 1).onAppear {
                             withAnimation(.easeOut(duration: 1.5).repeatForever(autoreverses: false)) { pulse = true }
                         }
                     }
-                    Image(systemName: isCompleted ? "checkmark" : step.icon).font(.system(size: 10, weight: .bold)).foregroundStyle(isCompleted ? Color.white : Color.luxurySecondaryText)
+                    Image(systemName: isCompleted ? "checkmark" : step.icon).font(.system(size: 8, weight: .bold)).foregroundStyle(isCompleted ? Color.white : Color.luxurySecondaryText)
                 }
                 if !isLast { Rectangle().fill(isCompleted ? BoutiqueTheme.primary : Color.luxuryBackground).frame(width: 2, height: 40) }
             }

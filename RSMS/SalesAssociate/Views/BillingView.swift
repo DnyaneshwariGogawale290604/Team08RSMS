@@ -236,7 +236,7 @@ struct BillingView: View {
     @ViewBuilder
     private func discountCard(_ coupon: DiscountCoupon) -> some View {
         let isApplied = vm.appliedCouponId == coupon.id
-        let isEligible = coupon.minOrderAmount == nil || vm.cartTotal >= coupon.minOrderAmount!
+        let isEligible = vm.cartTotal >= coupon.minOrderAmount
         let potentialSaving = vm.calculateDiscount(coupon: coupon, subtotal: vm.cartTotal)
         
         VStack(alignment: .leading, spacing: 6) {
@@ -266,7 +266,7 @@ struct BillingView: View {
                         .font(BrandFont.body(13, weight: .semibold))
                         .foregroundStyle(isApplied ? Color.white : Color.green)
                 } else {
-                    Text("Min order ₹\(Int(coupon.minOrderAmount ?? 0))")
+                    Text("Min order ₹\(Int(coupon.minOrderAmount))")
                         .font(BrandFont.body(11, weight: .medium))
                         .foregroundStyle(Color(hex: "#9B4444"))
                 }

@@ -84,9 +84,11 @@ struct ShipmentTrackingSheet: View {
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Close") { dismiss() }
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(BoutiqueTheme.primary)
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 14, weight: .semibold))
+                    }
+                    .foregroundStyle(BoutiqueTheme.primary)
                 }
             }
             .task {
@@ -216,13 +218,13 @@ struct ShipmentTrackingSheet: View {
                 ZStack {
                     if isCurrent {
                         Circle()
-                            .stroke(isRed ? Color.red.opacity(0.3) : BoutiqueTheme.primary.opacity(0.3), lineWidth: 8)
-                            .scaleEffect(1.0 + (1.0 - pulseScale) * 0.4)
+                            .stroke(isRed ? Color.red.opacity(0.22) : BoutiqueTheme.primary.opacity(0.22), lineWidth: 3)
+                            .frame(width: 18, height: 18)
                     }
                     
                     Circle()
                         .fill(isCompleted || isCurrent ? (isRed ? Color.red : BoutiqueTheme.primary) : Color.clear)
-                        .frame(width: 14, height: 14)
+                        .frame(width: 10, height: 10)
                         .overlay(
                             Circle().stroke(isCompleted || isCurrent ? Color.clear : Color.gray.opacity(0.3), lineWidth: 1)
                         )

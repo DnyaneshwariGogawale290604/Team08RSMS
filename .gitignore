@@ -36,6 +36,8 @@ playground.xcworkspace
 
 # macOS
 .DS_Store
+<<<<<<< HEAD
+
 # Build Artifacts
 .deriveddata/
 .buildhome/
@@ -46,4 +48,6 @@ build_output.txt
 # Media
 screen.png
 screenshot.png
+=======
 *.xcworkspace/xcshareddata/swiftpm/Package.resolved
+>>>>>>> origin/SalesAssosciate

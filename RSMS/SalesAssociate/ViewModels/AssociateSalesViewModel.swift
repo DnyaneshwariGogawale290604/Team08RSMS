@@ -1534,8 +1534,8 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
                 .execute().value
             
             let filtered = coupons.filter {
-                if let limit = $0.usageLimit, let count = $0.usageCount {
-                    return count < limit
+                if let limit = $0.usageLimit {
+                    return $0.usageCount < limit
                 }
                 return true
             }
@@ -1852,7 +1852,7 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
                     )
                 }
             } else {
-                // All cash or draft save — mark complete if intended
+                // All cash — update payment state
                 let orderStatus = json["order_payment_status"] as? String ?? "unpaid"
                 paymentCompleted = orderStatus == "paid"
                 isLoading = false
@@ -1862,10 +1862,6 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
                         // Walk-in (non-appointment) flow: close billing and show receipt
                         showBilling = false
                         showReceipt = true
-                        
-                        if let placed = lastPlacedOrder {
-                            orderStore.addOrder(placed)
-                        }
                     }
                     // Appointment flow: billing sheet stays open — user collects remaining
                     // payments and dismisses everything via the Checkout button.

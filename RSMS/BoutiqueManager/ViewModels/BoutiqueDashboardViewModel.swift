@@ -6,7 +6,6 @@ import Combine
 public class BoutiqueDashboardViewModel: ObservableObject {
     @Published public var summary: DashboardSummary?
     @Published public var activeAlerts: [InventoryProduct] = []
-    @Published public var todayAppointments: [Appointment] = []
     @Published public var pendingReturns: [CustomerShippingViewModel.ReturnLogEntry] = []
     @Published public var weeklyRevenue: [DailySalesData] = []
     @Published public var topProducts: [ProductSalesData] = []
