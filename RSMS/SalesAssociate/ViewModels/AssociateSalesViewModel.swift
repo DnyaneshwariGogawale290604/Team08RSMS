@@ -400,7 +400,6 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
             createdAt: Date(), associateName: associateName
         )
         lastPlacedOrder = placed
-        orderStore.addOrder(placed)
         isLoading = false
         // showReceipt = true // Replaced by BillingView flow
 
@@ -1670,21 +1669,29 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
                     )
                 }
             } else {
-                // All cash — mark complete
+                // All cash or draft save — mark complete if intended
                 let orderStatus = json["order_payment_status"] as? String ?? "unpaid"
                 paymentCompleted = orderStatus == "paid"
                 isLoading = false
-                showBilling = false
+                
                 if action == "mark_as_paid" {
+                    showBilling = false
                     showReceipt = true
                     
+                    if let placed = lastPlacedOrder {
+                        orderStore.addOrder(placed)
+                    }
+
                     // If successfully paid/checked out, delete the appointment
                     if let apptId = appointmentId {
                         Task {
                             await completeAppointment(id: apptId)
                         }
                     }
+                } else if action == "draft" {
+                    // Stay on screen, just refresh summary (handled by caller if needed)
                 }
+
                 NotificationCenter.default.post(
                     name: NSNotification.Name("RefreshSalesAssociateDashboard"),
                     object: nil

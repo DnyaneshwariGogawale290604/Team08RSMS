@@ -828,6 +828,9 @@ struct BillingView: View {
                     }
                 } else {
                     // No appointment — direct order completion
+                    if let placed = vm.lastPlacedOrder {
+                        orderStore.addOrder(placed)
+                    }
                     vm.showBilling = false
                     vm.showReceipt = true
                 }

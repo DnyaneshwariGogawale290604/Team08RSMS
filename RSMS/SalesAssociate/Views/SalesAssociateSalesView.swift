@@ -42,7 +42,6 @@ struct SalesAssociateSalesView: View {
                         customerSection
                         if vm.selectedCustomer != nil {
                             cartSection
-                            productRequestSection
                         }
                     }
                     .padding(.bottom, Spacing.xxl)
@@ -172,7 +171,7 @@ struct SalesAssociateSalesView: View {
                 ReceiptSheet(vm: vm, onComplete: onComplete)
                     .environmentObject(orderStore)
             }
-            .sheet(isPresented: $vm.showProductRequest) { ProductRequestSheet(vm: vm) }
+
             .alert("Success", isPresented: Binding(
                 get: { vm.successMessage != nil },
                 set: { if !$0 { vm.successMessage = nil } }
@@ -361,27 +360,7 @@ struct SalesAssociateSalesView: View {
         }
     }
 
-    // MARK: - Product request
-    private var productRequestSection: some View {
-        VStack(alignment: .leading, spacing: Spacing.md) {
-            SectionHeader(title: "Inactive?")
-            Button {
-                Task { await vm.fetchProducts() }
-                vm.showProductRequest = true
-            } label: {
-                HStack {
-                    Image(systemName: "arrow.up.circle").foregroundStyle(Color.luxurySecondaryText)
-                    Text("Raise request to manager").font(BrandFont.body(14)).foregroundStyle(Color.luxuryPrimaryText)
-                    Spacer()
-                    Image(systemName: "chevron.right").font(.system(size: 11)).foregroundStyle(Color.luxuryDivider)
-                }
-                .padding(Spacing.md).background(Color.white)
-                .clipShape(RoundedRectangle(cornerRadius: Radius.lg))
-                .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.luxuryDivider, lineWidth: 0.5))
-            }
-            .buttonStyle(.plain).padding(.horizontal, Spacing.md)
-        }
-    }
+
 
     // MARK: - Checkout FAB
     // MARK: - Normal checkout FAB
@@ -572,10 +551,12 @@ struct CustomerSheet: View {
     @State private var nationality = ""; @State private var notes = ""; @State private var category = "Regular"
 
     enum SheetMode { case list, create }
+    private let startMode: SheetMode
 
     init(vm: AssociateSalesViewModel, initialMode: SheetMode = .list) {
         self.vm = vm
         _mode = State(initialValue: initialMode)
+        self.startMode = initialMode
     }
 
     var filteredCustomers: [Customer] {
@@ -598,16 +579,34 @@ struct CustomerSheet: View {
                 }
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
-                        if mode == .create { withAnimation { mode = .list } } else { dismiss() }
+                        if mode == .create {
+                            if startMode == .create {
+                                dismiss()
+                            } else {
+                                withAnimation { mode = .list }
+                            }
+                        } else {
+                            dismiss()
+                        }
                     } label: {
                         if mode == .list {
-                            Image(systemName: "checkmark")
+                            Image(systemName: "xmark")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundStyle(Color.luxuryPrimaryText)
+                                .frame(width: 30, height: 30)
+                                .background(Color.white)
+                                .clipShape(Circle())
+                                .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
                         } else {
-                            Text("Back")
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundStyle(Color.luxuryPrimaryText)
+                                .frame(width: 30, height: 30)
+                                .background(Color.white)
+                                .clipShape(Circle())
+                                .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
                         }
                     }
-                    .font(BrandFont.body(14))
-                    .foregroundStyle(Color.luxuryPrimaryText)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     if mode == .list {
@@ -1654,57 +1653,4 @@ struct ShareSheet: UIViewControllerRepresentable {
     func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
-// MARK: - ProductRequestSheet
-struct ProductRequestSheet: View {
-    @ObservedObject var vm: AssociateSalesViewModel
-    @Environment(\.dismiss) var dismiss
-    @State private var selectedProduct: Product?
-    @State private var quantity = 1
 
-    var body: some View {
-        NavigationStack {
-            ZStack {
-                Color.luxuryBackground.ignoresSafeArea()
-                Form {
-                    Section("Select Product") {
-                        Picker("Product", selection: $selectedProduct) {
-                            Text("Choose a product").tag(Optional<Product>.none)
-                            ForEach(vm.products) { p in Text(p.name).tag(Optional(p)) }
-                        }
-                    }
-                    Section("Quantity Needed") {
-                        HStack {
-                            Text("Quantity")
-                            Spacer()
-                            TextField("1-100", value: $quantity, format: .number)
-                                .keyboardType(.numberPad)
-                                .multilineTextAlignment(.trailing)
-                                .frame(width: 80)
-                        }
-                    }
-                    Section {
-                        Button("Raise Request to Manager") {
-                            guard let p = selectedProduct else { return }
-                            // Validation: Ensure quantity is between 1 and 100
-                            if quantity < 1 || quantity > 100 {
-                                vm.errorMessage = "Quantity must be between 1 and 100."
-                                return
-                            }
-                            let id = UUID()
-                            Task {
-                                await vm.raiseProductRequest(product: p, quantity: quantity, associateId: id, storeId: nil)
-                                dismiss()
-                            }
-                        }
-                        .disabled(selectedProduct == nil)
-                    }
-                }
-            }
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .principal) { Text("PRODUCT REQUEST").font(.system(size: 13, weight: .semibold)).kerning(2).foregroundStyle(Color.luxuryPrimaryText) }
-                ToolbarItem(placement: .topBarLeading) { Button { dismiss() } label: { Image(systemName: "xmark") }.foregroundStyle(Color.luxurySecondaryText) }
-            }
-        }
-    }
-}
