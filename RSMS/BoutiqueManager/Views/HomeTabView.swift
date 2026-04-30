@@ -39,7 +39,7 @@ public struct HomeTabView: View {
                                 isExpanded: $stockAlertsExpanded
                             )
 
-                            AppointmentsSectionCard(appointments: dashboardVM.todayAppointments)
+
 
                         } else if let error = dashboardVM.errorMessage {
                             VStack(spacing: 10) {
@@ -486,40 +486,7 @@ struct LowStockDropdownCard: View {
     }
 }
 
-// MARK: - Appointments Section
 
-struct AppointmentsSectionCard: View {
-    let appointments: [Appointment]
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            DashSectionHeader(icon: nil, title: "Today's Appointments")
-
-            if appointments.isEmpty {
-                HStack(spacing: 10) {
-                    Image(systemName: "calendar.badge.minus")
-                        .foregroundColor(BoutiqueTheme.textSecondary)
-                    Text("No appointments scheduled for today")
-                        .font(.subheadline)
-                        .foregroundColor(BoutiqueTheme.textSecondary)
-                }
-                .padding()
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(BoutiqueTheme.textSecondary.opacity(0.07))
-                .cornerRadius(12)
-            } else {
-                ForEach(appointments) { appt in
-                    AppointmentCard(appointment: appt)
-                }
-            }
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white)
-        .cornerRadius(16)
-        .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
-    }
-}
 
 // MARK: - Shared Section Header
 

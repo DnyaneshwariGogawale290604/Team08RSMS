@@ -16,9 +16,6 @@ public struct AdminManagementView: View {
 
     public    var body: some View {
         NavigationStack {
-            ZStack {
-                CatalogTheme.background.ignoresSafeArea()
-
                 VStack(spacing: 0) {
                     rolePicker
                     summaryStrip
@@ -70,10 +67,8 @@ public struct AdminManagementView: View {
                         .refreshable { await viewModel.fetchStaff(for: viewModel.selectedRole) }
                     }
                 }
-
-
-            }
-            .navigationTitle("Staff")
+                .navigationTitle("Staff")
+                .background(CatalogTheme.background)
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItemGroup(placement: .navigationBarTrailing) {
@@ -272,7 +267,7 @@ public struct AdminManagementView: View {
             }
             .padding(18)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .frame(height: 120) // Uniform height
+            .frame(height: 130) // Uniform height to prevent text cut-off
             .background(
                 LinearGradient(
                     colors: [Color.white, Color.white.opacity(0.94)],

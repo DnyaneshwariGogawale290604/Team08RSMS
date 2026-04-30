@@ -14,14 +14,8 @@ public struct ProductListView: View {
 
     public var body: some View {
         NavigationStack {
-            ZStack(alignment: .bottomTrailing) {
-                CatalogTheme.background
-                    .ignoresSafeArea()
-
                 ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 22) {
-                        headerSection
-                        
                         searchBar
                         statsRow
                         filtersRow
@@ -53,20 +47,14 @@ public struct ProductListView: View {
                     .padding(.horizontal, 16)
                     .padding(.top, 16)
                     .padding(.bottom, 88)
+                    .navigationTitle("Catalog")
                 }
+                .background(CatalogTheme.background)
                 .refreshable {
                     await viewModel.fetchProducts()
                 }
-            }
-
-            .navigationBarTitleDisplayMode(.inline)
+                .navigationBarTitleDisplayMode(.large)
             .toolbar {
-                ToolbarItem(placement: .principal) {
-                    Text("Catalog")
-                        .font(.system(size: 18, weight: .bold, design: .serif))
-                        .foregroundColor(CatalogTheme.primaryText)
-                }
-
                 ToolbarItemGroup(placement: .navigationBarTrailing) {
                     Button {
                         showingAddProduct = true

@@ -49,7 +49,7 @@ public struct ItemsTabView: View {
     public var body: some View {
         NavigationView {
             ZStack {
-                Color.appBackground.ignoresSafeArea()
+                CatalogTheme.background.ignoresSafeArea()
 
                 VStack(spacing: 16) {
                     searchBar
@@ -57,8 +57,8 @@ public struct ItemsTabView: View {
 
                     if viewModel.isLoading && filteredCategories.isEmpty {
                         ProgressView("Loading items…")
-                            .tint(.appAccent)
-                            .foregroundColor(.appSecondaryText)
+                            .tint(CatalogTheme.primary)
+                            .foregroundColor(CatalogTheme.secondaryText)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                     } else if filteredCategories.isEmpty {
                         ContentUnavailableLabel(
@@ -118,7 +118,7 @@ public struct ItemsTabView: View {
                                 .font(.system(size: 24, weight: .bold))
                                 .foregroundColor(.white)
                                 .padding(20)
-                                .background(Color.appAccent)
+                                .background(CatalogTheme.primary)
                                 .clipShape(Circle())
                                 .shadow(radius: 5)
                         }
@@ -179,23 +179,23 @@ public struct ItemsTabView: View {
     private var searchBar: some View {
         HStack(spacing: 12) {
             Image(systemName: "magnifyingglass")
-                .foregroundColor(.appAccent)
+                .foregroundColor(CatalogTheme.primary)
 
             TextField("Search names, RFIDs, serials...", text: $searchText)
                 .textInputAutocapitalization(.never)
-                .foregroundColor(.appPrimaryText)
+                .foregroundColor(CatalogTheme.primaryText)
 
             Button(action: {
                 presentSheet(.addScan)
             }) {
-                AppToolbarGlyph(systemImage: "barcode.viewfinder", backgroundColor: .appAccent)
+                AppToolbarGlyph(systemImage: "barcode.viewfinder", backgroundColor: CatalogTheme.primary)
             }
             .buttonStyle(.plain)
         }
         .padding(.leading, 16)
         .padding(.vertical, 10)
         .padding(.trailing, 10)
-        .background(Color.appCard)
+        .background(CatalogTheme.card)
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .padding(.horizontal, 16)
     }
@@ -216,12 +216,12 @@ public struct ItemsTabView: View {
                                 Text(filter.rawValue)
                                     .font(.system(size: 13, weight: .semibold))
                             }
-                            .foregroundColor(isActive ? .white : .appAccent)
+                            .foregroundColor(isActive ? .white : CatalogTheme.primary)
                             .padding(.horizontal, 14)
                             .padding(.vertical, 8)
                             .background(
                                 Capsule()
-                                    .fill(isActive ? Color.appAccent : Color.white)
+                                    .fill(isActive ? CatalogTheme.primary : Color.white)
                                     .shadow(
                                         color: Color.black.opacity(isActive ? 0.14 : 0.05),
                                         radius: isActive ? 4 : 2, x: 0, y: 2
@@ -241,20 +241,20 @@ public struct ItemsTabView: View {
                 HStack(spacing: 8) {
                     Text(cat)
                         .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(.appPrimaryText)
+                        .foregroundColor(CatalogTheme.primaryText)
                     Spacer()
                     Button {
                         categoryFilterMagic = nil
                     } label: {
                         Image(systemName: "xmark.circle.fill")
                             .font(.system(size: 14))
-                            .foregroundColor(.appSecondaryText)
+                            .foregroundColor(CatalogTheme.secondaryText)
                     }
                     .buttonStyle(.plain)
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 8)
-                .background(Color.luxurySurface)
+                .background(CatalogTheme.surface)
             }
         }
     }
@@ -265,32 +265,32 @@ public struct ItemsTabView: View {
         return HStack(spacing: 14) {
             ZStack {
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.luxurySurface)
+                    .fill(CatalogTheme.surface)
                     .frame(width: 48, height: 48)
 
                 Image(systemName: "folder.fill")
                     .font(.system(size: 20, weight: .semibold))
-                    .foregroundColor(.appAccent)
+                    .foregroundColor(CatalogTheme.primary)
             }
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(category)
                     .font(.system(size: 18, weight: .bold, design: .serif))
-                    .foregroundColor(.appPrimaryText)
+                    .foregroundColor(CatalogTheme.primaryText)
 
                 Text("\(count) item\(count == 1 ? "" : "s")")
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(.appSecondaryText)
+                    .foregroundColor(CatalogTheme.secondaryText)
             }
 
             Spacer()
 
             Image(systemName: "chevron.right")
                 .font(.footnote.weight(.semibold))
-                .foregroundColor(.appSecondaryText)
+                .foregroundColor(CatalogTheme.secondaryText)
         }
         .padding(18)
-        .background(Color.appCard)
+        .background(CatalogTheme.card)
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .shadow(color: Color.black.opacity(0.03), radius: 10, x: 0, y: 4)
     }
@@ -336,7 +336,7 @@ public struct ItemsListFilteredView: View {
 
     public var body: some View {
         ZStack {
-            Color.appBackground.ignoresSafeArea()
+            CatalogTheme.background.ignoresSafeArea()
 
             if filteredItems.isEmpty {
                 ContentUnavailableLabel(
@@ -376,7 +376,7 @@ public struct ItemsListFilteredView: View {
         .toolbar {
             ToolbarItem(placement: .navigationBarLeading) {
                 Button(action: { presentationMode.wrappedValue.dismiss() }) {
-                    AppToolbarGlyph(systemImage: "chevron.left", backgroundColor: .appAccent)
+                    AppToolbarGlyph(systemImage: "chevron.left", backgroundColor: CatalogTheme.primary)
                 }
                 .buttonStyle(.plain)
             }
@@ -433,12 +433,12 @@ struct ItemRowCard: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(item.productName)
                             .font(.system(size: 18, weight: .bold, design: .serif))
-                            .foregroundColor(.appPrimaryText)
+                            .foregroundColor(CatalogTheme.primaryText)
                             .lineLimit(1)
 
                         Label(item.id, systemImage: "wave.3.right")
                             .font(.caption.weight(.medium))
-                            .foregroundColor(.appSecondaryText)
+                            .foregroundColor(CatalogTheme.secondaryText)
                     }
                 }
 
@@ -455,7 +455,7 @@ struct ItemRowCard: View {
                 if item.authenticityStatus != .verified {
                     Label(item.authenticityStatus.rawValue, systemImage: "checkmark.seal")
                         .font(.caption.weight(.medium))
-                        .foregroundColor(.appBrown)
+                        .foregroundColor(CatalogTheme.deepAccent)
                 }
 
                 Spacer(minLength: 0)
@@ -465,11 +465,11 @@ struct ItemRowCard: View {
                 if let due = item.nextScanDueAt {
                     Text("Next scan \(due.formatted(date: .abbreviated, time: .shortened))")
                         .font(.caption)
-                        .foregroundColor(Date() > due ? .appBrown : .appSecondaryText)
+                        .foregroundColor(Date() > due ? CatalogTheme.deepAccent : CatalogTheme.secondaryText)
                 } else {
                     Text("Ready for next inventory check")
                         .font(.caption)
-                        .foregroundColor(.appSecondaryText)
+                        .foregroundColor(CatalogTheme.secondaryText)
                 }
 
                 Spacer()
@@ -490,7 +490,7 @@ struct ItemRowCard: View {
                         .foregroundColor(.white)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 8)
-                        .background(item.scanStatus == .overdue ? Color.appBrown : Color.appAccent)
+                        .background(item.scanStatus == .overdue ? CatalogTheme.deepAccent : CatalogTheme.primary)
                         .clipShape(Capsule())
                     }
                     .buttonStyle(.plain)
@@ -506,10 +506,10 @@ struct ItemRowCard: View {
 
     private func statusColor(for status: ItemStatus) -> Color {
         switch status {
-        case .available: return .appAccent
-        case .reserved: return .appBrown
+        case .available: return CatalogTheme.primary
+        case .reserved: return CatalogTheme.deepAccent
         case .underRepair: return .red
-        case .inTransit: return .luxuryDeepAccent
+        case .inTransit: return CatalogTheme.brandDeep
         case .scrapped, .sold: return .gray
         }
     }
@@ -539,9 +539,9 @@ struct ItemRowCard: View {
     private var scanSubtitleColor: Color {
         switch item.scanStatus {
         case .ok:
-            return .appAccent
+            return CatalogTheme.primary
         case .dueSoon:
-            return .appBrown
+            return CatalogTheme.deepAccent
         case .overdue:
             return .red
         }
@@ -565,8 +565,8 @@ public struct ScanStatusBadge: View {
 
     private var color: Color {
         switch status {
-        case .ok: return .appAccent
-        case .dueSoon: return .appBrown
+        case .ok: return CatalogTheme.primary
+        case .dueSoon: return CatalogTheme.deepAccent
         case .overdue: return .red
         }
     }
@@ -583,13 +583,13 @@ private struct ContentUnavailableLabel: View {
         VStack(spacing: 10) {
             Image(systemName: icon)
                 .font(.system(size: 40))
-                .foregroundColor(.appBorder)
+                .foregroundColor(CatalogTheme.divider)
             Text(title)
                 .font(.headline)
-                .foregroundColor(.appPrimaryText)
+                .foregroundColor(CatalogTheme.primaryText)
             Text(subtitle)
                 .font(.caption)
-                .foregroundColor(.appSecondaryText)
+                .foregroundColor(CatalogTheme.secondaryText)
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
@@ -610,7 +610,7 @@ public struct ItemDetailSupabaseView: View {
 
     public var body: some View {
         ZStack {
-            Color.appBackground.ignoresSafeArea()
+            CatalogTheme.background.ignoresSafeArea()
             
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 24) {
@@ -635,7 +635,7 @@ public struct ItemDetailSupabaseView: View {
                                 HStack {
                                     Text("Status")
                                         .font(.subheadline)
-                                        .foregroundColor(.appSecondaryText)
+                                        .foregroundColor(CatalogTheme.secondaryText)
                                     Spacer()
                                     ItemStatusBadge(status: item.status)
                                 }
@@ -667,7 +667,7 @@ public struct ItemDetailSupabaseView: View {
                                     HStack {
                                         Text("Last Scanned")
                                             .font(.subheadline)
-                                            .foregroundColor(.appSecondaryText)
+                                            .foregroundColor(CatalogTheme.secondaryText)
                                         Spacer()
                                         Text("Never")
                                             .font(.subheadline.bold())
@@ -682,11 +682,11 @@ public struct ItemDetailSupabaseView: View {
                                     HStack {
                                         Text("Next Scan Due")
                                             .font(.subheadline)
-                                            .foregroundColor(.appSecondaryText)
+                                            .foregroundColor(CatalogTheme.secondaryText)
                                         Spacer()
                                         Text(due.formatted(date: .abbreviated, time: .shortened))
                                             .font(.subheadline.bold())
-                                            .foregroundColor(Date() > due ? .red : .appPrimaryText)
+                                            .foregroundColor(Date() > due ? .red : CatalogTheme.primaryText)
                                     }
                                     .padding(.vertical, 12)
                                 } else {
@@ -698,7 +698,7 @@ public struct ItemDetailSupabaseView: View {
                                 HStack {
                                     Text("Scan Status")
                                         .font(.subheadline)
-                                        .foregroundColor(.appSecondaryText)
+                                        .foregroundColor(CatalogTheme.secondaryText)
                                     Spacer()
                                     ScanStatusBadge(status: item.scanStatus)
                                 }
@@ -724,7 +724,7 @@ public struct ItemDetailSupabaseView: View {
                                         }
                                         .frame(maxWidth: .infinity)
                                         .padding()
-                                        .background(item.scanStatus == .overdue ? Color.appBrown : Color.appAccent)
+                                        .background(item.scanStatus == .overdue ? CatalogTheme.deepAccent : CatalogTheme.primary)
                                         .foregroundColor(.white)
                                         .cornerRadius(12)
                                     }
@@ -758,7 +758,7 @@ public struct ItemDetailSupabaseView: View {
                                         HStack {
                                             Text("ETA")
                                                 .font(.subheadline)
-                                                .foregroundColor(.appSecondaryText)
+                                                .foregroundColor(CatalogTheme.secondaryText)
                                             Spacer()
                                             HStack(spacing: 6) {
                                                 Text(eta.formatted(date: .abbreviated, time: .omitted))
@@ -770,7 +770,7 @@ public struct ItemDetailSupabaseView: View {
                                                         .foregroundColor(.white)
                                                         .padding(.horizontal, 4)
                                                         .padding(.vertical, 2)
-                                                        .background(Color.appBrown)
+                                                        .background(CatalogTheme.deepAccent)
                                                         .cornerRadius(4)
                                                 }
                                             }
@@ -786,7 +786,7 @@ public struct ItemDetailSupabaseView: View {
                     // ── 4. Actions ───────────────────────────────────────────
                     VStack(spacing: 12) {
                         if item.status == .available {
-                            actionButton(label: "Raise Repair Ticket", icon: "wrench.and.screwdriver", color: .appBrown) {
+                            actionButton(label: "Raise Repair Ticket", icon: "wrench.and.screwdriver", color: CatalogTheme.deepAccent) {
                                 showingRepairSheet = true
                             }
                         } else if item.status == .underRepair {
@@ -798,12 +798,12 @@ public struct ItemDetailSupabaseView: View {
                                     Image(systemName: "chevron.right")
                                 }
                                 .padding()
-                                .background(Color.appAccent)
+                                .background(CatalogTheme.primary)
                                 .foregroundColor(.white)
                                 .cornerRadius(12)
                             }
                         } else if item.status == .sold {
-                            actionButton(label: "Raise Return", icon: "arrow.uturn.backward.circle", color: .appAccent) {
+                            actionButton(label: "Raise Return", icon: "arrow.uturn.backward.circle", color: CatalogTheme.primary) {
                                 showingReturnSheet = true
                             }
                         }
@@ -827,15 +827,15 @@ public struct ItemDetailSupabaseView: View {
                                             VStack(alignment: .leading, spacing: 2) {
                                                 Text(log.action.rawValue)
                                                     .font(.subheadline.bold())
-                                                    .foregroundColor(.appPrimaryText)
+                                                    .foregroundColor(CatalogTheme.primaryText)
                                                 if let meta = log.metadata, !meta.isEmpty {
                                                     Text(meta)
                                                         .font(.caption)
-                                                        .foregroundColor(.appSecondaryText)
+                                                        .foregroundColor(CatalogTheme.secondaryText)
                                                 }
                                                 Text(log.timestamp.formatted(date: .abbreviated, time: .shortened))
                                                     .font(.caption2)
-                                                    .foregroundColor(.appSecondaryText)
+                                                    .foregroundColor(CatalogTheme.secondaryText)
                                             }
                                             Spacer()
                                         }
@@ -884,11 +884,11 @@ public struct ItemDetailSupabaseView: View {
         HStack {
             Text(label)
                 .font(.subheadline)
-                .foregroundColor(.appSecondaryText)
+                .foregroundColor(CatalogTheme.secondaryText)
             Spacer()
             Text(value)
                 .font(.subheadline.bold())
-                .foregroundColor(.appPrimaryText)
+                .foregroundColor(CatalogTheme.primaryText)
         }
         .padding(.vertical, 12)
     }
@@ -923,7 +923,7 @@ public struct ItemDetailSupabaseView: View {
                     HStack {
                         Text("Authenticity")
                             .font(.subheadline)
-                            .foregroundColor(.appSecondaryText)
+                            .foregroundColor(CatalogTheme.secondaryText)
                         Spacer()
                         AuthenticityBadge(status: item.authenticityStatus)
                     }
@@ -933,7 +933,7 @@ public struct ItemDetailSupabaseView: View {
                         detailDivider()
                         Text("No certifications attached.")
                             .font(.caption)
-                            .foregroundColor(.appSecondaryText)
+                            .foregroundColor(CatalogTheme.secondaryText)
                             .padding(.vertical, 12)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     } else {
@@ -943,28 +943,28 @@ public struct ItemDetailSupabaseView: View {
                                 HStack {
                                     Text(cert.type)
                                         .font(.subheadline.bold())
-                                        .foregroundColor(.appPrimaryText)
+                                        .foregroundColor(CatalogTheme.primaryText)
                                     Spacer()
                                     Text(cert.status.rawValue)
                                         .font(.caption2.bold())
-                                        .foregroundColor(cert.status == .valid ? .appAccent : .red)
+                                        .foregroundColor(cert.status == .valid ? CatalogTheme.primary : .red)
                                 }
                                 
                                 Text("No: \(cert.certificateNumber)")
                                     .font(.caption)
-                                    .foregroundColor(.appSecondaryText)
+                                    .foregroundColor(CatalogTheme.secondaryText)
                                 
                                 if let expiry = cert.expiryDate {
                                     Text("Expires: \(expiry.formatted(date: .abbreviated, time: .omitted))")
                                         .font(.caption2)
-                                        .foregroundColor(expiry < Date() ? .red : .appSecondaryText)
+                                        .foregroundColor(expiry < Date() ? .red : CatalogTheme.secondaryText)
                                 }
                                 
                                 if let url = cert.documentURL, let link = URL(string: url) {
                                     Link(destination: link) {
                                         Label("View Document", systemImage: "doc.text.fill")
                                             .font(.caption.bold())
-                                            .foregroundColor(.appAccent)
+                                            .foregroundColor(CatalogTheme.primary)
                                     }
                                     .padding(.top, 4)
                                 }
@@ -981,7 +981,7 @@ public struct ItemDetailSupabaseView: View {
                             Text("Add Certification")
                                 .font(.subheadline.bold())
                         }
-                        .foregroundColor(.appAccent)
+                        .foregroundColor(CatalogTheme.primary)
                         .padding(.vertical, 12)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
@@ -1035,13 +1035,13 @@ public struct ItemDetailSupabaseView: View {
 
     private func iconColor(for action: AuditLogAction) -> Color {
         switch action {
-        case .scanned: return .appAccent
-        case .repairCreated: return .appBrown
-        case .repairClosed: return .luxuryDeepAccent
-        case .moved: return .appBrown
-        case .statusChanged: return .luxuryDeepAccent
-        case .added: return .appAccent
-        case .flaggedMissing: return .appBrown
+        case .scanned: return CatalogTheme.primary
+        case .repairCreated: return CatalogTheme.deepAccent
+        case .repairClosed: return CatalogTheme.brandDeep
+        case .moved: return CatalogTheme.deepAccent
+        case .statusChanged: return CatalogTheme.brandDeep
+        case .added: return CatalogTheme.primary
+        case .flaggedMissing: return CatalogTheme.deepAccent
         }
     }
 
@@ -1074,10 +1074,10 @@ public struct ItemStatusBadge: View {
 
     private var color: Color {
         switch status {
-        case .available: return .appAccent
-        case .reserved: return .appBrown
+        case .available: return CatalogTheme.primary
+        case .reserved: return CatalogTheme.deepAccent
         case .underRepair: return .red
-        case .inTransit: return .luxuryDeepAccent
+        case .inTransit: return CatalogTheme.brandDeep
         case .scrapped, .sold: return .gray
         }
     }
@@ -1098,8 +1098,8 @@ public struct AuthenticityBadge: View {
 
     private var color: Color {
         switch status {
-        case .verified: return .appAccent
-        case .pending: return .appBrown
+        case .verified: return CatalogTheme.primary
+        case .pending: return CatalogTheme.deepAccent
         case .failed: return .red
         }
     }
@@ -1123,7 +1123,7 @@ public struct RepairInputView: View {
 
     public var body: some View {
         ZStack {
-            Color.appBackground.ignoresSafeArea()
+            CatalogTheme.background.ignoresSafeArea()
             
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 24) {
@@ -1136,7 +1136,7 @@ public struct RepairInputView: View {
                                 HStack {
                                     Text("Issue Type")
                                         .font(.subheadline)
-                                        .foregroundColor(.appSecondaryText)
+                                        .foregroundColor(CatalogTheme.secondaryText)
                                     Spacer()
                                     Picker("Issue Type", selection: $issueType) {
                                         Text("Select Issue").tag("")
@@ -1153,11 +1153,11 @@ public struct RepairInputView: View {
                                 VStack(alignment: .leading, spacing: 8) {
                                     Text("Repair Notes")
                                         .font(.caption.bold())
-                                        .foregroundColor(.appSecondaryText)
+                                        .foregroundColor(CatalogTheme.secondaryText)
                                     TextEditor(text: $notes)
                                         .frame(minHeight: 100)
                                         .scrollContentBackground(.hidden)
-                                        .background(Color.appBackground)
+                                        .background(CatalogTheme.background)
                                         .cornerRadius(10)
                                         .padding(4)
                                 }
@@ -1176,11 +1176,11 @@ public struct RepairInputView: View {
                                 VStack(alignment: .leading, spacing: 8) {
                                     Text("Assign To (Optional)")
                                         .font(.caption.bold())
-                                        .foregroundColor(.appSecondaryText)
+                                        .foregroundColor(CatalogTheme.secondaryText)
                                     TextField("e.g. Master Goldsmith", text: $assignedTo)
                                         .textFieldStyle(PlainTextFieldStyle())
                                         .padding(12)
-                                        .background(Color.appBackground)
+                                        .background(CatalogTheme.background)
                                         .cornerRadius(10)
                                 }
                                 
@@ -1188,12 +1188,12 @@ public struct RepairInputView: View {
                                 
                                 Toggle("Set ETA", isOn: $useETA)
                                     .font(.subheadline)
-                                    .foregroundColor(.appSecondaryText)
+                                    .foregroundColor(CatalogTheme.secondaryText)
                                 
                                 if useETA {
                                     DatePicker("Target Date", selection: $eta, in: Date()..., displayedComponents: .date)
                                         .font(.subheadline)
-                                        .foregroundColor(.appSecondaryText)
+                                        .foregroundColor(CatalogTheme.secondaryText)
                                 }
                             }
                         }
@@ -1208,7 +1208,7 @@ public struct RepairInputView: View {
                             Spacer()
                         }
                         .padding()
-                        .background(canSubmit ? Color.appAccent : CatalogTheme.inactiveBadge)
+                        .background(canSubmit ? CatalogTheme.primary : CatalogTheme.inactiveBadge)
                         .foregroundColor(.white)
                         .cornerRadius(12)
                     }
@@ -1223,7 +1223,7 @@ public struct RepairInputView: View {
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button { presentationMode.wrappedValue.dismiss() } label: {
-                    AppToolbarGlyph(systemImage: "xmark", backgroundColor: .appAccent)
+                    AppToolbarGlyph(systemImage: "xmark", backgroundColor: CatalogTheme.primary)
                 }
                 .buttonStyle(.plain)
             }
@@ -1308,7 +1308,7 @@ public struct RepairTicketDetailView: View {
 
     public var body: some View {
         ZStack {
-            Color.appBackground.ignoresSafeArea()
+            CatalogTheme.background.ignoresSafeArea()
             
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 24) {
@@ -1407,7 +1407,7 @@ public struct RepairTicketDetailView: View {
                                 Text("This repair ticket is closed.")
                                     .font(.subheadline.italic())
                             }
-                            .foregroundColor(.appSecondaryText)
+                            .foregroundColor(CatalogTheme.secondaryText)
                             .padding()
                             .frame(maxWidth: .infinity)
                             .background(Color.black.opacity(0.05))
@@ -1417,7 +1417,7 @@ public struct RepairTicketDetailView: View {
                     } else {
                         Text("No active repair ticket found.")
                             .font(.headline)
-                            .foregroundColor(.appSecondaryText)
+                            .foregroundColor(CatalogTheme.secondaryText)
                             .padding()
                     }
                 }
@@ -1427,11 +1427,11 @@ public struct RepairTicketDetailView: View {
         .navigationTitle("Repair Ticket")
     }
 
-    private func detailRow(label: String, value: String, valueColor: Color = .appPrimaryText) -> some View {
+    private func detailRow(label: String, value: String, valueColor: Color = CatalogTheme.primaryText) -> some View {
         HStack {
             Text(label)
                 .font(.subheadline)
-                .foregroundColor(.appSecondaryText)
+                .foregroundColor(CatalogTheme.secondaryText)
             Spacer()
             Text(value)
                 .font(.subheadline.bold())
@@ -1448,7 +1448,7 @@ public struct RepairTicketDetailView: View {
         switch status {
         case .completed: return .green
         case .failed, .scrapped: return .red
-        default: return .appAccent
+        default: return CatalogTheme.primary
         }
     }
 
@@ -1531,9 +1531,9 @@ public struct RepairTicketDetailView: View {
 
     private func color(for status: RepairStatus) -> Color {
         switch status {
-        case .completed: return .appAccent
+        case .completed: return CatalogTheme.primary
         case .failed, .scrapped: return .red
-        default: return .luxuryDeepAccent
+        default: return CatalogTheme.brandDeep
         }
     }
 }
@@ -1558,7 +1558,7 @@ public struct RaiseReturnRequestView: View {
 
     public var body: some View {
         ZStack {
-            Color.appBackground.ignoresSafeArea()
+            CatalogTheme.background.ignoresSafeArea()
             
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 24) {
@@ -1571,7 +1571,7 @@ public struct RaiseReturnRequestView: View {
                                 HStack {
                                     Text("Reason")
                                         .font(.subheadline)
-                                        .foregroundColor(.appSecondaryText)
+                                        .foregroundColor(CatalogTheme.secondaryText)
                                     Spacer()
                                     Picker("Reason", selection: $selectedReason) {
                                         ForEach(returnReasons, id: \.self) { reason in
@@ -1587,11 +1587,11 @@ public struct RaiseReturnRequestView: View {
                                 VStack(alignment: .leading, spacing: 8) {
                                     Text("Notes (Optional)")
                                         .font(.caption.bold())
-                                        .foregroundColor(.appSecondaryText)
+                                        .foregroundColor(CatalogTheme.secondaryText)
                                     TextField("Additional details...", text: $additionalNotes, axis: .vertical)
                                         .textFieldStyle(PlainTextFieldStyle())
                                         .padding(12)
-                                        .background(Color.appBackground)
+                                        .background(CatalogTheme.background)
                                         .cornerRadius(10)
                                         .lineLimit(3...5)
                                 }
@@ -1623,7 +1623,7 @@ public struct RaiseReturnRequestView: View {
         .toolbar {
             ToolbarItem(placement: .navigationBarLeading) {
                 Button { presentationMode.wrappedValue.dismiss() } label: {
-                    AppToolbarGlyph(systemImage: "xmark", backgroundColor: .appAccent)
+                    AppToolbarGlyph(systemImage: "xmark", backgroundColor: CatalogTheme.primary)
                 }
                 .buttonStyle(.plain)
             }
@@ -1632,7 +1632,7 @@ public struct RaiseReturnRequestView: View {
                     AppToolbarGlyph(
                         systemImage: isSubmitting ? "hourglass" : "checkmark",
                         enabled: !isSubmitting,
-                        backgroundColor: .appAccent
+                        backgroundColor: CatalogTheme.primary
                     )
                 }
                 .buttonStyle(.plain)
@@ -1707,7 +1707,7 @@ public struct ItemDetailView: View {
 
     public var body: some View {
         ZStack {
-            Color.appBackground.ignoresSafeArea()
+            CatalogTheme.background.ignoresSafeArea()
             
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 24) {
@@ -1723,11 +1723,11 @@ public struct ItemDetailView: View {
                                 detailDivider()
                                 detailRow(label: "Serial", value: item.serialId)
                                 detailDivider()
-                                detailRow(label: "RFID Tag", value: item.id, valueColor: .appAccent)
+                                detailRow(label: "RFID Tag", value: item.id, valueColor: CatalogTheme.primary)
                                 detailDivider()
                                 detailRow(label: "Location", value: item.location)
                                 detailDivider()
-                                detailRow(label: "Status", value: item.status.rawValue, valueColor: .appAccent)
+                                detailRow(label: "Status", value: item.status.rawValue, valueColor: CatalogTheme.primary)
                             }
                         }
                     }
@@ -1745,15 +1745,15 @@ public struct ItemDetailView: View {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("Ingested via Warehouse Scan")
                                         .font(.subheadline.bold())
-                                        .foregroundColor(.appPrimaryText)
+                                        .foregroundColor(CatalogTheme.primaryText)
                                     Text("Initial registration into RSMS")
                                         .font(.caption)
-                                        .foregroundColor(.appSecondaryText)
+                                        .foregroundColor(CatalogTheme.secondaryText)
                                 }
                                 Spacer()
                                 Text("Today")
                                     .font(.caption)
-                                    .foregroundColor(.appSecondaryText)
+                                    .foregroundColor(CatalogTheme.secondaryText)
                             }
                         }
                     }
@@ -1765,11 +1765,11 @@ public struct ItemDetailView: View {
         .navigationTitle("Item Details")
     }
 
-    private func detailRow(label: String, value: String, valueColor: Color = .appPrimaryText) -> some View {
+    private func detailRow(label: String, value: String, valueColor: Color = CatalogTheme.primaryText) -> some View {
         HStack {
             Text(label)
                 .font(.subheadline)
-                .foregroundColor(.appSecondaryText)
+                .foregroundColor(CatalogTheme.secondaryText)
             Spacer()
             Text(value)
                 .font(.subheadline.bold())
@@ -1787,11 +1787,6 @@ public struct AddItemManualView: View {
     @Environment(\.presentationMode) var presentationMode
     @ObservedObject var viewModel: InventoryDashboardViewModel
 
-    public init(viewModel: InventoryDashboardViewModel) {
-        self.viewModel = viewModel
-        self._location = State(initialValue: viewModel.locations.first ?? "Warehouse")
-    }
-
     @State private var selectedProduct: Product? = nil
     @State private var rfid = "RFID-\(Int.random(in: 1000...9999))"
     @State private var batchNo = "B-MANUAL"
@@ -1806,7 +1801,7 @@ public struct AddItemManualView: View {
 
     public var body: some View {
         ZStack {
-            Color.appBackground.ignoresSafeArea()
+            CatalogTheme.background.ignoresSafeArea()
             
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 24) {
@@ -1820,7 +1815,7 @@ public struct AddItemManualView: View {
                                 HStack {
                                     Text("Select Product")
                                         .font(.subheadline)
-                                        .foregroundColor(.appSecondaryText)
+                                        .foregroundColor(CatalogTheme.secondaryText)
                                     Spacer()
                                     Picker("Product", selection: $selectedProduct) {
                                         Text("Choose...").tag(nil as Product?)
@@ -1837,11 +1832,11 @@ public struct AddItemManualView: View {
                                     HStack {
                                         Text("Category")
                                             .font(.subheadline)
-                                            .foregroundColor(.appSecondaryText)
+                                            .foregroundColor(CatalogTheme.secondaryText)
                                         Spacer()
                                         Text(product.category.isEmpty ? "General" : product.category)
                                             .font(.subheadline.bold())
-                                            .foregroundColor(.appPrimaryText)
+                                            .foregroundColor(CatalogTheme.primaryText)
                                     }
                                     .padding(.vertical, 12)
                                 }
@@ -1860,11 +1855,11 @@ public struct AddItemManualView: View {
                                 HStack {
                                     Text("RFID Tag")
                                         .font(.subheadline)
-                                        .foregroundColor(.appSecondaryText)
+                                        .foregroundColor(CatalogTheme.secondaryText)
                                     Spacer()
                                     Text(rfid)
                                         .font(.system(.body, design: .monospaced).bold())
-                                        .foregroundColor(.appAccent)
+                                        .foregroundColor(CatalogTheme.primary)
                                 }
                                 
                                 Divider().overlay(Color.black.opacity(0.08))
@@ -1872,22 +1867,22 @@ public struct AddItemManualView: View {
                                 VStack(alignment: .leading, spacing: 8) {
                                     Text("Batch Number")
                                         .font(.caption.bold())
-                                        .foregroundColor(.appSecondaryText)
+                                        .foregroundColor(CatalogTheme.secondaryText)
                                     TextField("e.g. B-MANUAL", text: $batchNo)
                                         .textFieldStyle(PlainTextFieldStyle())
                                         .padding(12)
-                                        .background(Color.appBackground)
+                                        .background(CatalogTheme.background)
                                         .cornerRadius(10)
                                 }
                                 
                                 VStack(alignment: .leading, spacing: 8) {
                                     Text("Asset Tag")
                                         .font(.caption.bold())
-                                        .foregroundColor(.appSecondaryText)
+                                        .foregroundColor(CatalogTheme.secondaryText)
                                     TextField("e.g. RSMS-2024-001", text: $assetTag)
                                         .textFieldStyle(PlainTextFieldStyle())
                                         .padding(12)
-                                        .background(Color.appBackground)
+                                        .background(CatalogTheme.background)
                                         .cornerRadius(10)
                                 }
                             }
@@ -1904,7 +1899,7 @@ public struct AddItemManualView: View {
                             HStack {
                                 Text("Storage Location")
                                     .font(.subheadline)
-                                    .foregroundColor(.appSecondaryText)
+                                    .foregroundColor(CatalogTheme.secondaryText)
                                 Spacer()
                                 Picker("Location", selection: $location) {
                                     ForEach(viewModel.locations, id: \.self) { loc in
@@ -1942,7 +1937,7 @@ public struct AddItemManualView: View {
                     Button {
                         presentationMode.wrappedValue.dismiss()
                     } label: {
-                        AppToolbarGlyph(systemImage: "xmark", backgroundColor: .appAccent)
+                        AppToolbarGlyph(systemImage: "xmark", backgroundColor: CatalogTheme.primary)
                     }
                     .buttonStyle(.plain)
                 }
@@ -1953,13 +1948,12 @@ public struct AddItemManualView: View {
                         AppToolbarGlyph(
                             systemImage: "checkmark",
                             enabled: canSave,
-                            backgroundColor: .appAccent
+                            backgroundColor: CatalogTheme.primary
                         )
                     }
                     .buttonStyle(.plain)
                     .disabled(!canSave)
                 }
-            }
         }
     }
 
@@ -2034,7 +2028,7 @@ public struct AddCertificationView: View {
 
     public var body: some View {
         ZStack {
-            Color.appBackground.ignoresSafeArea()
+            CatalogTheme.background.ignoresSafeArea()
             
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 24) {
@@ -2048,7 +2042,7 @@ public struct AddCertificationView: View {
                                 HStack {
                                     Text("Type")
                                         .font(.subheadline)
-                                        .foregroundColor(.appSecondaryText)
+                                        .foregroundColor(CatalogTheme.secondaryText)
                                     Spacer()
                                     Picker("Type", selection: $selectedType) {
                                         ForEach(certificationTypes, id: \.self) { type in
@@ -2064,11 +2058,11 @@ public struct AddCertificationView: View {
                                 VStack(alignment: .leading, spacing: 8) {
                                     Text("Certificate Number")
                                         .font(.caption.bold())
-                                        .foregroundColor(.appSecondaryText)
+                                        .foregroundColor(CatalogTheme.secondaryText)
                                     TextField(referenceCertificateNumber, text: $certificateNumber)
                                         .textFieldStyle(PlainTextFieldStyle())
                                         .padding(12)
-                                        .background(Color.appBackground)
+                                        .background(CatalogTheme.background)
                                         .cornerRadius(10)
                                 }
                                 .padding(.vertical, 12)
@@ -2078,11 +2072,11 @@ public struct AddCertificationView: View {
                                 VStack(alignment: .leading, spacing: 8) {
                                     Text("Issued By")
                                         .font(.caption.bold())
-                                        .foregroundColor(.appSecondaryText)
+                                        .foregroundColor(CatalogTheme.secondaryText)
                                     TextField("e.g. RSMS Authority", text: $issuedBy)
                                         .textFieldStyle(PlainTextFieldStyle())
                                         .padding(12)
-                                        .background(Color.appBackground)
+                                        .background(CatalogTheme.background)
                                         .cornerRadius(10)
                                 }
                                 .padding(.vertical, 12)
@@ -2100,21 +2094,21 @@ public struct AddCertificationView: View {
                             VStack(spacing: 0) {
                                 DatePicker("Issued Date", selection: $issuedDate, displayedComponents: .date)
                                     .font(.subheadline)
-                                    .foregroundColor(.appSecondaryText)
+                                    .foregroundColor(CatalogTheme.secondaryText)
                                     .padding(.vertical, 8)
                                 
                                 Divider().overlay(Color.black.opacity(0.08))
                                 
                                 Toggle("Has Expiry Date", isOn: $hasExpiry)
                                     .font(.subheadline)
-                                    .foregroundColor(.appSecondaryText)
+                                    .foregroundColor(CatalogTheme.secondaryText)
                                     .padding(.vertical, 8)
                                 
                                 if hasExpiry {
                                     Divider().overlay(Color.black.opacity(0.08))
                                     DatePicker("Expiry Date", selection: $expiryDate, displayedComponents: .date)
                                         .font(.subheadline)
-                                        .foregroundColor(.appSecondaryText)
+                                        .foregroundColor(CatalogTheme.secondaryText)
                                         .padding(.vertical, 8)
                                 }
                             }
@@ -2131,7 +2125,7 @@ public struct AddCertificationView: View {
                             VStack(spacing: 16) {
                                 Toggle("Attach Supporting Document", isOn: $attachDocument)
                                     .font(.subheadline)
-                                    .foregroundColor(.appSecondaryText)
+                                    .foregroundColor(CatalogTheme.secondaryText)
                                 
                                 if attachDocument {
                                     Divider().overlay(Color.black.opacity(0.08))
@@ -2145,8 +2139,8 @@ public struct AddCertificationView: View {
                                         .font(.subheadline.bold())
                                         .frame(maxWidth: .infinity)
                                         .padding()
-                                        .background(Color.appAccent.opacity(0.12))
-                                        .foregroundColor(.appAccent)
+                                        .background(CatalogTheme.primary.opacity(0.12))
+                                        .foregroundColor(CatalogTheme.primary)
                                         .cornerRadius(10)
                                     }
                                     
@@ -2156,7 +2150,7 @@ public struct AddCertificationView: View {
                                                 .foregroundColor(.green)
                                             Text("File attached: \(url.lastPathComponent)")
                                                 .font(.caption)
-                                                .foregroundColor(.appSecondaryText)
+                                                .foregroundColor(CatalogTheme.secondaryText)
                                             Spacer()
                                             Button(action: { selectedFileURL = nil }) {
                                                 Image(systemName: "trash")
@@ -2196,7 +2190,7 @@ public struct AddCertificationView: View {
         .toolbar {
             ToolbarItem(placement: .navigationBarLeading) {
                 Button { presentationMode.wrappedValue.dismiss() } label: {
-                    AppToolbarGlyph(systemImage: "xmark", backgroundColor: .appAccent)
+                    AppToolbarGlyph(systemImage: "xmark", backgroundColor: CatalogTheme.primary)
                 }
                 .buttonStyle(.plain)
             }
@@ -2205,7 +2199,7 @@ public struct AddCertificationView: View {
                     AppToolbarGlyph(
                         systemImage: isUploading ? "hourglass" : "checkmark",
                         enabled: !isUploading && canSave,
-                        backgroundColor: .appAccent
+                        backgroundColor: CatalogTheme.primary
                     )
                 }
                 .buttonStyle(.plain)

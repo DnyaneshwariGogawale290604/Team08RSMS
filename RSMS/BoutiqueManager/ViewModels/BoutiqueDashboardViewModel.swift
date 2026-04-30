@@ -6,7 +6,7 @@ import Combine
 public class BoutiqueDashboardViewModel: ObservableObject {
     @Published public var summary: DashboardSummary?
     @Published public var activeAlerts: [InventoryProduct] = []
-    @Published public var todayAppointments: [Appointment] = []
+
     @Published public var weeklyRevenue: [DailySalesData] = []
     @Published public var topProducts: [ProductSalesData] = []
     @Published public var staffPerformance: [StaffPerformanceData] = []
@@ -109,13 +109,7 @@ public class BoutiqueDashboardViewModel: ObservableObject {
             lowStockItems = allInventory.filter { $0.isLowStock }.sorted { $0.name < $1.name }
         } catch { print("Dashboard/Inventory: \(error)") }
 
-        // MARK: Appointments
-        var fetchedAppointments: [Appointment] = []
-        do {
-            if let sid = storeId {
-                fetchedAppointments = try await DataService.shared.fetchTodayAppointmentsForStore(storeId: sid)
-            }
-        } catch { print("Dashboard/Appointments: \(error)") }
+
 
         withAnimation(.easeInOut(duration: 0.3)) {
             self.summary = DashboardSummary(
@@ -126,7 +120,7 @@ public class BoutiqueDashboardViewModel: ObservableObject {
                 todayAvgOrderValue: avgOrderValue
             )
             self.activeAlerts = lowStockItems
-            self.todayAppointments = fetchedAppointments
+
             self.isLoading = false
         }
     }

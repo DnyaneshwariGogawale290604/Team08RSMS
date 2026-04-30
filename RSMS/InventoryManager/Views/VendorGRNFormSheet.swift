@@ -39,7 +39,7 @@ struct VendorGRNFormSheet: View {
 
     var body: some View {
         ZStack {
-            Color.appBackground.ignoresSafeArea()
+            CatalogTheme.background.ignoresSafeArea()
             
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 24) {
@@ -50,7 +50,7 @@ struct VendorGRNFormSheet: View {
                         
                         ReusableCardView {
                             VStack(spacing: 0) {
-                                detailRow(label: "PO Number", value: "PO-\(vendorOrder.id.uuidString.prefix(5).uppercased())", valueColor: .appAccent)
+                                detailRow(label: "PO Number", value: "PO-\(vendorOrder.id.uuidString.prefix(5).uppercased())", valueColor: CatalogTheme.primary)
                                 
                                 if let vendor = vendorOrder.vendor {
                                     detailDivider()
@@ -79,11 +79,11 @@ struct VendorGRNFormSheet: View {
                                 HStack {
                                     Text("Qty Received")
                                         .font(.subheadline)
-                                        .foregroundColor(.appSecondaryText)
+                                        .foregroundColor(CatalogTheme.secondaryText)
                                     Spacer()
                                     TextField("Enter quantity", text: $quantityReceived)
                                         .font(.subheadline.bold())
-                                        .foregroundColor(.appPrimaryText)
+                                        .foregroundColor(CatalogTheme.primaryText)
                                         .multilineTextAlignment(.trailing)
                                         .keyboardType(.numberPad)
                                         .frame(width: 100)
@@ -95,7 +95,7 @@ struct VendorGRNFormSheet: View {
                                 VStack(alignment: .leading, spacing: 12) {
                                     Text("Condition")
                                         .font(.caption.bold())
-                                        .foregroundColor(.appSecondaryText)
+                                        .foregroundColor(CatalogTheme.secondaryText)
                                         .padding(.top, 8)
 
                                     HStack(spacing: 12) {
@@ -119,7 +119,7 @@ struct VendorGRNFormSheet: View {
                             TextEditor(text: $notes)
                                 .frame(minHeight: 100)
                                 .scrollContentBackground(.hidden)
-                                .background(Color.appBackground)
+                                .background(CatalogTheme.background)
                                 .cornerRadius(10)
                                 .padding(4)
                         }
@@ -137,7 +137,7 @@ struct VendorGRNFormSheet: View {
                                 VStack(spacing: 16) {
                                     Text("Please attach a clear photo showing the damage or issue.")
                                         .font(.caption)
-                                        .foregroundColor(.appSecondaryText)
+                                        .foregroundColor(CatalogTheme.secondaryText)
                                         .frame(maxWidth: .infinity, alignment: .leading)
                                     
                                     if let img = proofImage {
@@ -165,14 +165,14 @@ struct VendorGRNFormSheet: View {
                                                 Text("Add Photo Proof")
                                                     .font(.subheadline.bold())
                                             }
-                                            .foregroundColor(.appAccent)
+                                            .foregroundColor(CatalogTheme.primary)
                                             .frame(maxWidth: .infinity)
                                             .frame(height: 120)
-                                            .background(Color.appAccent.opacity(0.12))
+                                            .background(CatalogTheme.primary.opacity(0.12))
                                             .cornerRadius(12)
                                             .overlay(
                                                 RoundedRectangle(cornerRadius: 12)
-                                                    .stroke(Color.appAccent.opacity(0.2), style: StrokeStyle(lineWidth: 1, dash: [4]))
+                                                    .stroke(CatalogTheme.primary.opacity(0.2), style: StrokeStyle(lineWidth: 1, dash: [4]))
                                             )
                                         }
                                         .onChange(of: photoItem) { newItem in
@@ -205,7 +205,7 @@ struct VendorGRNFormSheet: View {
                             Spacer()
                         }
                         .padding()
-                        .background(isFormValid && !viewModel.isLoading ? Color.appAccent : CatalogTheme.inactiveBadge)
+                        .background(isFormValid && !viewModel.isLoading ? CatalogTheme.primary : CatalogTheme.inactiveBadge)
                         .foregroundColor(.white)
                         .cornerRadius(12)
                         .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
@@ -222,7 +222,7 @@ struct VendorGRNFormSheet: View {
         .toolbar {
             ToolbarItem(placement: .navigationBarLeading) {
                 Button { dismiss() } label: {
-                    AppToolbarGlyph(systemImage: "xmark", backgroundColor: .appAccent)
+                    AppToolbarGlyph(systemImage: "xmark", backgroundColor: CatalogTheme.primary)
                 }
                 .buttonStyle(.plain)
             }
@@ -247,11 +247,11 @@ struct VendorGRNFormSheet: View {
         }
     }
 
-    private func detailRow(label: String, value: String, valueColor: Color = .appPrimaryText) -> some View {
+    private func detailRow(label: String, value: String, valueColor: Color = CatalogTheme.primaryText) -> some View {
         HStack {
             Text(label)
                 .font(.subheadline)
-                .foregroundColor(.appSecondaryText)
+                .foregroundColor(CatalogTheme.secondaryText)
             Spacer()
             Text(value)
                 .font(.subheadline.bold())
@@ -274,51 +274,51 @@ struct VendorGRNFormSheet: View {
             HStack {
                 Text("PO Number")
                     .font(.caption)
-                    .foregroundColor(.appSecondaryText)
+                    .foregroundColor(CatalogTheme.secondaryText)
                 Spacer()
                 Text("PO-\(vendorOrder.id.uuidString.prefix(5).uppercased())")
                     .font(.system(.caption, design: .monospaced).bold())
-                    .foregroundColor(.appAccent)
+                    .foregroundColor(CatalogTheme.primary)
             }
 
             if let vendor = vendorOrder.vendor {
                 HStack {
                     Text("Vendor")
                         .font(.caption)
-                        .foregroundColor(.appSecondaryText)
+                        .foregroundColor(CatalogTheme.secondaryText)
                     Spacer()
                     Text(vendor.name)
                         .font(.caption.bold())
-                        .foregroundColor(.appPrimaryText)
+                        .foregroundColor(CatalogTheme.primaryText)
                 }
             }
 
             HStack {
                 Text("Ordered Qty")
                     .font(.caption)
-                    .foregroundColor(.appSecondaryText)
+                    .foregroundColor(CatalogTheme.secondaryText)
                 Spacer()
                 Text("\(orderedQuantity) units")
                     .font(.caption.bold())
-                    .foregroundColor(.appPrimaryText)
+                    .foregroundColor(CatalogTheme.primaryText)
             }
 
             if let product = vendorOrder.product {
                 HStack {
                     Text("Product")
                         .font(.caption)
-                        .foregroundColor(.appSecondaryText)
+                        .foregroundColor(CatalogTheme.secondaryText)
                     Spacer()
                     Text(product.name)
                         .font(.caption.bold())
-                        .foregroundColor(.appPrimaryText)
+                        .foregroundColor(CatalogTheme.primaryText)
                 }
             }
         }
         .padding(16)
         .background(Color(UIColor.secondarySystemGroupedBackground))
         .cornerRadius(14)
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.appBorder, lineWidth: 0.8))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(CatalogTheme.divider, lineWidth: 0.8))
     }
 
     private var physicalCheckCard: some View {
@@ -335,12 +335,12 @@ struct VendorGRNFormSheet: View {
             HStack {
                 Text("Qty Received")
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(.appSecondaryText)
+                    .foregroundColor(CatalogTheme.secondaryText)
                 Spacer()
                 TextField("Enter quantity", text: $quantityReceived)
                     .multilineTextAlignment(.trailing)
                     .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(.appPrimaryText)
+                    .foregroundColor(CatalogTheme.primaryText)
                     .frame(width: 80)
 #if canImport(UIKit)
                     .keyboardType(.numberPad)
@@ -355,7 +355,7 @@ struct VendorGRNFormSheet: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Condition")
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(.appSecondaryText)
+                    .foregroundColor(CatalogTheme.secondaryText)
                     .padding(.horizontal, 16)
                     .padding(.top, 12)
 
@@ -370,7 +370,7 @@ struct VendorGRNFormSheet: View {
         }
         .background(Color(UIColor.secondarySystemGroupedBackground))
         .cornerRadius(14)
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.appBorder, lineWidth: 0.8))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(CatalogTheme.divider, lineWidth: 0.8))
     }
 
     private func conditionButton(_ condition: GoodsReceivedNote.GRNCondition) -> some View {
@@ -413,7 +413,7 @@ struct VendorGRNFormSheet: View {
             TextEditor(text: $notes)
                 .frame(minHeight: 80, maxHeight: 120)
                 .font(.system(size: 14))
-                .foregroundColor(.appPrimaryText)
+                .foregroundColor(CatalogTheme.primaryText)
                 .padding(8)
                 .background(Color(UIColor.tertiarySystemGroupedBackground))
                 .cornerRadius(10)
@@ -421,7 +421,7 @@ struct VendorGRNFormSheet: View {
         .padding(16)
         .background(Color(UIColor.secondarySystemGroupedBackground))
         .cornerRadius(14)
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.appBorder, lineWidth: 0.8))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(CatalogTheme.divider, lineWidth: 0.8))
     }
 
     private var photoProofCard: some View {
@@ -432,7 +432,7 @@ struct VendorGRNFormSheet: View {
             
             Text("Please attach a clear photo showing the damage or issue.")
                 .font(.caption)
-                .foregroundColor(.appSecondaryText)
+                .foregroundColor(CatalogTheme.secondaryText)
             
             if let img = proofImage {
                 ZStack(alignment: .topTrailing) {
@@ -463,14 +463,14 @@ struct VendorGRNFormSheet: View {
                         Text("Add Photo Proof")
                             .font(.subheadline.bold())
                     }
-                    .foregroundColor(Color.appAccent)
+                    .foregroundColor(CatalogTheme.primary)
                     .frame(maxWidth: .infinity)
                     .frame(height: 100)
-                    .background(Color.appAccent.opacity(0.1))
+                    .background(CatalogTheme.primary.opacity(0.1))
                     .cornerRadius(10)
                     .overlay(
                         RoundedRectangle(cornerRadius: 10)
-                            .stroke(Color.appAccent.opacity(0.3), style: StrokeStyle(lineWidth: 1, dash: [5]))
+                            .stroke(CatalogTheme.primary.opacity(0.3), style: StrokeStyle(lineWidth: 1, dash: [5]))
                     )
                 }
                 .onChange(of: photoItem) { newItem in
@@ -486,7 +486,7 @@ struct VendorGRNFormSheet: View {
         .padding(16)
         .background(Color(UIColor.secondarySystemGroupedBackground))
         .cornerRadius(14)
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.appBorder, lineWidth: 0.8))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(CatalogTheme.divider, lineWidth: 0.8))
     }
 
     private var submitButton: some View {
@@ -510,7 +510,7 @@ struct VendorGRNFormSheet: View {
         }
         .background(
             RoundedRectangle(cornerRadius: 50)
-                .fill(isFormValid && !viewModel.isLoading ? Color.green : Color.appBorder)
+                .fill(isFormValid && !viewModel.isLoading ? Color.green : CatalogTheme.divider)
         )
         .disabled(!isFormValid || viewModel.isLoading)
     }
@@ -524,17 +524,17 @@ struct VendorGRNFormSheet: View {
                     .foregroundColor(.green)
                 Text("GRN Generated!")
                     .font(.title2.bold())
-                    .foregroundColor(.appPrimaryText)
+                    .foregroundColor(CatalogTheme.primaryText)
                 Text(generatedGRN)
                     .font(.system(.title3, design: .monospaced).bold())
-                    .foregroundColor(.appAccent)
+                    .foregroundColor(CatalogTheme.primary)
                     .padding(.horizontal, 20)
                     .padding(.vertical, 10)
-                    .background(Color.appAccent.opacity(0.1))
+                    .background(CatalogTheme.primary.opacity(0.1))
                     .cornerRadius(AppTheme.cardCornerRadius)
                 Text("All received items were added to the Items tab with batch-linked RFID tags, and live stock has been updated.")
                     .font(.subheadline)
-                    .foregroundColor(.appSecondaryText)
+                    .foregroundColor(CatalogTheme.secondaryText)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 20)
                 

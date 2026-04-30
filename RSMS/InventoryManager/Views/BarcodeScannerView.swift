@@ -228,7 +228,7 @@ public struct AddItemScanView: View {
     
     public var body: some View {
         ZStack {
-            Color.appBackground.ignoresSafeArea()
+            CatalogTheme.background.ignoresSafeArea()
             
             switch scanPhase {
             case .scanning:
@@ -244,7 +244,7 @@ public struct AddItemScanView: View {
         .toolbar {
             ToolbarItem(placement: .navigationBarLeading) {
                 Button { presentationMode.wrappedValue.dismiss() } label: {
-                    AppToolbarGlyph(systemImage: "xmark", backgroundColor: .appAccent)
+                    AppToolbarGlyph(systemImage: "xmark", backgroundColor: CatalogTheme.primary)
                 }
                 .buttonStyle(.plain)
             }
@@ -279,7 +279,7 @@ public struct AddItemScanView: View {
                 
                 ZStack {
                     RoundedRectangle(cornerRadius: 24)
-                        .stroke(Color.appAccent.opacity(0.6), lineWidth: 2)
+                        .stroke(CatalogTheme.primary.opacity(0.6), lineWidth: 2)
                         .frame(width: 280, height: 180)
                     
                     ViewfinderCornersView()
@@ -311,7 +311,7 @@ public struct AddItemScanView: View {
                         .foregroundColor(.white)
                         .padding(.horizontal, 24)
                         .padding(.vertical, 12)
-                        .background(isTorchOn ? Color.appAccent : Color.white.opacity(0.15))
+                        .background(isTorchOn ? CatalogTheme.primary : Color.white.opacity(0.15))
                         .background(Blur(style: .systemThinMaterialDark))
                         .cornerRadius(100)
                     }
@@ -330,7 +330,7 @@ public struct AddItemScanView: View {
                         
                         Text("Item Added!")
                             .font(.title3.bold())
-                            .foregroundColor(.appPrimaryText)
+                            .foregroundColor(CatalogTheme.primaryText)
                         
                         VStack(spacing: 12) {
                             detailRow(label: "Product", value: item.productName)
@@ -340,11 +340,11 @@ public struct AddItemScanView: View {
                             detailRow(label: "Location", value: item.location)
                         }
                         .padding()
-                        .background(Color.appBackground)
+                        .background(CatalogTheme.background)
                         .cornerRadius(16)
                     }
                     .padding(32)
-                    .background(Color.appSurface)
+                    .background(CatalogTheme.surface)
                     .cornerRadius(24)
                     .shadow(radius: 20)
                     .padding(.horizontal, 40)
@@ -372,7 +372,7 @@ public struct AddItemScanView: View {
                     
                     Text("Barcode Detected!")
                         .font(.title2.bold())
-                        .foregroundColor(.appPrimaryText)
+                        .foregroundColor(CatalogTheme.primaryText)
                 }
                 .padding(.top, 40)
                 
@@ -381,10 +381,10 @@ public struct AddItemScanView: View {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Scanned Value")
                                 .font(.caption.bold())
-                                .foregroundColor(.appSecondaryText)
+                                .foregroundColor(CatalogTheme.secondaryText)
                             Text(scannedCode ?? "—")
                                 .font(.system(.title3, design: .monospaced).bold())
-                                .foregroundColor(.appAccent)
+                                .foregroundColor(CatalogTheme.primary)
                         }
                         
                         Divider().overlay(Color.black.opacity(0.08))
@@ -392,11 +392,11 @@ public struct AddItemScanView: View {
                         HStack {
                             Label(friendlyCodeType(scannedType), systemImage: "info.circle")
                                 .font(.caption.bold())
-                                .foregroundColor(.appSecondaryText)
+                                .foregroundColor(CatalogTheme.secondaryText)
                             Spacer()
                             Text("Auto-generated RFID")
                                 .font(.caption)
-                                .foregroundColor(.appSecondaryText)
+                                .foregroundColor(CatalogTheme.secondaryText)
                         }
                     }
                 }
@@ -411,7 +411,7 @@ public struct AddItemScanView: View {
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(Color.appAccent)
+                        .background(CatalogTheme.primary)
                         .foregroundColor(.white)
                         .cornerRadius(12)
                     }
@@ -425,9 +425,9 @@ public struct AddItemScanView: View {
                         .frame(maxWidth: .infinity)
                         .padding()
                         .background(Color.white)
-                        .foregroundColor(.appPrimaryText)
+                        .foregroundColor(CatalogTheme.primaryText)
                         .cornerRadius(12)
-                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.appBorder, lineWidth: 1))
+                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(CatalogTheme.divider, lineWidth: 1))
                     }
                     
                     Button(action: {
@@ -438,7 +438,7 @@ public struct AddItemScanView: View {
                     }) {
                         Label("Scan Another", systemImage: "camera.viewfinder")
                             .font(.subheadline.bold())
-                            .foregroundColor(.appSecondaryText)
+                            .foregroundColor(CatalogTheme.secondaryText)
                     }
                     .padding(.top, 8)
                 }
@@ -459,7 +459,7 @@ public struct AddItemScanView: View {
                     ReusableCardView {
                         VStack(spacing: 0) {
                             detailRow(label: "Code", value: scannedCode ?? "—")
-                            Divider().overlay(Color.black.opacity(0.08))
+                            Divider().overlay(CatalogTheme.divider)
                             detailRow(label: "Type", value: friendlyCodeType(scannedType))
                         }
                     }
@@ -475,7 +475,7 @@ public struct AddItemScanView: View {
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("Select Product")
                                     .font(.caption.bold())
-                                    .foregroundColor(.appSecondaryText)
+                                    .foregroundColor(CatalogTheme.secondaryText)
                                 Picker("Product", selection: $selectedProduct) {
                                     Text("Choose...").tag(nil as Product?)
                                     ForEach(viewModel.products, id: \.id) { product in
@@ -485,12 +485,12 @@ public struct AddItemScanView: View {
                                 .pickerStyle(MenuPickerStyle())
                                 .padding(8)
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(Color.appBackground)
+                                .background(CatalogTheme.background)
                                 .cornerRadius(10)
                             }
                             
                             if let product = selectedProduct {
-                                Divider().overlay(Color.black.opacity(0.08))
+                                Divider().overlay(CatalogTheme.divider)
                                 detailRow(label: "Category", value: product.category.isEmpty ? "General" : product.category)
                             }
                             
@@ -499,11 +499,11 @@ public struct AddItemScanView: View {
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("Batch Number")
                                     .font(.caption.bold())
-                                    .foregroundColor(.appSecondaryText)
+                                    .foregroundColor(CatalogTheme.secondaryText)
                                 TextField("e.g. B-SCAN", text: $batchNo)
                                     .textFieldStyle(PlainTextFieldStyle())
                                     .padding(12)
-                                    .background(Color.appBackground)
+                                    .background(CatalogTheme.background)
                                     .cornerRadius(10)
                             }
                         }
@@ -519,7 +519,7 @@ public struct AddItemScanView: View {
                         HStack {
                             Text("Storage Location")
                                 .font(.subheadline)
-                                .foregroundColor(.appSecondaryText)
+                                .foregroundColor(CatalogTheme.secondaryText)
                             Spacer()
                             Picker("Location", selection: $location) {
                                 ForEach(viewModel.locations, id: \.self) { loc in
@@ -541,7 +541,7 @@ public struct AddItemScanView: View {
                         Spacer()
                     }
                     .padding()
-                    .background(selectedProduct == nil ? CatalogTheme.inactiveBadge : Color.appAccent)
+                    .background(selectedProduct == nil ? CatalogTheme.inactiveBadge : CatalogTheme.primary)
                     .foregroundColor(.white)
                     .cornerRadius(12)
                 }
@@ -564,7 +564,7 @@ public struct AddItemScanView: View {
                 Button { withAnimation { scanPhase = .scanned } } label: {
                     Label("Back to Scan Summary", systemImage: "arrow.uturn.backward")
                         .font(.caption.bold())
-                        .foregroundColor(.appSecondaryText)
+                        .foregroundColor(CatalogTheme.secondaryText)
                 }
                 .padding(.bottom, 20)
             }
@@ -576,11 +576,11 @@ public struct AddItemScanView: View {
         HStack {
             Text(label)
                 .font(.subheadline)
-                .foregroundColor(.appSecondaryText)
+                .foregroundColor(CatalogTheme.secondaryText)
             Spacer()
             Text(value)
                 .font(.subheadline.bold())
-                .foregroundColor(.appPrimaryText)
+                .foregroundColor(CatalogTheme.primaryText)
         }
         .padding(.vertical, 12)
     }
@@ -726,7 +726,7 @@ struct ViewfinderCornersView: View {
                 p.addLine(to: CGPoint(x: 0, y: 0))
                 p.addLine(to: CGPoint(x: cornerLen, y: 0))
             }
-            .stroke(Color.appAccent, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+            .stroke(CatalogTheme.primary, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
             
             // Top-right
             Path { p in
@@ -734,7 +734,7 @@ struct ViewfinderCornersView: View {
                 p.addLine(to: CGPoint(x: w, y: 0))
                 p.addLine(to: CGPoint(x: w, y: cornerLen))
             }
-            .stroke(Color.appAccent, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+            .stroke(CatalogTheme.primary, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
             
             // Bottom-left
             Path { p in
@@ -742,7 +742,7 @@ struct ViewfinderCornersView: View {
                 p.addLine(to: CGPoint(x: 0, y: h))
                 p.addLine(to: CGPoint(x: cornerLen, y: h))
             }
-            .stroke(Color.appAccent, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+            .stroke(CatalogTheme.primary, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
             
             // Bottom-right
             Path { p in
@@ -750,7 +750,7 @@ struct ViewfinderCornersView: View {
                 p.addLine(to: CGPoint(x: w, y: h))
                 p.addLine(to: CGPoint(x: w, y: h - cornerLen))
             }
-            .stroke(Color.appAccent, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+            .stroke(CatalogTheme.primary, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
         }
     }
 }
@@ -765,7 +765,7 @@ struct ScanLineView: View {
             Rectangle()
                 .fill(
                     LinearGradient(
-                        colors: [Color.appAccent.opacity(0), Color.appAccent.opacity(0.8), Color.appAccent.opacity(0)],
+                        colors: [CatalogTheme.primary.opacity(0), CatalogTheme.primary.opacity(0.8), CatalogTheme.primary.opacity(0)],
                         startPoint: .leading,
                         endPoint: .trailing
                     )

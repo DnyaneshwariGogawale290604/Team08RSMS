@@ -42,7 +42,7 @@ public struct TransfersTabView: View {
 
     public var body: some View {
         ZStack {
-            Color.appBackground.ignoresSafeArea()
+            CatalogTheme.background.ignoresSafeArea()
 
             VStack(spacing: 0) {
                 // Section picker
@@ -59,7 +59,7 @@ public struct TransfersTabView: View {
 
                 if viewModel.isLoading && viewModel.pickLists.isEmpty && viewModel.vendorOrders.isEmpty {
                     Spacer()
-                    ProgressView().progressViewStyle(CircularProgressViewStyle(tint: .appAccent))
+                    ProgressView().progressViewStyle(CircularProgressViewStyle(tint: CatalogTheme.primary))
                     Spacer()
                 } else {
                     switch selectedSection {
@@ -81,9 +81,9 @@ public struct TransfersTabView: View {
                                 .font(.system(size: 22, weight: .bold))
                                 .foregroundColor(.white)
                                 .padding(20)
-                                .background(Color.appAccent)
+                                .background(CatalogTheme.primary)
                                 .clipShape(Circle())
-                                .shadow(color: Color.appAccent.opacity(0.4), radius: 8, x: 0, y: 4)
+                                .shadow(color: CatalogTheme.primary.opacity(0.4), radius: 8, x: 0, y: 4)
                         }
                         .padding(.trailing, 20)
                         .padding(.bottom, 24)
@@ -212,11 +212,11 @@ public struct TransfersTabView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("PO-\(order.id.uuidString.prefix(6).uppercased())")
                             .font(.system(.subheadline, design: .monospaced).bold())
-                            .foregroundColor(.appPrimaryText)
+                            .foregroundColor(CatalogTheme.primaryText)
                         if let vendor = order.vendor {
                             Text(vendor.name)
                                 .font(.caption)
-                                .foregroundColor(.appSecondaryText)
+                                .foregroundColor(CatalogTheme.secondaryText)
                         }
                     }
                     Spacer()
@@ -236,27 +236,27 @@ public struct TransfersTabView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Label("Product", systemImage: "tag")
                             .font(.caption2)
-                            .foregroundColor(.appSecondaryText)
+                            .foregroundColor(CatalogTheme.secondaryText)
                         Text(order.product?.name ?? "Unknown Product")
                             .font(.subheadline.bold())
-                            .foregroundColor(.appPrimaryText)
+                            .foregroundColor(CatalogTheme.primaryText)
                     }
                     Spacer()
                     // Quantity
                     VStack(alignment: .trailing, spacing: 2) {
                         Text("\(order.quantity ?? 0)")
                             .font(.title2.bold())
-                            .foregroundColor(.appAccent)
+                            .foregroundColor(CatalogTheme.primary)
                         Text("units")
                             .font(.caption2)
-                            .foregroundColor(.appSecondaryText)
+                            .foregroundColor(CatalogTheme.secondaryText)
                     }
                 }
 
                 if let notes = order.notes, !notes.isEmpty {
                     Text(notes)
                         .font(.caption)
-                        .foregroundColor(.appSecondaryText)
+                        .foregroundColor(CatalogTheme.secondaryText)
                         .lineLimit(2)
                 }
 
@@ -264,7 +264,7 @@ public struct TransfersTabView: View {
                 if let date = order.createdAt {
                     Text(date.formatted(date: .abbreviated, time: .shortened))
                         .font(.caption2)
-                        .foregroundColor(.appSecondaryText)
+                        .foregroundColor(CatalogTheme.secondaryText)
                 }
             }
         }
@@ -339,11 +339,11 @@ public struct TransfersTabView: View {
                     VStack(alignment: .leading, spacing: 3) {
                         Text(group.product?.name ?? "Unknown Product")
                             .font(.headline)
-                            .foregroundColor(.appPrimaryText)
+                            .foregroundColor(CatalogTheme.primaryText)
                         if let store = group.store {
                             Label(store.name, systemImage: "storefront")
                                 .font(.subheadline)
-                                .foregroundColor(.appSecondaryText)
+                                .foregroundColor(CatalogTheme.secondaryText)
                         }
                     }
                     Spacer()
@@ -363,7 +363,7 @@ public struct TransfersTabView: View {
 
                 // ── Metrics: Units / In Stock / Requests
                 HStack(spacing: 0) {
-                    metricCell(value: "\(group.totalQuantity)", label: "Units", color: .appAccent)
+                    metricCell(value: "\(group.totalQuantity)", label: "Units", color: CatalogTheme.primary)
                     Divider().frame(height: 30)
                     Group {
                         if let qty = stockQty {
@@ -372,14 +372,14 @@ public struct TransfersTabView: View {
                         } else {
                             VStack(spacing: 3) {
                                 ProgressView().scaleEffect(0.65)
-                                Text("Stock").font(.caption2).foregroundColor(.appSecondaryText)
+                                Text("Stock").font(.caption2).foregroundColor(CatalogTheme.secondaryText)
                             }.frame(maxWidth: .infinity)
                         }
                     }
                     Divider().frame(height: 30)
                     metricCell(value: "\(group.requests.count)",
                                label: group.requests.count > 1 ? "Merged" : "Request",
-                               color: .appPrimaryText)
+                               color: CatalogTheme.primaryText)
                 }
                 .padding(.vertical, 12)
 
@@ -415,8 +415,8 @@ public struct TransfersTabView: View {
                                 .font(.subheadline.bold())
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 10)
-                                .background(canShip == true ? Color.green.opacity(0.1) : Color.appSecondaryText.opacity(0.08))
-                                .foregroundColor(canShip == true ? .green : .appSecondaryText)
+                                .background(canShip == true ? Color.green.opacity(0.1) : CatalogTheme.secondaryText.opacity(0.08))
+                                .foregroundColor(canShip == true ? .green : CatalogTheme.secondaryText)
                                 .cornerRadius(10)
                         }
                         .buttonStyle(.plain)
@@ -428,8 +428,8 @@ public struct TransfersTabView: View {
                             .font(.subheadline.bold())
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 10)
-                            .background(canShip == false ? Color.gray.opacity(0.15) : Color.appAccent)
-                            .foregroundColor(canShip == false ? .appSecondaryText : .white)
+                            .background(canShip == false ? Color.gray.opacity(0.15) : CatalogTheme.primary)
+                            .foregroundColor(canShip == false ? CatalogTheme.secondaryText : .white)
                             .cornerRadius(10)
                     }
                     .buttonStyle(.plain)
@@ -451,7 +451,7 @@ public struct TransfersTabView: View {
     private func metricCell(value: String, label: String, color: Color) -> some View {
         VStack(spacing: 3) {
             Text(value).font(.title3.bold()).foregroundColor(color)
-            Text(label).font(.caption2).foregroundColor(.appSecondaryText)
+            Text(label).font(.caption2).foregroundColor(CatalogTheme.secondaryText)
         }
         .frame(maxWidth: .infinity)
     }
@@ -511,15 +511,15 @@ public struct TransfersTabView: View {
                         if let asn = shipment.asnNumber {
                             Text(asn)
                                 .font(.system(.caption, design: .monospaced).bold())
-                                .foregroundColor(.appAccent)
+                                .foregroundColor(CatalogTheme.primary)
                         } else {
                             Text("SHP-\(shipment.id.uuidString.prefix(6).uppercased())")
                                 .font(.system(.caption, design: .monospaced).bold())
-                                .foregroundColor(.appAccent)
+                                .foregroundColor(CatalogTheme.primary)
                         }
                         Text(shipment.request?.product?.name ?? "Shipment")
                             .font(.headline)
-                            .foregroundColor(.appPrimaryText)
+                            .foregroundColor(CatalogTheme.primaryText)
                     }
                     Spacer()
                     // Hide "Delivered" badge when issue is active
@@ -530,32 +530,32 @@ public struct TransfersTabView: View {
 
                 if let store = shipment.request?.store {
                     HStack(spacing: 4) {
-                        Image(systemName: "storefront").font(.caption).foregroundColor(.appSecondaryText)
-                        Text("To: \(store.name)").font(.subheadline).foregroundColor(.appSecondaryText)
+                        Image(systemName: "storefront").font(.caption).foregroundColor(CatalogTheme.secondaryText)
+                        Text("To: \(store.name)").font(.subheadline).foregroundColor(CatalogTheme.secondaryText)
                     }
                 }
 
                 if let carrier = shipment.carrier {
                     HStack(spacing: 4) {
-                        Image(systemName: "shippingbox").font(.caption).foregroundColor(.appSecondaryText)
-                        Text(carrier).font(.caption).foregroundColor(.appSecondaryText)
+                        Image(systemName: "shippingbox").font(.caption).foregroundColor(CatalogTheme.secondaryText)
+                        Text(carrier).font(.caption).foregroundColor(CatalogTheme.secondaryText)
                         if let tracking = shipment.trackingNumber {
-                            Text("· \(tracking)").font(.caption).foregroundColor(.appSecondaryText)
+                            Text("· \(tracking)").font(.caption).foregroundColor(CatalogTheme.secondaryText)
                         }
                     }
                 }
 
                 if let eta = shipment.estimatedDelivery {
                     HStack(spacing: 4) {
-                        Image(systemName: "calendar").font(.caption).foregroundColor(.appSecondaryText)
-                        Text("ETA: \(eta)").font(.caption).foregroundColor(.appSecondaryText)
+                        Image(systemName: "calendar").font(.caption).foregroundColor(CatalogTheme.secondaryText)
+                        Text("ETA: \(eta)").font(.caption).foregroundColor(CatalogTheme.secondaryText)
                     }
                 }
 
                 if let qty = shipment.request?.requestedQuantity {
                     HStack(spacing: 4) {
-                        Image(systemName: "number").font(.caption).foregroundColor(.appSecondaryText)
-                        Text("\(qty) units").font(.caption).foregroundColor(.appSecondaryText)
+                        Image(systemName: "number").font(.caption).foregroundColor(CatalogTheme.secondaryText)
+                        Text("\(qty) units").font(.caption).foregroundColor(CatalogTheme.secondaryText)
                     }
                 }
 
@@ -645,7 +645,7 @@ public struct TransfersTabView: View {
             }
         } label: {
             Image(systemName: "line.3.horizontal.decrease.circle")
-                .foregroundColor(.appAccent)
+                .foregroundColor(CatalogTheme.primary)
         }
     }
 
@@ -655,13 +655,13 @@ public struct TransfersTabView: View {
         VStack(spacing: 14) {
             Image(systemName: icon)
                 .font(.system(size: 48))
-                .foregroundColor(Color.appBorder)
+                .foregroundColor(CatalogTheme.divider)
             Text(title)
                 .font(.headline)
-                .foregroundColor(.appPrimaryText)
+                .foregroundColor(CatalogTheme.primaryText)
             Text(message)
                 .font(.subheadline)
-                .foregroundColor(.appSecondaryText)
+                .foregroundColor(CatalogTheme.secondaryText)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
         }
@@ -674,16 +674,16 @@ public struct TransfersTabView: View {
             HStack(spacing: 10) {
                 Image(systemName: "checkmark.seal.fill").foregroundColor(.green)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("ASN Generated").font(.caption.bold()).foregroundColor(.appPrimaryText)
-                    Text(asn).font(.system(.caption, design: .monospaced).bold()).foregroundColor(.appAccent)
+                    Text("ASN Generated").font(.caption.bold()).foregroundColor(CatalogTheme.primaryText)
+                    Text(asn).font(.system(.caption, design: .monospaced).bold()).foregroundColor(CatalogTheme.primary)
                 }
                 Spacer()
                 Button { withAnimation { showASNToast = false } } label: {
-                    Image(systemName: "xmark").font(.caption).foregroundColor(.appSecondaryText)
+                    Image(systemName: "xmark").font(.caption).foregroundColor(CatalogTheme.secondaryText)
                 }
             }
             .padding(14)
-            .background(Color.appCard)
+            .background(CatalogTheme.card)
             .cornerRadius(14)
             .shadow(radius: 10)
             .padding(.horizontal, 16)
@@ -725,13 +725,13 @@ struct CreatePurchaseOrderSheet: View {
                 VStack(spacing: 18) {
                     // Info banner
                     HStack(spacing: 10) {
-                        Image(systemName: "info.circle.fill").foregroundColor(.appAccent)
+                        Image(systemName: "info.circle.fill").foregroundColor(CatalogTheme.primary)
                         Text("A Purchase Order requests stock from a vendor. Once the vendor ships, mark it as Received.")
                             .font(.caption)
-                            .foregroundColor(.appSecondaryText)
+                            .foregroundColor(CatalogTheme.secondaryText)
                     }
                     .padding(12)
-                    .background(Color.appAccent.opacity(0.08))
+                    .background(CatalogTheme.primary.opacity(0.08))
                     .cornerRadius(10)
 
                     // Vendor Picker
@@ -785,7 +785,7 @@ struct CreatePurchaseOrderSheet: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Notes (optional)")
                             .font(.caption.weight(.semibold))
-                            .foregroundColor(.appSecondaryText)
+                            .foregroundColor(CatalogTheme.secondaryText)
                         TextEditor(text: $notes)
                             .frame(minHeight: 70)
                             .font(.system(size: 14))
@@ -794,9 +794,9 @@ struct CreatePurchaseOrderSheet: View {
                             .cornerRadius(10)
                     }
                     .padding(16)
-                    .background(Color.appCard)
+                    .background(CatalogTheme.card)
                     .cornerRadius(14)
-                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.appBorder, lineWidth: 0.8))
+                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(CatalogTheme.divider, lineWidth: 0.8))
 
                     // Submit
                     Button {
@@ -846,13 +846,13 @@ struct CreatePurchaseOrderSheet: View {
                     }
                     .background(
                         RoundedRectangle(cornerRadius: 50)
-                            .fill(isValid && !viewModel.isLoading ? Color.appAccent : Color.appBorder)
+                            .fill(isValid && !viewModel.isLoading ? CatalogTheme.primary : CatalogTheme.divider)
                     )
                     .disabled(!isValid || viewModel.isLoading)
                 }
                 .padding(20)
             }
-            .background(Color.appBackground.ignoresSafeArea())
+            .background(CatalogTheme.background.ignoresSafeArea())
             .navigationTitle("New Purchase Order")
             .navigationBarTitleDisplayMode(.inline)
             .onAppear {
@@ -892,7 +892,7 @@ struct CreatePurchaseOrderSheet: View {
         HStack {
             Text(title)
                 .font(.system(size: 14, weight: .medium))
-                .foregroundColor(.appSecondaryText)
+                .foregroundColor(CatalogTheme.secondaryText)
                 .frame(minWidth: 70, alignment: .leading)
             Spacer()
             content()
@@ -900,9 +900,9 @@ struct CreatePurchaseOrderSheet: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
-        .background(Color.appCard)
+        .background(CatalogTheme.card)
         .cornerRadius(14)
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.appBorder, lineWidth: 0.8))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(CatalogTheme.divider, lineWidth: 0.8))
     }
 }
 
@@ -937,7 +937,7 @@ struct PurchaseOrderDetailSheet: View {
                         LabeledContent("Created") {
                             Text(date.formatted(date: .long, time: .shortened))
                                 .font(.caption)
-                                .foregroundColor(.appSecondaryText)
+                                .foregroundColor(CatalogTheme.secondaryText)
                         }
                     }
                 } header: {
@@ -969,7 +969,7 @@ struct PurchaseOrderDetailSheet: View {
                     LabeledContent("Quantity") {
                         Text("\(order.quantity ?? 0) units")
                             .font(.body.bold())
-                            .foregroundColor(.appAccent)
+                            .foregroundColor(CatalogTheme.primary)
                     }
                 } header: {
                     Text("Product").headingStyle()

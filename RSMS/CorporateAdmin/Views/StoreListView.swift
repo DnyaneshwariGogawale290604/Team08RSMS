@@ -20,38 +20,35 @@ public struct StoreListView: View {
     
     public var body: some View {
         NavigationStack {
-            ZStack {
-                CatalogTheme.background.ignoresSafeArea()
-                
-                ScrollView(showsIndicators: false) {
-                    VStack(spacing: 0) {
-                        AppSegmentedControl(
-                            options: [
-                                AppSegmentedOption(id: LocationTab.stores, title: "Stores"),
-                                AppSegmentedOption(id: LocationTab.warehouses, title: "Warehouses")
-                            ],
-                            selection: $selectedTab
-                        )
-                        .padding(.horizontal, 16)
-                        .padding(.top, 16)
-                        .padding(.bottom, 20)
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 0) {
+                    AppSegmentedControl(
+                        options: [
+                            AppSegmentedOption(id: LocationTab.stores, title: "Stores"),
+                            AppSegmentedOption(id: LocationTab.warehouses, title: "Warehouses")
+                        ],
+                        selection: $selectedTab
+                    )
+                    .padding(.horizontal, 16)
+                    .padding(.top, 16)
+                    .padding(.bottom, 20)
 
-                        if selectedTab == .stores {
-                            AdminStoreListView(viewModel: storeViewModel, showingAddStore: $showingAddStore)
-                        } else {
-                            AdminWarehouseListView(viewModel: warehouseViewModel, showingAddWarehouse: $showingAddWarehouse)
-                        }
+                    if selectedTab == .stores {
+                        AdminStoreListView(viewModel: storeViewModel, showingAddStore: $showingAddStore)
+                    } else {
+                        AdminWarehouseListView(viewModel: warehouseViewModel, showingAddWarehouse: $showingAddWarehouse)
                     }
                 }
-                .refreshable {
-                    if selectedTab == .stores {
-                        await storeViewModel.fetchStores()
-                    } else {
-                        await warehouseViewModel.fetchWarehouses()
-                    }
+                .navigationTitle("Infrastructure")
+            }
+            .background(CatalogTheme.background)
+            .refreshable {
+                if selectedTab == .stores {
+                    await storeViewModel.fetchStores()
+                } else {
+                    await warehouseViewModel.fetchWarehouses()
                 }
             }
-            .navigationTitle("Infrastructure")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItemGroup(placement: .navigationBarTrailing) {

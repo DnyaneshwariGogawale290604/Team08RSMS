@@ -7,10 +7,10 @@ public struct StaffDetailView: View {
     @Environment(\.presentationMode) var presentationMode
 
     @State private var ratings: [AssociateRating] = []
-    @State private var appointments: [Appointment] = []
+
     @State private var isLoading = false
     @State private var errorMsg: String?
-    @State private var selectedTab = 0
+    @State private var selectedTab = 1
 
     public var body: some View {
         NavigationView {
@@ -79,11 +79,10 @@ public struct StaffDetailView: View {
                         .shadow(color: Color.black.opacity(0.03), radius: 10, x: 0, y: 4)
                         .padding(.horizontal, 20)
                         
-                        // Keep the existing appointments/reviews tabs below if needed
+                        // Performance and reviews
                         VStack(alignment: .leading, spacing: 14) {
                         AppSegmentedControl(
                             options: [
-                                AppSegmentedOption(id: 0, title: "Appointments", badge: appointments.count > 0 ? "\(appointments.count)" : nil),
                                 AppSegmentedOption(id: 1, title: "Reviews", badge: ratings.count > 0 ? "\(ratings.count)" : nil)
                             ],
                             selection: $selectedTab
@@ -98,26 +97,7 @@ public struct StaffDetailView: View {
                                     .font(.caption)
                                     .foregroundColor(BoutiqueTheme.error)
                                     .padding()
-                            } else if selectedTab == 0 {
-                                if appointments.isEmpty {
-                                    HStack(spacing: 12) {
-                                        Image(systemName: "calendar.badge.exclamationmark")
-                                            .foregroundColor(BoutiqueTheme.border)
-                                        Text("No appointments found")
-                                            .font(.subheadline)
-                                            .foregroundColor(BoutiqueTheme.textSecondary)
-                                    }
-                                    .padding()
-                                    .frame(maxWidth: .infinity)
-                                    .background(BoutiqueTheme.beige)
-                                    .cornerRadius(14)
-                                    .padding(.horizontal, 20)
-                                } else {
-                                    ForEach(appointments) { appointment in
-                                        StaffAppointmentCard(appointment: appointment)
-                                            .padding(.horizontal, 20)
-                                    }
-                                }
+
                             } else {
                                 if ratings.isEmpty {
                                     HStack(spacing: 12) {
@@ -172,12 +152,10 @@ public struct StaffDetailView: View {
         Task {
             do {
                 async let fetchedRatings = DataService.shared.fetchStaffRatings(salesAssociateId: staff.id)
-                async let fetchedAppointments = DataService.shared.fetchAppointments(salesAssociateId: staff.id)
-                let (r, a) = try await (fetchedRatings, fetchedAppointments)
+                let r = try await fetchedRatings
                 
                 await MainActor.run {
                     self.ratings = r
-                    self.appointments = a
                     self.isLoading = false
                 }
             } catch {
@@ -219,46 +197,7 @@ struct DetailRow: View {
 }
 
 // Sub-views for Appointment / Rating cards
-struct StaffAppointmentCard: View {
-    let appointment: Appointment
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(appointment.customer?.name ?? "Unknown Client")
-                    .font(.headline)
-                    .foregroundColor(BoutiqueTheme.textPrimary)
-                Spacer()
-                Text(formatDate(appointment.appointmentDate))
-                    .font(.caption)
-                    .foregroundColor(BoutiqueTheme.textSecondary)
-            }
-            Text(appointment.notes ?? "General Visit")
-                .font(.subheadline)
-                .foregroundColor(BoutiqueTheme.textSecondary)
-            
-            Text(appointment.status.uppercased())
-                .font(.caption2).fontWeight(.bold)
-                .foregroundColor(appointment.status.lowercased() == "completed" ? BoutiqueTheme.success : BoutiqueTheme.primary)
-                .padding(.horizontal, 8).padding(.vertical, 4)
-                .background(appointment.status.lowercased() == "completed" ? BoutiqueTheme.success.opacity(0.1) : BoutiqueTheme.primary.opacity(0.1))
-                .cornerRadius(6)
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white)
-        .cornerRadius(14)
-        .shadow(color: Color.black.opacity(0.03), radius: 6, x: 0, y: 3)
-    }
-    
-    private func formatDate(_ date: Date?) -> String {
-        guard let d = date else { return "" }
-        let f = DateFormatter()
-        f.dateStyle = .medium
-        f.timeStyle = .short
-        return f.string(from: d)
-    }
-}
+
 
 struct StaffRatingCard: View {
     let rating: AssociateRating
