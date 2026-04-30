@@ -944,17 +944,36 @@ struct SAOrderDetailSheet: View {
                                         .padding(.horizontal, 4)
 
                                     if shippingVM.bookingSuccess {
-                                        HStack(spacing: 8) {
-                                            Image(systemName: "checkmark.circle.fill")
-                                                .foregroundStyle(Color.green)
-                                            Text("Shipment booked — AWB: \(shippingVM.lastAWB ?? "")")
-                                                .font(BrandFont.body(14, weight: .semibold))
-                                                .foregroundStyle(Color.green)
+                                        VStack(spacing: 12) {
+                                            HStack(spacing: 8) {
+                                                Image(systemName: "checkmark.circle.fill")
+                                                    .foregroundStyle(Color.green)
+                                                Text("Shipment booked — AWB: \(shippingVM.lastAWB ?? "")")
+                                                    .font(BrandFont.body(14, weight: .semibold))
+                                                    .foregroundStyle(Color.green)
+                                            }
+                                            .frame(maxWidth: .infinity)
+                                            .padding(.vertical, 16)
+                                            .background(Color.green.opacity(0.1))
+                                            .clipShape(RoundedRectangle(cornerRadius: 16))
+                                            
+                                            Button {
+                                                showTracking = true
+                                            } label: {
+                                                HStack(spacing: 8) {
+                                                    Image(systemName: "location.fill")
+                                                    Text("Track Shipment")
+                                                }
+                                                .font(BrandFont.body(14, weight: .bold))
+                                                .padding(.vertical, 14)
+                                                .frame(maxWidth: .infinity)
+                                                .background(Color.white)
+                                                .foregroundStyle(BoutiqueTheme.deepAccent)
+                                                .clipShape(RoundedRectangle(cornerRadius: 16))
+                                                .overlay(RoundedRectangle(cornerRadius: 16).stroke(BoutiqueTheme.deepAccent, lineWidth: 1))
+                                            }
+                                            .buttonStyle(LuxuryPressStyle())
                                         }
-                                        .frame(maxWidth: .infinity)
-                                        .padding(.vertical, 16)
-                                        .background(Color.green.opacity(0.1))
-                                        .clipShape(RoundedRectangle(cornerRadius: 16))
                                     } else {
                                         VStack(spacing: 12) {
                                             if shippingVM.isBooking {

@@ -309,16 +309,22 @@ public class CustomerShippingViewModel: ObservableObject {
             .insert(shipmentData)
             .execute()
         
-        // Step 5 — Update sales_orders shipping_status to "accepted" and status to "in_transit"
-        print("[bookShipment] Step 5: Updating sales_orders status to in_transit")
-        try await isolatedServiceRoleClient
-            .from("sales_orders")
-            .update([
-                "shipping_status": "accepted",
-                "status": "in_transit"
-            ])
-            .eq("order_id", value: orderId.uuidString)
-            .execute()
+        // Step 5 — Update sales_orders shipping_status to "accepted"
+        print("[bookShipment] Step 5: Updating sales_orders shipping_status to accepted for order_id: \(orderId)")
+        do {
+            try await isolatedServiceRoleClient
+                .from("sales_orders")
+                .update([
+                    "shipping_status": "accepted",
+                    "status": "confirmed" 
+                ])
+                .eq("order_id", value: orderId)
+                .execute()
+            print("[bookShipment] Step 5 Success: sales_orders updated.")
+        } catch {
+            print("[bookShipment] Step 5 FAILED: \(error)")
+            throw error
+        }
         
         // Step 6 — Start Realtime listener
         subscribeToShipmentUpdates(for: orderId)
