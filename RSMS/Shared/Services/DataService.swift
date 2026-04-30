@@ -893,7 +893,7 @@ public actor DataService {
             .value
     }
 
-    private func resolveCurrentUserBrandIdOrThrow() async throws -> UUID {
+    public func resolveCurrentUserBrandIdOrThrow() async throws -> UUID {
         let userId = try await client.auth.session.user.id
 
         if let brandId = (try? await resolveBrandIdFromUsers(userId: userId)) ?? nil {

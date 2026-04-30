@@ -208,6 +208,7 @@ public struct PlacedOrder: Identifiable {
     public let items: [CartItem]
     public let totalAmount: Double
     public let status: String
+    public let shippingStatus: String
     public let createdAt: Date
     public let associateName: String
 }
@@ -235,6 +236,7 @@ public class SharedOrderStore: ObservableObject {
                 items: old.items,
                 totalAmount: old.totalAmount,
                 status: status,
+                shippingStatus: old.shippingStatus,
                 createdAt: old.createdAt,
                 associateName: old.associateName
             )
@@ -406,5 +408,42 @@ public struct OrderPaymentSummary {
         self.maxPaymentLegs = maxPaymentLegs
         self.maxLegSplits = maxLegSplits
         self.enabledMethods = enabledMethods
+    }
+}
+
+// MARK: - Discounts
+
+public enum DiscountType: String, Codable, Sendable {
+    case percentage
+    case flat
+}
+
+public struct DiscountCoupon: Identifiable, Codable, Sendable, Hashable {
+    public let id: UUID
+    public let brandId: UUID?
+    public let code: String
+    public let description: String?
+    public let discountType: DiscountType
+    public let discountValue: Double
+    public let minOrderAmount: Double?
+    public let maxDiscountCap: Double?
+    public let validFrom: String?
+    public let validUntil: String?
+    public let usageLimit: Int?
+    public let usageCount: Int?
+    public let isActive: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case id, code, description
+        case brandId = "brand_id"
+        case discountType = "discount_type"
+        case discountValue = "discount_value"
+        case minOrderAmount = "min_order_amount"
+        case maxDiscountCap = "max_discount_cap"
+        case validFrom = "valid_from"
+        case validUntil = "valid_until"
+        case usageLimit = "usage_limit"
+        case usageCount = "usage_count"
+        case isActive = "is_active"
     }
 }

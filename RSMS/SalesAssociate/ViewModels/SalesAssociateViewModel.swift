@@ -60,8 +60,8 @@ final class SalesAssociateViewModel: ObservableObject {
 
             async let ordersTask: [SAOrder] = client
                 .from("sales_orders")
-                .select("order_id,total_amount,status,created_at,customers(name)")
-                .eq("sales_associate_id", value: userId.uuidString)  // ← must be String
+                .select("order_id,total_amount,amount_paid,payment_status,status,created_at,customers(name)")
+                .eq("sales_associate_id", value: userId.uuidString)
                 .in("store_id", values: scopedStoreIds)
                 .order("created_at", ascending: false)
                 .limit(20)
@@ -195,9 +195,14 @@ final class SalesAssociateViewModel: ObservableObject {
         }
         
         do {
+            var updatePayload: [String: String] = ["status": status]
+            if status == "confirmed" {
+                updatePayload["shipping_status"] = "pending_fulfillment"
+            }
+            
             try await client
                 .from("sales_orders")
-                .update(OrderStatusUpdate(status: status))
+                .update(updatePayload)
                 .eq("order_id", value: orderId.uuidString)
                 .execute()
                 
@@ -214,6 +219,7 @@ final class SalesAssociateViewModel: ObservableObject {
                     id: current.id,
                     totalAmount: current.totalAmount,
                     status: status,
+                    shippingStatus: (status == "confirmed") ? "pending_fulfillment" : current.shippingStatus,
                     createdAt: current.createdAt,
                     customerName: current.customerName
                 )
@@ -406,5 +412,10 @@ final class SalesAssociateViewModel: ObservableObject {
         let brandId = storeRows.first?.brand_id.uuidString ?? ""
         print("[resolveBrandId] Resolved via store fallback: \(brandId)")
         return brandId
+    }
+    func fetchBrandId() async throws -> UUID {
+        let userId = try await resolveUserId()
+        let idStr = try await resolveBrandId(userId: userId)
+        return UUID(uuidString: idStr) ?? UUID()
     }
 }

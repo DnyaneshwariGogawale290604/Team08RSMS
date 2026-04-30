@@ -7,6 +7,7 @@ public class BoutiqueDashboardViewModel: ObservableObject {
     @Published public var summary: DashboardSummary?
     @Published public var activeAlerts: [InventoryProduct] = []
     @Published public var todayAppointments: [Appointment] = []
+    @Published public var pendingReturns: [CustomerShippingViewModel.ReturnLogEntry] = []
     @Published public var weeklyRevenue: [DailySalesData] = []
     @Published public var topProducts: [ProductSalesData] = []
     @Published public var staffPerformance: [StaffPerformanceData] = []
@@ -116,6 +117,15 @@ public class BoutiqueDashboardViewModel: ObservableObject {
                 fetchedAppointments = try await DataService.shared.fetchTodayAppointmentsForStore(storeId: sid)
             }
         } catch { print("Dashboard/Appointments: \(error)") }
+
+        // MARK: Returns
+        do {
+            if let brandId = try? await DataService.shared.resolveCurrentUserBrandIdOrThrow() {
+                let shippingVM = CustomerShippingViewModel()
+                await shippingVM.fetchReturnsQueue(for: brandId)
+                self.pendingReturns = shippingVM.returnsQueue
+            }
+        } catch { print("Dashboard/Returns: \(error)") }
 
         withAnimation(.easeInOut(duration: 0.3)) {
             self.summary = DashboardSummary(

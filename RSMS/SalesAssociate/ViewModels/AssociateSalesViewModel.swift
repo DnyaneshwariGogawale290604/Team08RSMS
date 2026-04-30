@@ -84,9 +84,18 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
     @Published var remainingPaymentAmount: Double = 0 // For balance payments
     @Published var gatewayReceiptUrl: String? = nil
 
+    // MARK: Discounts
+    @Published var availableCoupons: [DiscountCoupon] = []
+    @Published var appliedCouponId: UUID? = nil
+    @Published var appliedCouponCode: String? = nil
+    @Published var orderDiscountAmount: Double = 0
+    @Published var isApplyingDiscount = false
+
     // MARK: Cart Helpers
     var cartTotal: Double { cartItems.reduce(0) { $0 + $1.lineTotal } }
     var cartCount: Int    { cartItems.reduce(0) { $0 + $1.quantity } }
+    
+    var payableTotal: Double { max(0, cartTotal - orderDiscountAmount) }
 
     // MARK: - Add to Cart (with toast)
     func addToCart(product: Product, quantity: Int = 1, size: String? = nil) {
@@ -294,7 +303,7 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
         let orderNum = String(newId.uuidString.prefix(8).uppercased())
         let snapshot = cartItems
         let total    = cartTotal
-        let localOrderStatus = "pending"
+        let localOrderStatus = "confirmed"
 
         // MARK: Persist to Supabase (awaited — order must exist before rating can reference it)
         do {
@@ -322,6 +331,7 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
                 let total_amount: Double
                 let store_id: UUID
                 let appointment_id: UUID?
+                let status: String
             }
             struct OIInsert: Encodable {
                 let order_id: UUID; let product_id: UUID
@@ -335,7 +345,8 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
                     sales_associate_id: associateId,
                     total_amount: total,
                     store_id: storeId,
-                    appointment_id: appointmentId
+                    appointment_id: appointmentId,
+                    status: localOrderStatus
                 ))
                 .execute()
 
@@ -397,6 +408,7 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
             id: newId, orderNumber: orderNum,
             customer: customer, items: snapshot,
             totalAmount: total, status: localOrderStatus,
+            shippingStatus: "pending_fulfillment",
             createdAt: Date(), associateName: associateName
         )
         lastPlacedOrder = placed
@@ -799,21 +811,40 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
             let accessToken = try await resolveAccessToken()
             req.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
 
+            let brandId = try await fetchBrandId()
+
+            // For Cashfree/PayU the SDK only returns order_id on success — no separate
+            // payment_id or HMAC signature. Pass gateway_order_id as gateway_payment_id so
+            // the edge function can look up the payment via the gateway's order-status API.
             let body: [String: Any] = [
                 "payment_order_id": paymentOrderId,
+                "gateway_payment_id": gatewayOrderId,   // order_id doubles as payment ref
                 "gateway_order_id": gatewayOrderId,
-                "gateway_signature": "" // No signature for these gateways yet
+                "gateway_signature": "",                 // no HMAC for Cashfree/PayU
+                "gateway": activeGateway,                // cashfree / payu — routes verify logic
+                "brand_id": brandId
             ]
+            if let bodyData = try? JSONSerialization.data(withJSONObject: body, options: .prettyPrinted),
+               let bodyString = String(data: bodyData, encoding: .utf8) {
+                print("[verifyPayment/gatewayOrderId] REQUEST BODY: \(bodyString)")
+            }
             req.httpBody = try JSONSerialization.data(withJSONObject: body)
 
             let (data, _) = try await URLSession.shared.data(for: req)
+            if let rawString = String(data: data, encoding: .utf8) {
+                print("[verifyPayment/gatewayOrderId] RAW RESPONSE: \(rawString)")
+            }
+
             guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let success = json["success"] as? Bool,
                   success else {
+                // Surface the actual error from the edge function if present
+                let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+                let serverError = json?["error"] as? String ?? "Payment verification failed"
                 throw NSError(
                     domain: "PaymentError",
                     code: 3,
-                    userInfo: [NSLocalizedDescriptionKey: "Payment verification failed"]
+                    userInfo: [NSLocalizedDescriptionKey: serverError]
                 )
             }
 
@@ -828,9 +859,14 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
                 self.billingLegs[legIdx].existingStatus = allPaid
                     ? "paid" : anyPaid ? "partially_paid" : "pending"
             }
-            
+
             isLoading = false
             paymentCompleted = true
+            self.successMessage = "Payment verified successfully!"
+
+            // Refresh payment summary to reflect DB state
+            await self.fetchOrderPaymentSummary(salesOrderId: self.currentOrder?.id.uuidString ?? "")
+            print("[verifyPayment] SUCCESS for order \(self.currentOrder?.id.uuidString ?? "unknown")")
 
         } catch {
             errorMessage = error.localizedDescription
@@ -1152,22 +1188,22 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
         maxLegs: Int = 2,
         maxSplits: Int = 2
     ) {
-        // If the total doesn't match the cart total, we FORCE A RESET
+        // If the total doesn't match the payable total, we FORCE A RESET
         let currentTotal = billingLegs.reduce(0.0) { $0 + $1.totalAmount }
-        let mismatch = abs(currentTotal - cartTotal) > 0.01
+        let mismatch = abs(currentTotal - payableTotal) > 0.01
         
         if mismatch {
-            print("[initializeBillingLegs] Total mismatch detected (Cart: ₹\(cartTotal), Legs: ₹\(currentTotal)). Resetting billing legs.")
+            print("[initializeBillingLegs] Total mismatch detected (Payable: ₹\(payableTotal), Legs: ₹\(currentTotal)). Resetting billing legs.")
             billingLegs = []
         }
         
         // Only initialize if not already set, to prevent reset on re-render
         guard billingLegs.isEmpty else { return }
         
-        // Start with one leg covering the full amount
+        // Start with one leg covering the full payable amount
         let defaultItem = BillingLegItem(
             itemNumber: 1,
-            amount: cartTotal,
+            amount: payableTotal,
             method: enabledPaymentMethods.first(where: { $0 != "cash" }) ?? "cash",
             tendered: nil,
             note: nil
@@ -1175,7 +1211,7 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
         let defaultLeg = BillingLeg(
             legNumber: 1,
             dueType: "immediate",
-            totalAmount: cartTotal,
+            totalAmount: payableTotal,
             items: [defaultItem]
         )
         billingLegs = [defaultLeg]
@@ -1187,7 +1223,7 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
         let legNumber = billingLegs.count + 1
         // Remaining amount not covered by existing legs
         let covered = billingLegs.reduce(0.0) { $0 + $1.totalAmount }
-        let remaining = max(0, cartTotal - covered)
+        let remaining = max(0, payableTotal - covered)
         let newLeg = BillingLeg(
             legNumber: legNumber,
             dueType: "on_delivery",
@@ -1250,7 +1286,7 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
     // Update a specific leg's amount and balance others
     func updateLegAmount(at index: Int, to newValue: Double) {
         guard index < billingLegs.count else { return }
-        print("[updateLegAmount] index: \(index), newValue: \(newValue), cartTotal: \(cartTotal)")
+        print("[updateLegAmount] index: \(index), newValue: \(newValue), payableTotal: \(payableTotal)")
         
         var updatedLegs = billingLegs
         updatedLegs[index].totalAmount = newValue
@@ -1266,7 +1302,7 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
                         othersSum += updatedLegs[i].totalAmount
                     }
                 }
-                updatedLegs[targetIdx].totalAmount = max(0, cartTotal - othersSum)
+                updatedLegs[targetIdx].totalAmount = max(0, payableTotal - othersSum)
                 syncSplitsInLeg(at: targetIdx, in: &updatedLegs)
             } else {
                 // Editing Leg 1 (Principal) -> Adjust the LAST leg
@@ -1277,7 +1313,7 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
                         othersSum += updatedLegs[i].totalAmount
                     }
                 }
-                updatedLegs[targetIdx].totalAmount = max(0, cartTotal - othersSum)
+                updatedLegs[targetIdx].totalAmount = max(0, payableTotal - othersSum)
                 syncSplitsInLeg(at: targetIdx, in: &updatedLegs)
             }
         }
@@ -1347,11 +1383,11 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
             for i in 0..<(updatedLegs.count - 1) {
                 allButLastLegSum += updatedLegs[i].totalAmount
             }
-            let newLastLegTotal = max(0, cartTotal - allButLastLegSum)
+            let newLastLegTotal = max(0, payableTotal - allButLastLegSum)
             updatedLegs[updatedLegs.count - 1].totalAmount = newLastLegTotal
             syncSplitsInLeg(at: updatedLegs.count - 1, in: &updatedLegs)
         } else if updatedLegs.count == 1 {
-            updatedLegs[0].totalAmount = cartTotal
+            updatedLegs[0].totalAmount = payableTotal
             syncSplitsInLeg(at: 0, in: &updatedLegs)
         }
         self.billingLegs = updatedLegs
@@ -1384,7 +1420,11 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
                     as? [String: Any],
                   let orderJson = json["order"] as? [String: Any],
                   let gwJson = json["gateway_config"] as? [String: Any]
-            else { return }
+            else {
+                // If fetch fails (no order/appt plan yet), generate defaults
+                await MainActor.run { self.initializeBillingLegs() }
+                return
+            }
 
             let legsJson = json["legs"] as? [[String: Any]] ?? []
             var legs: [PaymentLegRecord] = []
@@ -1441,12 +1481,141 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
                 // sync the summary back to our editable legs
                 self.syncBillingLegsWithSummary()
             }
+            
+            // Fetch discount info directly since edge function might not return it
+            if let orderId = salesOrderId ?? orderJson["id"] as? String {
+                struct OrderDiscountInfo: Decodable {
+                    let discount_amount: Double?
+                    let discount_id: UUID?
+                }
+                if let info: [OrderDiscountInfo] = try? await client.from("sales_orders")
+                    .select("discount_amount, discount_id")
+                    .eq("order_id", value: orderId)
+                    .execute().value, let first = info.first {
+                    await MainActor.run {
+                        self.orderDiscountAmount = first.discount_amount ?? 0
+                        self.appliedCouponId = first.discount_id
+                        self.appliedCouponCode = self.availableCoupons.first(where: { $0.id == first.discount_id })?.code
+                        self.autoBalanceBilling()
+                    }
+                }
+            }
         } catch {
             print("[fetchOrderPaymentSummary] error: \(error)")
+            // Fallback to defaults on error
+
+            await MainActor.run { self.initializeBillingLegs() }
+        }
+    }
+
+    // MARK: - Discounts
+
+    func fetchEligibleCoupons() async {
+        do {
+            let userId = try await resolveUserId()
+            struct SAStoreRow: Decodable { let store_id: UUID }
+            let saRows: [SAStoreRow] = try await client
+                .from("sales_associates")
+                .select("store_id")
+                .eq("user_id", value: userId.uuidString)
+                .limit(1)
+                .execute().value
+            guard let storeId = saRows.first?.store_id else { return }
+            let brandId = try await fetchBrandId()
+            let now = ISO8601DateFormatter().string(from: Date())
+            
+            let coupons: [DiscountCoupon] = try await client
+                .from("discount_coupons")
+                .select("*, discount_store_visibility!inner(store_id)")
+                .eq("brand_id", value: brandId)
+                .eq("is_active", value: true)
+                .eq("discount_store_visibility.store_id", value: storeId.uuidString)
+                .lte("valid_from", value: now)
+                .or("valid_until.is.null,valid_until.gte.\(now)")
+                .execute().value
+            
+            let filtered = coupons.filter {
+                if let limit = $0.usageLimit, let count = $0.usageCount {
+                    return count < limit
+                }
+                return true
+            }
+            
+            await MainActor.run { self.availableCoupons = filtered }
+        } catch {
+            print("Failed to fetch coupons: \(error)")
+        }
+    }
+
+    func calculateDiscount(coupon: DiscountCoupon, subtotal: Double) -> Double {
+        var discount: Double = 0
+        if coupon.discountType == .percentage {
+            discount = subtotal * (coupon.discountValue / 100.0)
+            if let cap = coupon.maxDiscountCap, discount > cap {
+                discount = cap
+            }
+        } else {
+            discount = min(coupon.discountValue, subtotal)
+        }
+        return (discount * 100).rounded() / 100
+    }
+
+    func applyDiscount(coupon: DiscountCoupon, orderStore: SharedOrderStore, appointmentId: UUID?, appointmentsVM: AppointmentsViewModel?) async {
+        isApplyingDiscount = true
+        defer { isApplyingDiscount = false }
+        
+        if currentOrder == nil {
+            await placeOrder(orderStore: orderStore, appointmentId: appointmentId, appointmentsVM: appointmentsVM)
+        }
+        
+        guard let orderId = currentOrder?.id else {
+            await MainActor.run { self.errorMessage = "Failed to create order for discount." }
+            return
+        }
+        
+        let subtotal = self.cartTotal
+        let discount = calculateDiscount(coupon: coupon, subtotal: subtotal)
+        
+        do {
+            struct ApplyParams: Encodable {
+                let p_order_id: String
+                let p_coupon_id: String
+                let p_discount_amount: Double
+            }
+            try await client.rpc("apply_order_discount", params: ApplyParams(
+                p_order_id: orderId.uuidString,
+                p_coupon_id: coupon.id.uuidString,
+                p_discount_amount: discount
+            )).execute()
+            
+            await MainActor.run { self.appliedCouponCode = coupon.code }
+            await fetchOrderPaymentSummary(salesOrderId: orderId.uuidString)
+        } catch {
+            await MainActor.run { self.errorMessage = "Failed to apply discount: \(error.localizedDescription)" }
+        }
+    }
+
+    func removeDiscount() async {
+        guard let orderId = currentOrder?.id else { return }
+        isApplyingDiscount = true
+        defer { isApplyingDiscount = false }
+        
+        do {
+            struct RemoveParams: Encodable {
+                let p_order_id: String
+            }
+            try await client.rpc("remove_order_discount", params: RemoveParams(
+                p_order_id: orderId.uuidString
+            )).execute()
+            
+            await fetchOrderPaymentSummary(salesOrderId: orderId.uuidString)
+        } catch {
+            await MainActor.run { self.errorMessage = "Failed to remove discount: \(error.localizedDescription)" }
         }
     }
 
     // Convert the read-only summary from Supabase into editable legs
+
     func syncBillingLegsWithSummary() {
         guard let summary = orderPaymentSummary, !summary.legs.isEmpty else { return }
         
@@ -1552,20 +1721,34 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
     // Submit billing to create-billing Edge Function
     func submitBilling(
         appointmentId: UUID?,
-        action: String, // "save" or "mark_as_paid"
-        orderStore: SharedOrderStore
+        action: String, // "draft", "save", or "mark_as_paid"
+        orderStore: SharedOrderStore,
+        appointmentsVM: AppointmentsViewModel? = nil
     ) async {
         isLoading = true
         errorMessage = nil
 
-        // If no order exists yet (first time clicking save/confirm), create it now
+        // Only create an order on-demand when actually checking out (mark_as_paid).
+        // Draft/save actions in appointment mode defer order creation until the
+        // user explicitly taps Checkout — preventing premature order creation when
+        // the Billing sheet is opened or dismissed without completing payment.
         if currentOrder == nil {
-            await placeOrder(orderStore: orderStore)
+            if action == "mark_as_paid" {
+                await placeOrder(
+                    orderStore: orderStore,
+                    appointmentId: appointmentId,
+                    appointmentsVM: appointmentsVM
+                )
+            } else {
+                // No order yet and this is just a draft save — nothing to persist.
+                isLoading = false
+                return
+            }
         }
 
         guard let order = currentOrder else {
             isLoading = false
-            errorMessage = "Could not create order. Please try again."
+            errorMessage = "Failed to create order context."
             return
         }
 
@@ -1670,14 +1853,20 @@ class AssociateSalesViewModel: NSObject, ObservableObject {
                     )
                 }
             } else {
-                // All cash — mark complete
+                // All cash — update payment state
                 let orderStatus = json["order_payment_status"] as? String ?? "unpaid"
                 paymentCompleted = orderStatus == "paid"
                 isLoading = false
-                showBilling = false
+
                 if action == "mark_as_paid" {
-                    showReceipt = true
-                    
+                    if appointmentId == nil {
+                        // Walk-in (non-appointment) flow: close billing and show receipt
+                        showBilling = false
+                        showReceipt = true
+                    }
+                    // Appointment flow: billing sheet stays open — user collects remaining
+                    // payments and dismisses everything via the Checkout button.
+
                     // If successfully paid/checked out, delete the appointment
                     if let apptId = appointmentId {
                         Task {
@@ -1749,8 +1938,17 @@ extension AssociateSalesViewModel: RazorpayPaymentCompletionProtocolWithData {
     func collectCashItem(
         legIndex: Int,
         itemIndex: Int,
-        appointmentId: UUID?
+        appointmentId: UUID?,
+        orderStore: SharedOrderStore // Added this to support on-demand creation
     ) async {
+        // If no order exists, create one now (on-demand creation during payment)
+        if currentOrder == nil {
+            await placeOrder(
+                orderStore: orderStore,
+                appointmentId: appointmentId
+            )
+        }
+
         guard legIndex < billingLegs.count,
               itemIndex < billingLegs[legIndex].items.count,
               let order = currentOrder else { return }
@@ -1771,7 +1969,7 @@ extension AssociateSalesViewModel: RazorpayPaymentCompletionProtocolWithData {
                 await submitBilling(
                     appointmentId: appointmentId,
                     action: "draft",
-                    orderStore: SharedOrderStore()
+                    orderStore: orderStore
                 )
                 // Refresh to get DB IDs
                 await fetchOrderPaymentSummary(salesOrderId: order.id.uuidString)
@@ -1839,8 +2037,17 @@ extension AssociateSalesViewModel: RazorpayPaymentCompletionProtocolWithData {
     func initiateGatewayPaymentForItem(
         legIndex: Int,
         itemIndex: Int,
-        appointmentId: UUID?
+        appointmentId: UUID?,
+        orderStore: SharedOrderStore // Added this to support on-demand creation
     ) async {
+        // If no order exists, create one now (on-demand creation during payment)
+        if currentOrder == nil {
+            await placeOrder(
+                orderStore: orderStore,
+                appointmentId: appointmentId
+            )
+        }
+
         guard legIndex < billingLegs.count,
               itemIndex < billingLegs[legIndex].items.count,
               let order = currentOrder else { return }
@@ -1861,7 +2068,7 @@ extension AssociateSalesViewModel: RazorpayPaymentCompletionProtocolWithData {
                 await submitBilling(
                     appointmentId: appointmentId,
                     action: "draft",
-                    orderStore: SharedOrderStore()
+                    orderStore: orderStore
                 )
                 await fetchOrderPaymentSummary(salesOrderId: order.id.uuidString)
             }
@@ -1911,7 +2118,7 @@ extension AssociateSalesViewModel: RazorpayPaymentCompletionProtocolWithData {
             // Move this OUTSIDE if requiresSDK, because when we have a QR, requiresSDK is FALSE
             DispatchQueue.main.async {
                 self.isLoading = false
-                
+
                 let gateway = json["gateway"] as? String ?? "razorpay"
                 let method = item.method.lowercased()
 
@@ -1923,13 +2130,21 @@ extension AssociateSalesViewModel: RazorpayPaymentCompletionProtocolWithData {
                 }
 
                 if requiresSDK {
+                    // Capture all gateway context returned by collect-remaining-payment.
+                    // gatewayOrderId  — needed by openCashfreeCheckout / openPayUCheckout guard
+                    // paymentOrderId  — needed by verifyPayment(gatewayOrderId:) to call verify-payment
+                    self.gatewayOrderId = json["gateway_order_id"] as? String
+                    self.paymentOrderId = json["payment_order_id"] as? String
+
                     if gateway == "razorpay" {
+                        self.checkoutKey = json["key_id"] as? String
                         NotificationCenter.default.post(name: NSNotification.Name("OpenRazorpayCheckout"), object: nil)
                     } else if gateway == "cashfree" {
                         self.cashfreeSessionId = json["payment_session_id"] as? String
                         NotificationCenter.default.post(name: NSNotification.Name("OpenCashfreeCheckout"), object: nil)
                     } else if gateway == "payu" {
                         self.payuHash = json["payu_hash"] as? String
+                        self.checkoutKey = json["key_id"] as? String
                         NotificationCenter.default.post(name: NSNotification.Name("OpenPayUCheckout"), object: nil)
                     }
                 }
@@ -1952,12 +2167,7 @@ extension AssociateSalesViewModel: RazorpayPaymentCompletionProtocolWithData {
         appointmentsVM: AppointmentsViewModel? = nil,
         onComplete: @escaping () -> Void
     ) async {
-        guard let order = currentOrder else {
-            errorMessage = "No order found."
-            return
-        }
-
-        // Validate all immediate legs are paid
+        // Validate all immediate legs are paid (if legs exist)
         let unpaidImmediateItems = billingLegs
             .filter { $0.dueType == "immediate" }
             .flatMap { $0.items }
@@ -1975,14 +2185,29 @@ extension AssociateSalesViewModel: RazorpayPaymentCompletionProtocolWithData {
             let brandId = try await fetchBrandId()
             let authId = try await resolveUserId().uuidString
             let accessToken = try await resolveAccessToken()
-            
-            // Step 1: Save the full billing plan (legs/splits) first
-            // to ensure backend has a record of pending payments
+
+            // Step 1: Create the order if it doesn't exist yet.
+            // This is the ONLY intentional point where an order is created for
+            // an appointment — triggered exclusively by the user tapping Checkout.
+            if currentOrder == nil {
+                await placeOrder(
+                    orderStore: orderStore,
+                    appointmentId: appointmentId,
+                    appointmentsVM: appointmentsVM
+                )
+            }
+
+            // Step 2: Persist the billing plan (legs/splits) to DB.
             await submitBilling(
                 appointmentId: appointmentId,
                 action: "draft",
-                orderStore: orderStore
+                orderStore: orderStore,
+                appointmentsVM: appointmentsVM
             )
+
+            guard let order = currentOrder else {
+                throw NSError(domain: "CheckoutError", code: 0, userInfo: [NSLocalizedDescriptionKey: "Failed to create order context."])
+            }
 
             let url = URL(string: "https://ionszphvxhffqfwlohiv.supabase.co/functions/v1/checkout-appointment")!
             var req = URLRequest(url: url)
@@ -2008,11 +2233,8 @@ extension AssociateSalesViewModel: RazorpayPaymentCompletionProtocolWithData {
             }
 
             isLoading = false
-            showBilling = false
+            // Keep the billing sheet open — rating prompt appears on top.
 
-            if let placed = lastPlacedOrder {
-                orderStore.addOrder(placed)
-            }
 
             if let avm = appointmentsVM {
                 await avm.deleteAppointment(id: appointmentId)

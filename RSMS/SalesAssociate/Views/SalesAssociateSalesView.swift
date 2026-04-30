@@ -465,12 +465,8 @@ struct SalesAssociateSalesView: View {
             await avm.fetchAppointments()
 
             isSaving = false
-            // 5. Close both the checkout screen and the parent appointment detail
-            if let onComplete = onComplete {
-                onComplete()
-            } else {
-                dismiss()
-            }
+            // 5. Close ONLY the checkout screen. Parent (Detail Sheet) stays open and reflects changes.
+            dismiss()
         } catch {
             isSaving = false
             vm.errorMessage = "Failed to save changes: \(error.localizedDescription)"
@@ -479,27 +475,28 @@ struct SalesAssociateSalesView: View {
     }
 
     private func beginCheckout() async {
-        // If order already exists (loaded from appointment)
-        // go straight to billing, but update it first if cart changed
-        if vm.currentOrder != nil {
-            await vm.syncOrderWithCart(appointmentId: appointmentId)
-            await vm.fetchPaymentConfig()
-            vm.showBilling = true
-            return
-        }
-
-        // Otherwise place order first
-        await vm.placeOrder(
-            orderStore: orderStore,
-            appointmentId: appointmentId,
-            appointmentsVM: appointmentsVM
-        )
-
-        guard vm.currentOrder != nil,
-              vm.errorMessage == nil else { return }
-
+        // Fetch payment configuration (methods, etc.)
         await vm.fetchPaymentConfig()
-        vm.showBilling = true
+        
+        if let apptId = appointmentId {
+            // If order already exists, sync it
+            if vm.currentOrder != nil {
+                await vm.syncOrderWithCart(appointmentId: apptId)
+                await vm.fetchOrderPaymentSummary(salesOrderId: vm.currentOrder?.id.uuidString)
+            } else {
+                // No order yet — just fetch summary for appointment to see if any plan exists
+                await vm.fetchOrderPaymentSummary(appointmentId: apptId.uuidString)
+            }
+            
+            // Open billing sheet directly without creating order yet
+            vm.showBilling = true
+        } else {
+            // Non-appointment mode: place order immediately as before
+            await vm.placeOrder(orderStore: orderStore)
+            if vm.currentOrder != nil && vm.errorMessage == nil {
+                vm.showBilling = true
+            }
+        }
     }
 
     private func formatINR(_ v: Double) -> String {
