@@ -39,6 +39,8 @@ public struct AppSegmentedControl<Selection: Hashable>: View {
                     HStack(spacing: 6) {
                         Text(option.title)
                             .font(.system(size: 13, weight: isSelected ? .semibold : .medium))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
 
                         if let badge = option.badge {
                             Text(badge)
@@ -51,11 +53,11 @@ public struct AppSegmentedControl<Selection: Hashable>: View {
                     }
                     .foregroundColor(isSelected ? .white : CatalogTheme.secondaryText)
                     .frame(maxWidth: .infinity)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 9)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 7) // Reduced from 9
                     .background {
                         if isSelected {
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            RoundedRectangle(cornerRadius: 12, style: .continuous) // Reduced from 14
                                 .fill(
                                     LinearGradient(
                                         colors: [CatalogTheme.deepAccent, CatalogTheme.primary],
@@ -70,13 +72,13 @@ public struct AppSegmentedControl<Selection: Hashable>: View {
                 .buttonStyle(.plain)
             }
         }
-        .padding(5)
+        .padding(4) // Reduced from 5
         .background(Color.white.opacity(0.88))
         .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
+            RoundedRectangle(cornerRadius: 16, style: .continuous) // Reduced from 18
                 .stroke(CatalogTheme.divider, lineWidth: 1)
         )
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 4)
     }
 }

@@ -20,10 +20,8 @@ public struct ProductListView: View {
 
                 ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 22) {
-                        Text("Manage your product library")
-                            .font(.system(size: 15, weight: .regular))
-                            .foregroundColor(CatalogTheme.secondaryText)
-
+                        headerSection
+                        
                         searchBar
                         statsRow
                         filtersRow
@@ -59,20 +57,6 @@ public struct ProductListView: View {
                 .refreshable {
                     await viewModel.fetchProducts()
                 }
-
-
-                Button {
-                    showingAddProduct = true
-                } label: {
-                    Image(systemName: "plus")
-                        .font(.system(size: 24, weight: .semibold))
-                        .foregroundColor(.white)
-                        .frame(width: 56, height: 56)
-                        .background(CatalogTheme.deepAccent)
-                        .clipShape(Circle())
-                        .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 4)
-                }
-                .padding(20)
             }
 
             .navigationBarTitleDisplayMode(.inline)
@@ -124,13 +108,13 @@ public struct ProductListView: View {
     }
 
     private var headerSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Catalog")
-                .font(.system(size: 34, weight: .bold, design: .serif))
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Product Catalog")
+                .font(.system(size: 28, weight: .bold, design: .serif))
                 .foregroundColor(CatalogTheme.primaryText)
 
-            Text("Manage your product library")
-                .font(.system(size: 15, weight: .regular, design: .serif))
+            Text("Manage and oversee your brand's global catalog")
+                .font(.system(size: 14, weight: .medium, design: .serif))
                 .foregroundColor(CatalogTheme.secondaryText)
         }
     }
@@ -297,7 +281,7 @@ private struct StatsCardView: View {
         .padding(14)
         .background(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(title == "Inactive" ? CatalogTheme.elevatedCard : Color.white)
+                .fill(Color.white)
         )
         .shadow(color: Color.black.opacity(0.03), radius: 8, x: 0, y: 4)
     }

@@ -24,17 +24,21 @@ public struct StoreListView: View {
                 CatalogTheme.background.ignoresSafeArea()
                 
                 VStack(spacing: 0) {
-                    Picker("Infrastructure", selection: $selectedTab) {
-                        ForEach(LocationTab.allCases, id: \.self) { tab in
-                            Text(tab.rawValue).tag(tab)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .padding(.horizontal, 20)
+                    headerSection
+                        .padding(.horizontal, 16)
+                        .padding(.top, 16)
+                    
+                    AppSegmentedControl(
+                        options: [
+                            AppSegmentedOption(id: LocationTab.stores, title: "Stores"),
+                            AppSegmentedOption(id: LocationTab.warehouses, title: "Warehouses")
+                        ],
+                        selection: $selectedTab
+                    )
+                    .padding(.horizontal, 16)
                     .padding(.top, 16)
                     .padding(.bottom, 20)
 
-                    
                     if selectedTab == .stores {
                         AdminStoreListView(viewModel: storeViewModel, showingAddStore: $showingAddStore)
                     } else {
@@ -42,9 +46,13 @@ public struct StoreListView: View {
                     }
                 }
             }
-            .navigationTitle("Infrastructure")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text("Infrastructure")
+                        .font(.system(size: 18, weight: .bold, design: .serif))
+                        .foregroundColor(CatalogTheme.primaryText)
+                }
                 ToolbarItemGroup(placement: .navigationBarTrailing) {
                     Button {
                         if selectedTab == .stores {
@@ -77,5 +85,18 @@ public struct StoreListView: View {
                 WarehouseFormView(viewModel: warehouseViewModel)
             }
         }
+    }
+
+    private var headerSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Infrastructure")
+                .font(.system(size: 28, weight: .bold, design: .serif))
+                .foregroundColor(CatalogTheme.primaryText)
+
+            Text("Manage and oversee your brand's physical locations")
+                .font(.system(size: 14, weight: .medium, design: .serif))
+                .foregroundColor(CatalogTheme.secondaryText)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
