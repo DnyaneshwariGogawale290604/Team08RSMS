@@ -33,10 +33,15 @@ public struct ShipmentTrackingView: View {
                 BoutiqueTheme.background.ignoresSafeArea()
 
                 VStack(spacing: 0) {
-                    // Segmented Control
-                    ShipmentSegmentedControl(selected: $selectedSegment, segments: segments)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
+                    // Native Segmented Control
+                    Picker("Shipment Segment", selection: $selectedSegment) {
+                        ForEach(0..<segments.count, id: \.self) { index in
+                            Text(segments[index]).tag(index)
+                        }
+                    }
+                    .pickerStyle(SegmentedPickerStyle())
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
 
                     if viewModel.isLoading && viewModel.allRequests.isEmpty {
                         Spacer()
@@ -368,26 +373,4 @@ public struct ShipmentTrackingView: View {
     }
 }
 
-struct ShipmentSegmentedControl: View {
-    @Binding var selected: Int
-    let segments: [String]
-    
-    var body: some View {
-        HStack(spacing: 0) {
-            ForEach(0..<segments.count, id: \.self) { index in
-                Button(action: { withAnimation { selected = index } }) {
-                    Text(segments[index])
-                        .font(.system(size: 13, weight: selected == index ? .semibold : .medium))
-                        .foregroundColor(selected == index ? .white : BoutiqueTheme.textSecondary)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(selected == index ? BoutiqueTheme.primary : Color.clear)
-                        .clipShape(Capsule())
-                }
-            }
-        }
-        .padding(4)
-        .background(BoutiqueTheme.surface)
-        .clipShape(Capsule())
-    }
-}
+// ShipmentSegmentedControl removed in favor of native segmented picker

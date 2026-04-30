@@ -16,6 +16,9 @@ struct GRNFormSheet: View {
     @State private var generatedGRN: String = ""
     @State private var photoItem: PhotosPickerItem? = nil
     @State private var proofImage: UIImage? = nil
+    @State private var showPhotoOptions = false
+    @State private var showCamera = false
+    @State private var showPhotosPicker = false
 
     private var requestedQuantity: Int {
         shipment.request?.requestedQuantity ?? 0
@@ -74,8 +77,8 @@ struct GRNFormSheet: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button { dismiss() } label: {
                         Image(systemName: "xmark")
+                            .foregroundColor(BoutiqueTheme.textPrimary)
                     }
-                    .foregroundColor(.appAccent)
                 }
             }
             .overlay {
@@ -303,7 +306,9 @@ struct GRNFormSheet: View {
                     .padding(8)
                 }
             } else {
-                PhotosPicker(selection: $photoItem, matching: .images, photoLibrary: .shared()) {
+                Button {
+                    showPhotoOptions = true
+                } label: {
                     VStack(spacing: 8) {
                         Image(systemName: "photo.badge.plus")
                             .font(.title)
@@ -319,6 +324,15 @@ struct GRNFormSheet: View {
                         RoundedRectangle(cornerRadius: 10)
                             .stroke(BoutiqueTheme.primary.opacity(0.3), style: StrokeStyle(lineWidth: 1, dash: [5]))
                     )
+                }
+                .confirmationDialog("Select Photo Source", isPresented: $showPhotoOptions) {
+                    Button("Camera") { showCamera = true }
+                    Button("Photo Library") { showPhotosPicker = true }
+                    Button("Cancel", role: .cancel) {}
+                }
+                .photosPicker(isPresented: $showPhotosPicker, selection: $photoItem, matching: .images)
+                .sheet(isPresented: $showCamera) {
+                    CameraPicker(image: $proofImage)
                 }
                 .onChange(of: photoItem) { newItem in
                     Task {
@@ -384,18 +398,16 @@ struct GRNFormSheet: View {
                     .foregroundColor(.appSecondaryText)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 20)
-                Button {
+                Button("Done") {
                     onGRNCreated(generatedGRN)
                     dismiss()
-                } label: {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 40)
-                        .padding(.vertical, 14)
-                        .background(Color.green)
-                        .clipShape(Capsule())
                 }
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(.white)
+                .padding(.horizontal, 40)
+                .padding(.vertical, 14)
+                .background(Color.green)
+                .clipShape(Capsule())
                 .padding(.top, 8)
             }
             .padding(32)
@@ -422,6 +434,48 @@ struct GRNFormSheet: View {
         ) {
             generatedGRN = grn
             withAnimation(.spring()) { showSuccess = true }
+        }
+    }
+}
+
+// MARK: - Camera Picker
+struct CameraPicker: UIViewControllerRepresentable {
+    @Binding var image: UIImage?
+    @Environment(\.dismiss) private var dismiss
+
+    func makeUIViewController(context: Context) -> UIImagePickerController {
+        let picker = UIImagePickerController()
+        picker.delegate = context.coordinator
+        if UIImagePickerController.isSourceTypeAvailable(.camera) {
+            picker.sourceType = .camera
+        } else {
+            picker.sourceType = .photoLibrary
+        }
+        return picker
+    }
+
+    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+
+    class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+        let parent: CameraPicker
+
+        init(_ parent: CameraPicker) {
+            self.parent = parent
+        }
+
+        func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
+            if let uiImage = info[.originalImage] as? UIImage {
+                parent.image = uiImage
+            }
+            parent.dismiss()
+        }
+
+        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+            parent.dismiss()
         }
     }
 }

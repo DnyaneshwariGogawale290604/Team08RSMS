@@ -181,14 +181,16 @@ public class BoutiqueDashboardViewModel: ObservableObject {
     private func computeStaffPerformance(from sales: [SalesOrder], staffLookup: [UUID: User]) -> [StaffPerformanceData] {
         let filtered = sales.filter { $0.salesAssociateId != nil }
         let grouped = Dictionary(grouping: filtered) { $0.salesAssociateId! }
-        return grouped.compactMap { (associateId, orders) -> StaffPerformanceData? in
-            let staff = staffLookup[associateId]
+        
+        return staffLookup.values.map { staff in
+            let orders = grouped[staff.id] ?? []
             let totalSales = orders.reduce(0.0) { $0 + $1.totalAmount }
             let ratings = orders.compactMap { $0.ratingValue }.map { Double($0) }
             let avgRating = ratings.isEmpty ? 0 : ratings.reduce(0, +) / Double(ratings.count)
+            
             return StaffPerformanceData(
-                id: associateId,
-                name: staff?.displayName ?? "Associate",
+                id: staff.id,
+                name: staff.displayName ?? "Associate",
                 totalSales: totalSales,
                 avgRating: avgRating,
                 ratingCount: ratings.count,

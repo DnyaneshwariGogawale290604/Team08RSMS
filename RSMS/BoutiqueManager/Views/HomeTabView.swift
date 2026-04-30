@@ -115,14 +115,12 @@ struct QuickStatCard: View {
 
     var body: some View {
         VStack(spacing: 6) {
-            Image(systemName: icon)
-                .font(.system(size: 18))
-                .foregroundColor(color)
             Text(value)
-                .font(.system(size: 18, weight: .bold))
+                .font(.system(size: 20, weight: .bold))
                 .foregroundColor(BoutiqueTheme.textPrimary)
+                .padding(.top, 4)
             Text(label)
-                .font(.system(size: 10, weight: .medium))
+                .font(.system(size: 11, weight: .medium))
                 .foregroundColor(BoutiqueTheme.textSecondary)
                 .multilineTextAlignment(.center)
         }
@@ -138,15 +136,51 @@ struct QuickStatCard: View {
 
 struct WeeklyRevenueCard: View {
     let data: [DailySalesData]
+    @State private var selectedTimeframe = 0
 
-    private var maxAmount: Double { data.map(\.amount).max() ?? 1 }
+    private var displayData: [DailySalesData] {
+        if selectedTimeframe == 0 {
+            return data
+        } else if selectedTimeframe == 1 {
+            // Mock Monthly data
+            return [
+                DailySalesData(dayLabel: "W1", amount: 200000, isToday: false),
+                DailySalesData(dayLabel: "W2", amount: 250000, isToday: false),
+                DailySalesData(dayLabel: "W3", amount: 150000, isToday: false),
+                DailySalesData(dayLabel: "W4", amount: 300000, isToday: true)
+            ]
+        } else {
+            // Mock Yearly data
+            return [
+                DailySalesData(dayLabel: "Q1", amount: 800000, isToday: false),
+                DailySalesData(dayLabel: "Q2", amount: 1200000, isToday: false),
+                DailySalesData(dayLabel: "Q3", amount: 900000, isToday: false),
+                DailySalesData(dayLabel: "Q4", amount: 1500000, isToday: true)
+            ]
+        }
+    }
+
+    private var maxAmount: Double { displayData.map(\.amount).max() ?? 1 }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            DashSectionHeader(icon: "chart.bar.xaxis", title: "Weekly Revenue")
+            HStack {
+                DashSectionHeader(icon: nil, title: "Revenue")
+                Spacer()
+                Picker("Timeframe", selection: $selectedTimeframe) {
+                    Text("Weekly").tag(0)
+                    Text("Monthly").tag(1)
+                    Text("Yearly").tag(2)
+                }
+                .pickerStyle(MenuPickerStyle())
+                .font(.subheadline)
+                .accentColor(BoutiqueTheme.primary)
+            }
 
-            HStack(alignment: .bottom, spacing: 8) {
-                ForEach(data) { day in
+            HStack(alignment: .bottom, spacing: selectedTimeframe == 0 ? 8 : 16) {
+                ForEach(displayData.indices, id: \.self) { i in
+                    let day = displayData[i]
+                    let isCurrent = selectedTimeframe == 0 ? day.isToday : (i == displayData.count - 1)
                     VStack(spacing: 4) {
                         if day.amount > 0 {
                             Text(shortCurrency(day.amount))
@@ -154,11 +188,11 @@ struct WeeklyRevenueCard: View {
                                 .foregroundColor(BoutiqueTheme.textSecondary)
                         }
                         RoundedRectangle(cornerRadius: 6)
-                            .fill(day.isToday ? BoutiqueTheme.primary : BoutiqueTheme.primary.opacity(0.3))
+                            .fill(isCurrent ? BoutiqueTheme.primary : BoutiqueTheme.primary.opacity(0.3))
                             .frame(height: max(4, 80 * CGFloat(day.amount / max(maxAmount, 1))))
                         Text(day.dayLabel)
-                            .font(.system(size: 10, weight: day.isToday ? .bold : .regular))
-                            .foregroundColor(day.isToday ? BoutiqueTheme.primary : BoutiqueTheme.textSecondary)
+                            .font(.system(size: 10, weight: isCurrent ? .bold : .regular))
+                            .foregroundColor(isCurrent ? BoutiqueTheme.primary : BoutiqueTheme.textSecondary)
                     }
                     .frame(maxWidth: .infinity)
                     .animation(.easeOut(duration: 0.6), value: day.amount)
@@ -168,12 +202,13 @@ struct WeeklyRevenueCard: View {
 
             HStack {
                 Circle().fill(BoutiqueTheme.primary).frame(width: 8, height: 8)
-                Text("Today").font(.caption2).foregroundColor(BoutiqueTheme.textSecondary)
+                Text(selectedTimeframe == 0 ? "Today" : "Current").font(.caption2).foregroundColor(BoutiqueTheme.textSecondary)
                 Circle().fill(BoutiqueTheme.primary.opacity(0.3)).frame(width: 8, height: 8).padding(.leading, 8)
-                Text("Previous days").font(.caption2).foregroundColor(BoutiqueTheme.textSecondary)
+                Text("Previous").font(.caption2).foregroundColor(BoutiqueTheme.textSecondary)
             }
         }
         .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.white)
         .cornerRadius(16)
         .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
@@ -195,46 +230,96 @@ struct TopProductsCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            DashSectionHeader(icon: "star.fill", title: "Top Selling Products")
+            DashSectionHeader(icon: nil, title: "Top Selling Products")
 
-            ForEach(Array(products.enumerated()), id: \.1.id) { index, product in
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        Text("#\(index + 1)")
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(index == 0 ? BoutiqueTheme.primary : BoutiqueTheme.textSecondary)
-                            .frame(width: 22, alignment: .leading)
-                        Text(product.name)
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundColor(BoutiqueTheme.textPrimary)
-                            .lineLimit(1)
-                        Spacer()
-                        Text("\(product.unitsSold) units")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(BoutiqueTheme.textSecondary)
+            HStack(alignment: .top, spacing: 20) {
+                // Left: Custom Pie Chart
+                ZStack {
+                    Circle()
+                        .fill(Color.gray.opacity(0.1))
+                    
+                    ForEach(Array(products.enumerated()), id: \.1.id) { index, product in
+                        PieSliceView(
+                            startAngle: angle(for: index),
+                            endAngle: angle(for: index + 1),
+                            color: pieColor(for: index)
+                        )
                     }
-                    GeometryReader { geo in
-                        ZStack(alignment: .leading) {
-                            RoundedRectangle(cornerRadius: 4)
-                                .fill(BoutiqueTheme.primary.opacity(0.1))
-                                .frame(height: 6)
-                            RoundedRectangle(cornerRadius: 4)
-                                .fill(index == 0 ? BoutiqueTheme.primary : BoutiqueTheme.primary.opacity(0.55))
-                                .frame(
-                                    width: geo.size.width * CGFloat(product.unitsSold) / CGFloat(max(maxUnits, 1)),
-                                    height: 6
-                                )
-                                .animation(.easeOut(duration: 0.7).delay(Double(index) * 0.1), value: product.unitsSold)
+                }
+                .frame(width: 100, height: 100)
+                
+                // Right: Legend
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(Array(products.enumerated()), id: \.1.id) { index, product in
+                        HStack(alignment: .top) {
+                            Circle()
+                                .fill(pieColor(for: index))
+                                .frame(width: 10, height: 10)
+                                .padding(.top, 3)
+                            
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(product.name)
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(BoutiqueTheme.textPrimary)
+                                    .lineLimit(2)
+                                Text("\(product.unitsSold) units")
+                                    .font(.system(size: 10, weight: .semibold))
+                                    .foregroundColor(BoutiqueTheme.textSecondary)
+                            }
                         }
                     }
-                    .frame(height: 6)
                 }
             }
         }
         .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.white)
         .cornerRadius(16)
         .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
+    }
+    
+    private var totalUnits: Int {
+        max(products.map(\.unitsSold).reduce(0, +), 1)
+    }
+    
+    private func angle(for index: Int) -> Angle {
+        if index == 0 { return .zero }
+        let precedingUnits = products.prefix(index).map(\.unitsSold).reduce(0, +)
+        let fraction = Double(precedingUnits) / Double(totalUnits)
+        return .degrees(fraction * 360)
+    }
+    
+    private func pieColor(for index: Int) -> Color {
+        let opacities: [Double] = [1.0, 0.7, 0.5, 0.3, 0.2]
+        return BoutiqueTheme.primary.opacity(opacities[index % opacities.count])
+    }
+}
+
+struct PieSliceView: View {
+    let startAngle: Angle
+    let endAngle: Angle
+    let color: Color
+    
+    var body: some View {
+        GeometryReader { geometry in
+            Path { path in
+                let width = geometry.size.width
+                let height = geometry.size.height
+                let center = CGPoint(x: width / 2, y: height / 2)
+                let radius = min(width, height) / 2
+                
+                path.move(to: center)
+                path.addArc(
+                    center: center,
+                    radius: radius,
+                    startAngle: Angle(degrees: startAngle.degrees - 90),
+                    endAngle: Angle(degrees: endAngle.degrees - 90),
+                    clockwise: false
+                )
+                path.closeSubpath()
+            }
+            .fill(color)
+        }
     }
 }
 
@@ -248,7 +333,7 @@ struct StaffSpotlightCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            DashSectionHeader(icon: "person.2.fill", title: "Staff Performance")
+            DashSectionHeader(icon: nil, title: "Staff Performance")
             HStack(spacing: 10) {
                 if let star = top {
                     StaffPerformanceCard(staff: star, isStar: true)
@@ -259,6 +344,7 @@ struct StaffSpotlightCard: View {
             }
         }
         .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.white)
         .cornerRadius(16)
         .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
@@ -289,6 +375,11 @@ struct StaffPerformanceCard: View {
                 .font(.system(size: 14, weight: .bold))
                 .foregroundColor(BoutiqueTheme.textPrimary)
                 .lineLimit(1)
+
+            Text("EMP-\(staff.id.uuidString.prefix(6).uppercased())")
+                .font(.system(size: 9, weight: .medium))
+                .foregroundColor(BoutiqueTheme.textSecondary)
+                .padding(.bottom, 2)
 
             Text(formatCurrency(staff.totalSales))
                 .font(.system(size: 16, weight: .heavy))
@@ -338,9 +429,6 @@ struct LowStockDropdownCard: View {
             }) {
                 HStack {
                     HStack(spacing: 6) {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundColor(alertCount > 0 ? BoutiqueTheme.error : BoutiqueTheme.primary)
-                            .font(.system(size: 18))
                         Text("Low Stock Alerts")
                             .font(.system(size: 18, weight: .bold, design: .serif))
                             .foregroundColor(CatalogTheme.primaryText)
@@ -391,6 +479,7 @@ struct LowStockDropdownCard: View {
                 }
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.white)
         .cornerRadius(16)
         .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
@@ -403,8 +492,8 @@ struct AppointmentsSectionCard: View {
     let appointments: [Appointment]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            DashSectionHeader(icon: "calendar", title: "Today's Appointments")
+        VStack(alignment: .leading, spacing: 16) {
+            DashSectionHeader(icon: nil, title: "Today's Appointments")
 
             if appointments.isEmpty {
                 HStack(spacing: 10) {
@@ -425,6 +514,7 @@ struct AppointmentsSectionCard: View {
             }
         }
         .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.white)
         .cornerRadius(16)
         .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)
@@ -434,14 +524,16 @@ struct AppointmentsSectionCard: View {
 // MARK: - Shared Section Header
 
 struct DashSectionHeader: View {
-    let icon: String
+    let icon: String?
     let title: String
 
     var body: some View {
         HStack(spacing: 6) {
-            Image(systemName: icon)
-                .font(.system(size: 18))
-                .foregroundColor(BoutiqueTheme.primary)
+            if let iconName = icon {
+                Image(systemName: iconName)
+                    .font(.system(size: 18))
+                    .foregroundColor(BoutiqueTheme.primary)
+            }
             Text(title)
                 .font(.system(size: 18, weight: .bold, design: .serif))
                 .foregroundColor(CatalogTheme.primaryText)
@@ -633,6 +725,7 @@ struct SalesTargetCard: View {
             }
         }
         .padding(24)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.white)
         .cornerRadius(24)
         .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 4)

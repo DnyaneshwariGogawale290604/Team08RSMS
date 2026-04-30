@@ -13,49 +13,9 @@ public struct StaffDetailView: View {
     @State private var selectedTab = 0
 
     public var body: some View {
-        ZStack {
-            BoutiqueTheme.offWhite.ignoresSafeArea()
-
-            VStack(spacing: 0) {
-                // Custom Navigation Bar
-                HStack {
-                    Button(action: {
-                        presentationMode.wrappedValue.dismiss()
-                    }) {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(BoutiqueTheme.textPrimary)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 8)
-                            .background(Color.white)
-                            .clipShape(Capsule())
-                            .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
-                    }
-                    
-                    Spacer()
-                    
-                    Text("Staff Details")
-                        .font(.system(size: 18, weight: .bold, design: .serif))
-                        .foregroundColor(CatalogTheme.primaryText)
-                    
-                    Spacer()
-                    
-                    Button(action: {
-                        // Action for Edit
-                    }) {
-                        Text("Edit")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(BoutiqueTheme.textPrimary)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 8)
-                            .background(Color.white)
-                            .clipShape(Capsule())
-                            .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
-                    }
-                }
-                .padding(.horizontal, 20)
-                .padding(.top, 16)
-                .padding(.bottom, 24)
+        NavigationView {
+            ZStack {
+                BoutiqueTheme.offWhite.ignoresSafeArea()
 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 32) {
@@ -79,6 +39,28 @@ public struct StaffDetailView: View {
                                 Text(staff.role?.rawValue ?? "Staff Member")
                                     .font(.system(size: 16))
                                     .foregroundColor(BoutiqueTheme.textSecondary)
+                                
+                                HStack(spacing: 4) {
+                                    HStack(spacing: 2) {
+                                        ForEach(0..<5) { star in
+                                            let filled = star < Int(averageRating)
+                                            let half = !filled && (averageRating - Double(star) >= 0.5)
+                                            Image(systemName: filled ? "star.fill" : (half ? "star.leadinghalf.filled" : "star"))
+                                                .font(.system(size: 10))
+                                                .foregroundColor(ratings.isEmpty ? BoutiqueTheme.border : .orange)
+                                        }
+                                    }
+                                    
+                                    Text(String(format: "%.1f", averageRating))
+                                        .font(.system(size: 12, weight: .bold))
+                                        .foregroundColor(ratings.isEmpty ? BoutiqueTheme.textSecondary : BoutiqueTheme.textPrimary)
+                                        .padding(.leading, 2)
+                                    
+                                    Text("(\(ratings.count) reviews)")
+                                        .font(.system(size: 11))
+                                        .foregroundColor(BoutiqueTheme.textSecondary)
+                                }
+                                .padding(.top, 2)
                             }
                         }
                         
@@ -99,13 +81,11 @@ public struct StaffDetailView: View {
                         
                         // Keep the existing appointments/reviews tabs below if needed
                         VStack(alignment: .leading, spacing: 14) {
-                            AppSegmentedControl(
-                                options: [
-                                    AppSegmentedOption(id: 0, title: "Appointments", badge: "\(appointments.count)"),
-                                    AppSegmentedOption(id: 1, title: "Reviews", badge: "\(ratings.count)")
-                                ],
-                                selection: $selectedTab
-                            )
+                            Picker("Tab", selection: $selectedTab) {
+                                Text("Appointments").tag(0)
+                                Text("Reviews").tag(1)
+                            }
+                            .pickerStyle(SegmentedPickerStyle())
                             .padding(.horizontal, 20)
 
                             if isLoading {
@@ -163,8 +143,19 @@ public struct StaffDetailView: View {
                     .padding(.bottom, 40)
                 }
             }
+            .navigationTitle("Staff Details")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(action: {
+                        presentationMode.wrappedValue.dismiss()
+                    }) {
+                        Image(systemName: "xmark")
+                            .foregroundColor(BoutiqueTheme.textPrimary)
+                    }
+                }
+            }
         }
-        .navigationBarHidden(true)
         .onAppear { loadData() }
     }
 

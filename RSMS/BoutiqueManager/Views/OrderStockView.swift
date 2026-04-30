@@ -48,11 +48,16 @@ public struct OrderStockView: View {
             .navigationTitle("Order Stock")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarColorScheme(.light, for: .navigationBar)
-            .navigationBarItems(leading: Button(action: {
-                presentationMode.wrappedValue.dismiss()
-            }) {
-                Image(systemName: "xmark")
-            })
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(action: {
+                        presentationMode.wrappedValue.dismiss()
+                    }) {
+                        Image(systemName: "xmark")
+                            .foregroundColor(BoutiqueTheme.textPrimary)
+                    }
+                }
+            }
             .tint(.appAccent)
         }
     }
