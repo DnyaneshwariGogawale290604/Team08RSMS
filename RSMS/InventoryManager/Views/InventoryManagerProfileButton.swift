@@ -83,8 +83,13 @@ struct InventoryManagerAccountSheet: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundColor(.black)
+                            .frame(width: 34, height: 34)
+                            .background(Color.white)
+                            .clipShape(Circle())
+                            .shadow(color: Color.black.opacity(0.12), radius: 6, x: 0, y: 3)
                     }
-                    .foregroundStyle(.white)
                 }
             }
         }

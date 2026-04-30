@@ -6,7 +6,11 @@ public struct AppProfileToolbarButton: View {
     public var body: some View {
         Image(systemName: "person.crop.circle")
             .font(.system(size: 24))
-            .foregroundColor(.white)
+            .foregroundColor(.black)
+            .frame(width: 36, height: 36)
+            .background(Color.white)
+            .clipShape(Circle())
+            .shadow(color: Color.black.opacity(0.12), radius: 6, x: 0, y: 3)
             .accessibilityLabel("Account")
     }
 }
