@@ -83,6 +83,9 @@ private struct CorporateAdminAccountView: View {
                 }
                 .padding(.horizontal, 24)
 
+                LanguageSwitcherRow()
+                    .padding(.horizontal, 24)
+
                 Button {
                     Task { await sessionViewModel.signOut() }
                 } label: {

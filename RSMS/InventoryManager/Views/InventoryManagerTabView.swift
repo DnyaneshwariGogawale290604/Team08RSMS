@@ -97,6 +97,9 @@ public struct InventoryManagerTabView: View {
                         .font(.system(size: 24, weight: .bold, design: .serif))
                         .foregroundColor(.luxuryPrimaryText)
 
+                    LanguageSwitcherRow()
+                        .padding(.horizontal, 24)
+
                     Button {
                         Task { await sessionViewModel.signOut() }
                     } label: {
