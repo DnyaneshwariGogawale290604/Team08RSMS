@@ -228,7 +228,7 @@ public struct AdminManagementView: View {
     @ViewBuilder
     private func staffCard(for item: StaffListItem) -> some View {
         Button(action: { selectedStaff = item }) {
-            HStack(alignment: .top, spacing: 14) {
+            HStack(alignment: .center, spacing: 14) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
                         .fill(
@@ -244,8 +244,8 @@ public struct AdminManagementView: View {
                         .foregroundColor(CatalogTheme.primary)
                 }
 
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack(alignment: .top, spacing: 8) {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(alignment: .center, spacing: 8) {
                         Text(item.user.displayName)
                             .font(.system(size: 16, weight: .bold, design: .serif))
                             .foregroundColor(CatalogTheme.primaryText)
@@ -255,21 +255,9 @@ public struct AdminManagementView: View {
                         tag(text: item.employeeId, color: CatalogTheme.deepAccent, fill: CatalogTheme.surface)
                     }
 
-                    Text(item.role.rawValue)
-                        .font(.caption.weight(.bold))
-                        .foregroundColor(CatalogTheme.primary)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(CatalogTheme.primary.opacity(0.1))
-                        .clipShape(Capsule())
-
-                    Label(item.assignmentName, systemImage: "building.2")
+                    Text(item.assignmentName)
                         .font(.system(size: 14, weight: .semibold, design: .serif))
-                        .foregroundColor(CatalogTheme.primaryText)
-
-                    Text(item.assignmentDetail)
-                        .font(.system(size: 13, design: .serif))
-                        .foregroundColor(CatalogTheme.secondaryText)
+                        .foregroundColor(CatalogTheme.primary)
 
                     HStack(spacing: 8) {
                         if let email = item.user.email, !email.isEmpty {
@@ -281,16 +269,10 @@ public struct AdminManagementView: View {
                         }
                     }
                 }
-
-                Spacer(minLength: 10)
-
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(CatalogTheme.mutedText)
-                    .padding(.top, 6)
             }
             .padding(18)
             .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(height: 120) // Uniform height
             .background(
                 LinearGradient(
                     colors: [Color.white, Color.white.opacity(0.94)],
@@ -1061,6 +1043,34 @@ private struct StaffDetailSheet: View {
                     .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
                     .padding(.horizontal, 20)
 
+                    // Quick Actions Card
+                    HStack(spacing: 16) {
+                        actionButton(
+                            title: "Call",
+                            icon: "phone.fill",
+                            color: Color(hex: "#2F8F62"),
+                            action: {
+                                if let phone = item.user.phone,
+                                   let url = URL(string: "tel://\(phone.filter { $0.isNumber })") {
+                                    UIApplication.shared.open(url)
+                                }
+                            }
+                        )
+                        
+                        actionButton(
+                            title: "Email",
+                            icon: "envelope.fill",
+                            color: CatalogTheme.primary,
+                            action: {
+                                if let email = item.user.email,
+                                   let url = URL(string: "mailto:\(email)") {
+                                    UIApplication.shared.open(url)
+                                }
+                            }
+                        )
+                    }
+                    .padding(.horizontal, 20)
+
                     if isEditing {
                         Button(action: {
                             Task {
@@ -1158,6 +1168,24 @@ private struct StaffDetailSheet: View {
         }
         .padding(.vertical, 16)
         .padding(.horizontal, 20)
+    }
+
+    private func actionButton(title: String, icon: String, color: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                Image(systemName: icon)
+                    .font(.system(size: 16, weight: .bold))
+                Text(title)
+                    .font(.system(size: 16, weight: .bold, design: .serif))
+            }
+            .foregroundColor(.white)
+            .frame(maxWidth: .infinity)
+            .frame(height: 54)
+            .background(color)
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .shadow(color: color.opacity(0.2), radius: 8, x: 0, y: 4)
+        }
+        .buttonStyle(.plain)
     }
 }
 
