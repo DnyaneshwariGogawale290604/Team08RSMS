@@ -81,6 +81,7 @@ struct ShipmentTrackingSheet: View {
                             .fill(Color.green)
                             .frame(width: 6, height: 6)
                             .opacity(pulseScale)
+                            .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: pulseScale)
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
@@ -89,6 +90,7 @@ struct ShipmentTrackingSheet: View {
                             .font(.system(size: 14, weight: .semibold))
                     }
                     .foregroundStyle(BoutiqueTheme.primary)
+                    .animation(nil, value: pulseScale)
                 }
             }
             .task {
@@ -100,9 +102,7 @@ struct ShipmentTrackingSheet: View {
                 isLoading = false
             }
             .onAppear {
-                withAnimation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true)) {
-                    pulseScale = 0.3
-                }
+                pulseScale = 0.3
             }
         }
     }
