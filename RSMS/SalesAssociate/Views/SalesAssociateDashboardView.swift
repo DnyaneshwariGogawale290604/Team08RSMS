@@ -25,14 +25,19 @@ struct SalesAssociateDashboardView: View {
                 } else {
                     ScrollView(showsIndicators: false) {
                         VStack(alignment: .leading, spacing: 24) {
-                            dashboardHeader
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(todayDateText)
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundStyle(BoutiqueTheme.mutedText)
+                            }
+                            .padding(.top, 8)
+
                             heroBanner
                             ratingSection
                             trendingSection
                             catalogSection
                         }
                         .padding(.horizontal, 20)
-                        .padding(.top, 16)
                         .padding(.bottom, 40)
                     }
                     .refreshable {
@@ -40,7 +45,8 @@ struct SalesAssociateDashboardView: View {
                     }
                 }
             }
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationTitle("Dashboard")
+            .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     SalesAssociateProfileButton(sessionViewModel: sessionViewModel)
@@ -65,21 +71,10 @@ struct SalesAssociateDashboardView: View {
         }
     }
 
-    private var dashboardHeader: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("Sales Dashboard")
-                .font(.system(size: 28, weight: .semibold))
-                .foregroundStyle(BoutiqueTheme.primaryText)
-
-            Text(todayDateText)
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(BoutiqueTheme.mutedText)
-        }
-    }
 
     private var heroBanner: some View {
         VStack(alignment: .leading, spacing: 18) {
-            quietSectionLabel("Overview")
+            quietSectionLabel("Overview - This Month")
 
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
