@@ -45,12 +45,9 @@ struct AllStoresPerformanceView: View {
                         }
 
                         ForEach(Array(stores.enumerated()), id: \.element.id) { index, performance in
-                            Button {
+                            StorePerformanceRow(performance: performance, rank: index + 1) {
                                 selectedStore = performance
-                            } label: {
-                                StorePerformanceRow(performance: performance, rank: index + 1)
                             }
-                            .buttonStyle(.plain)
                         }
                     }
                 }
@@ -75,21 +72,6 @@ struct AllStoresPerformanceView: View {
                     .textCase(.uppercase)
             }
 
-            HStack(spacing: 12) {
-                summaryMetric(
-                    title: "Sales",
-                    value: formatShortCurrency(totalSales),
-                    detail: "Against \(formatShortCurrency(totalTarget)) target",
-                    icon: "indianrupeesign.circle.fill"
-                )
-
-                summaryMetric(
-                    title: "Average hit rate",
-                    value: percentString(averageAchievement),
-                    detail: stores.isEmpty ? "No stores yet" : "Across all stores",
-                    icon: "chart.line.uptrend.xyaxis"
-                )
-            }
 
             if let bestPerformer {
                 HStack(spacing: 12) {
@@ -104,7 +86,8 @@ struct AllStoresPerformanceView: View {
                         Text("Top performer")
                             .font(.caption.weight(.semibold))
                             .foregroundColor(CatalogTheme.secondaryText)
-                        Text("\(bestPerformer.store.name) is at \(percentString(bestPerformer.achievementPercentage)) of target")
+                        let variance = bestPerformer.totalSales - bestPerformer.target
+                        Text("\(bestPerformer.store.name) is at \(formatShortCurrency(abs(variance))) \(variance >= 0 ? "above" : "below") target")
                             .font(.subheadline.weight(.semibold))
                             .foregroundColor(CatalogTheme.primaryText)
                     }
@@ -175,6 +158,7 @@ struct AllStoresPerformanceView: View {
 struct StorePerformanceRow: View {
     let performance: StorePerformance
     let rank: Int
+    var onTapDetail: () -> Void
 
     private var progress: Double {
         min(max(performance.achievementPercentage, 0), 1)
@@ -216,76 +200,47 @@ struct StorePerformanceRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .top, spacing: 14) {
+            HStack(alignment: .center, spacing: 14) {
                 ZStack {
                     Circle()
-                        .fill(rank <= 3 ? CatalogTheme.primary : CatalogTheme.surface)
-                        .frame(width: 42, height: 42)
+                        .fill(rank <= 3 ? CatalogTheme.primary.opacity(0.1) : CatalogTheme.surface)
+                        .frame(width: 34, height: 34)
 
                     Text("\(rank)")
-                        .font(.headline.weight(.bold))
-                        .foregroundColor(rank <= 3 ? .white : CatalogTheme.primaryText)
+                        .font(.subheadline.weight(.bold))
+                        .foregroundColor(rank <= 3 ? CatalogTheme.primary : CatalogTheme.primaryText)
                 }
 
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(performance.store.name)
-                        .font(.headline.weight(.semibold))
-                        .foregroundColor(CatalogTheme.primaryText)
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 8) {
+                        Circle()
+                            .fill(chipColor)
+                            .frame(width: 7, height: 7)
+                            .shadow(color: chipColor.opacity(0.6), radius: 3, x: 0, y: 0)
+                        
+                        Text(performance.store.name)
+                            .font(.headline.weight(.semibold))
+                            .foregroundColor(CatalogTheme.primaryText)
+                    }
 
-                    Label(performance.store.location, systemImage: "mappin.and.ellipse")
+                    Text(performance.store.location)
                         .font(.caption)
                         .foregroundColor(CatalogTheme.secondaryText)
-
-                    Text(chipTitle)
-                        .font(.caption.weight(.bold))
-                        .foregroundColor(chipColor)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(chipColor.opacity(0.12))
-                        .clipShape(Capsule())
+                        .padding(.leading, 15) // Align with name (dot + spacing)
                 }
 
                 Spacer(minLength: 12)
 
-                VStack(alignment: .trailing, spacing: 4) {
+                VStack(alignment: .trailing, spacing: 2) {
                     Text(formatCurrency(performance.totalSales))
-                        .font(BrandFont.display(22, weight: .bold))
+                        .font(BrandFont.display(20, weight: .bold))
                         .foregroundColor(CatalogTheme.primaryText)
                     Text("Target \(formatCurrency(performance.target))")
-                        .font(.caption)
+                        .font(.caption2)
                         .foregroundColor(CatalogTheme.secondaryText)
                 }
             }
 
-            VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    Text("Achievement")
-                        .font(.caption.weight(.semibold))
-                        .foregroundColor(CatalogTheme.secondaryText)
-                    Spacer()
-                    Text(achievementPercentText)
-                        .font(.subheadline.weight(.bold))
-                        .foregroundColor(chipColor)
-                }
-
-                GeometryReader { geometry in
-                    ZStack(alignment: .leading) {
-                        Capsule()
-                            .fill(CatalogTheme.surface.opacity(0.9))
-
-                        Capsule()
-                            .fill(
-                                LinearGradient(
-                                    colors: [chipColor.opacity(0.75), chipColor],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            )
-                            .frame(width: max(geometry.size.width * progress, 10))
-                    }
-                }
-                .frame(height: 10)
-            }
 
             HStack(spacing: 12) {
                 insightPill(
@@ -294,11 +249,16 @@ struct StorePerformanceRow: View {
                     icon: varianceAmount >= 0 ? "arrow.up.right" : "flag.slash"
                 )
 
-                insightPill(
-                    title: "Tap for details",
-                    value: "Category split",
-                    icon: "chart.pie.fill"
-                )
+                Button {
+                    onTapDetail()
+                } label: {
+                    insightPill(
+                        title: "Tap for details",
+                        value: "Category split",
+                        icon: "chart.pie.fill"
+                    )
+                }
+                .buttonStyle(.plain)
             }
         }
         .padding(18)
