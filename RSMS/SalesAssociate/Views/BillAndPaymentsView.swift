@@ -163,7 +163,7 @@ struct BillAndPaymentsView: View {
                     .font(BrandFont.body(13))
                     .foregroundStyle(Color.luxurySecondaryText)
                 Spacer()
-                Text("₹\(Int(leg.totalAmount))")
+                Text("₹\(Int(max(0, leg.totalAmount - leg.amountPaid)))")
                     .font(BrandFont.body(15, weight: .semibold))
                     .foregroundStyle(Color.luxuryPrimaryText)
             }
@@ -245,7 +245,8 @@ struct BillAndPaymentsView: View {
 
             // Splits Logic
             let remaining = summary.remaining
-            let currentSplits = splitAmounts.isEmpty ? [remaining] : splitAmounts
+            let defaultAmount = summary.legs.count > 1 ? (summary.legs.first?.totalAmount ?? 0) : 0
+            let currentSplits = splitAmounts.isEmpty ? [defaultAmount] : splitAmounts
             
             VStack(spacing: 12) {
                 ForEach(0..<currentSplits.count, id: \.self) { index in
@@ -256,7 +257,7 @@ struct BillAndPaymentsView: View {
                                 TextField("0", value: Binding(
                                     get: { currentSplits[index] },
                                     set: { val in
-                                        if splitAmounts.isEmpty { splitAmounts = [remaining] }
+                                        if splitAmounts.isEmpty { splitAmounts = [defaultAmount] }
                                         splitAmounts[index] = val
                                     }
                                 ), format: .number)
@@ -421,6 +422,7 @@ struct BillAndPaymentsView: View {
             } else {
                 vm.isLoading = false
                 vm.successMessage = "Payment recorded successfully."
+                splitAmounts = [] // Reset to use new defaults
                 await vm.fetchOrderPaymentSummary(salesOrderId: summary.orderId)
                 NotificationCenter.default.post(name: NSNotification.Name("RefreshSalesAssociateDashboard"), object: nil)
             }
