@@ -80,6 +80,16 @@ private struct CorporateAdminAccountView: View {
                             icon: "bolt.horizontal.circle.fill"
                         )
                     }
+
+                    NavigationLink {
+                        CourierOnboardingView()
+                    } label: {
+                        accountActionRow(
+                            title: "Shipping Simulator",
+                            subtitle: "Connect and monitor courier APIs",
+                            icon: "truck.box.fill"
+                        )
+                    }
                 }
                 .padding(.horizontal, 24)
 

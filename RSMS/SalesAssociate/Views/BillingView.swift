@@ -6,6 +6,7 @@ struct BillingView: View {
     @Environment(\.dismiss) var dismiss
     @State private var showDraftSavedToast = false
     @State private var showReceiptUrl: String? = nil
+    @State private var checkoutCompleted = false  // true after Checkout succeeds
     
     let appointmentId: UUID?
     let appointmentsVM: AppointmentsViewModel?
@@ -20,6 +21,7 @@ struct BillingView: View {
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: Spacing.lg) {
                         orderSummarySection
+                        discountsSection
                         paymentLegsSection
                         validationSection
                         gatewayStatusSection
@@ -84,6 +86,7 @@ struct BillingView: View {
             }
             .task {
                 await vm.fetchPaymentConfig()
+                await vm.fetchEligibleCoupons()
                 
                 if let order = vm.currentOrder {
                     // 1. If we have a current order, fetch by order ID
@@ -97,11 +100,12 @@ struct BillingView: View {
                 vm.initializeBillingLegs(maxLegs: maxLegs, maxSplits: maxSplits)
             }
             .onDisappear {
-                // Auto-save draft if legs are configured but not yet saved to DB
+                // Auto-save draft if legs are configured but not yet saved to DB.
+                // Uses "draft" action — will no-op if no order exists yet (appointment mode).
                 let hasNewLegs = vm.billingLegs.contains { $0.isNew }
                 if hasNewLegs {
                     print("[BillingView] Auto-saving billing draft on disappear...")
-                    Task { await vm.submitBilling(appointmentId: appointmentId, action: "save", orderStore: orderStore) }
+                    Task { await vm.submitBilling(appointmentId: appointmentId, action: "draft", orderStore: orderStore, appointmentsVM: appointmentsVM) }
                 }
             }
             .sheet(isPresented: $vm.showQRCodeModal) {
@@ -109,9 +113,15 @@ struct BillingView: View {
                     QRCodeView(qrString: qrString)
                 }
             }
-            // Rating prompt — shown automatically after successful checkout
+            // Rating prompt — shown after successful checkout
             .sheet(isPresented: $vm.showRatingPrompt) {
                 RatingPromptSheet(vm: vm)
+            }
+            // Once rating is dismissed (or skipped), close billing sheet too
+            .onChange(of: vm.showRatingPrompt) { isShowing in
+                if !isShowing && checkoutCompleted {
+                    dismiss()
+                }
             }
         }
     }
@@ -147,12 +157,46 @@ struct BillingView: View {
                 
                 BrandDivider()
                 
+                if vm.orderDiscountAmount > 0 {
+                    HStack {
+                        Text("Subtotal")
+                            .font(BrandFont.body(14, weight: .medium))
+                            .foregroundStyle(Color.luxuryPrimaryText)
+                        Spacer()
+                        Text("₹\(Int(vm.cartTotal))")
+                            .font(BrandFont.body(14, weight: .medium))
+                            .foregroundStyle(Color.luxuryPrimaryText)
+                    }
+                    .padding(.horizontal, Spacing.md)
+                    .padding(.top, Spacing.md)
+                    
+                    HStack {
+                        Text("Discount")
+                            .font(BrandFont.body(14, weight: .medium))
+                            .foregroundStyle(Color.luxurySecondaryText)
+                        if let code = vm.appliedCouponCode {
+                            Text("(\(code))")
+                                .font(BrandFont.body(12, weight: .semibold))
+                                .foregroundStyle(Color.green)
+                        }
+                        Spacer()
+                        Text("-₹\(Int(vm.orderDiscountAmount))")
+                            .font(BrandFont.body(14, weight: .semibold))
+                            .foregroundStyle(Color.green)
+                    }
+                    .padding(.horizontal, Spacing.md)
+                    .padding(.top, 4)
+                    .padding(.bottom, Spacing.md)
+                    
+                    BrandDivider()
+                }
+                
                 HStack {
                     Text("Total Amount")
                         .font(BrandFont.body(15, weight: .bold))
                         .foregroundStyle(Color.luxuryPrimaryText)
                     Spacer()
-                    Text("₹\(Int(vm.cartTotal))")
+                    Text("₹\(Int(max(vm.cartTotal - vm.orderDiscountAmount, 0)))")
                         .font(.system(size: 20, weight: .bold, design: .serif))
                         .foregroundStyle(Color.luxuryPrimaryText)
                 }
@@ -164,6 +208,105 @@ struct BillingView: View {
             .overlay(RoundedRectangle(cornerRadius: Radius.lg).stroke(Color.luxuryDivider, lineWidth: 0.5))
             .padding(.horizontal, Spacing.md)
         }
+    }
+
+    private var discountsSection: some View {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            SectionHeader(title: "Available Offers")
+                .padding(.bottom, 4)
+            
+            if vm.availableCoupons.isEmpty {
+                Text("No available offers at the moment.")
+                    .font(BrandFont.body(13))
+                    .foregroundStyle(Color.luxurySecondaryText)
+                    .padding(.horizontal, Spacing.md)
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: Spacing.sm) {
+                        ForEach(vm.availableCoupons) { coupon in
+                            discountCard(coupon)
+                        }
+                    }
+                    .padding(.horizontal, Spacing.md)
+                }
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private func discountCard(_ coupon: DiscountCoupon) -> some View {
+        let isApplied = vm.appliedCouponId == coupon.id
+        let isEligible = coupon.minOrderAmount == nil || vm.cartTotal >= coupon.minOrderAmount!
+        let potentialSaving = vm.calculateDiscount(coupon: coupon, subtotal: vm.cartTotal)
+        
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(coupon.code)
+                    .font(BrandFont.body(14, weight: .bold))
+                    .foregroundStyle(isApplied ? Color.white : (isEligible ? Color.luxuryPrimaryText : Color.luxurySecondaryText))
+                Spacer()
+                if isApplied {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(Color.white)
+                }
+            }
+            
+            if let desc = coupon.description {
+                Text(desc)
+                    .font(BrandFont.body(11))
+                    .foregroundStyle(isApplied ? Color.white.opacity(0.9) : Color.luxurySecondaryText)
+                    .lineLimit(2)
+            }
+            
+            Spacer()
+            
+            HStack {
+                if isEligible {
+                    Text("Save ₹\(Int(potentialSaving))")
+                        .font(BrandFont.body(13, weight: .semibold))
+                        .foregroundStyle(isApplied ? Color.white : Color.green)
+                } else {
+                    Text("Min order ₹\(Int(coupon.minOrderAmount ?? 0))")
+                        .font(BrandFont.body(11, weight: .medium))
+                        .foregroundStyle(Color(hex: "#9B4444"))
+                }
+                Spacer()
+                
+                if vm.isApplyingDiscount {
+                    ProgressView().scaleEffect(0.7)
+                } else if isApplied {
+                    Button {
+                        Task { await vm.removeDiscount() }
+                    } label: {
+                        Text("Remove")
+                            .font(BrandFont.body(11, weight: .bold))
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .background(Color.white.opacity(0.2))
+                            .clipShape(Capsule())
+                            .foregroundStyle(Color.white)
+                    }
+                } else if isEligible && vm.appliedCouponId == nil {
+                    Button {
+                        Task { await vm.applyDiscount(coupon: coupon, orderStore: orderStore, appointmentId: appointmentId, appointmentsVM: appointmentsVM) }
+                    } label: {
+                        Text("Apply")
+                            .font(BrandFont.body(11, weight: .bold))
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .background(Color.luxuryPrimaryText)
+                            .clipShape(Capsule())
+                            .foregroundStyle(Color.luxuryBackground)
+                    }
+                }
+            }
+        }
+        .padding(12)
+        .frame(width: 200, height: 110)
+        .background(isApplied ? Color.luxuryDeepAccent : (isEligible ? Color.luxurySurface : Color.luxurySurface.opacity(0.5)))
+        .clipShape(RoundedRectangle(cornerRadius: Radius.md))
+        .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(isApplied ? Color.luxuryDeepAccent : Color.luxuryDivider, lineWidth: 1))
+        .opacity(isEligible ? 1.0 : 0.6)
     }
 
     private var paymentLegsSection: some View {
@@ -593,7 +736,8 @@ struct BillingView: View {
                             await vm.collectCashItem(
                                 legIndex: legIdx,
                                 itemIndex: itemIdx,
-                                appointmentId: appointmentId
+                                appointmentId: appointmentId,
+                                orderStore: orderStore
                             )
                         }
                     } label: {
@@ -626,7 +770,8 @@ struct BillingView: View {
                             await vm.initiateGatewayPaymentForItem(
                                 legIndex: legIdx,
                                 itemIndex: itemIdx,
-                                appointmentId: appointmentId
+                                appointmentId: appointmentId,
+                                orderStore: orderStore
                             )
                         }
                     } label: {
@@ -784,7 +929,8 @@ struct BillingView: View {
                     await vm.submitBilling(
                         appointmentId: appointmentId,
                         action: "draft",
-                        orderStore: orderStore
+                        orderStore: orderStore,
+                        appointmentsVM: appointmentsVM
                     )
                     if vm.errorMessage == nil {
                         showDraftSavedToast = true
@@ -823,7 +969,9 @@ struct BillingView: View {
                             orderStore: orderStore,
                             appointmentsVM: appointmentsVM
                         ) {
-                            dismiss()
+                            // Mark checkout complete — billing sheet will dismiss
+                            // automatically once the rating prompt is closed.
+                            checkoutCompleted = true
                         }
                     }
                 } else {
